@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, Button, DiagramIcon, ErrorState, UploadIcon } from '../components';
+import { Breadcrumbs, Button, DiagramIcon, ErrorState, UploadIcon } from '../components';
 import { useUploadDiagram } from '../hooks/useDiagrams';
 
 const SUPPORTED_FORMATS = ['png', 'jpg', 'jpeg', 'svg'];
@@ -108,15 +108,14 @@ export function UploadDiagramPage() {
   return (
     <div className="page-shell max-w-3xl">
       <section className="page-header">
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={() => navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams`)}
-          icon={<ArrowLeftIcon className="h-4 w-4" />}
-          className="w-fit"
-        >
-          Back
-        </Button>
+        <Breadcrumbs
+          items={[
+            { label: 'Organizations', to: '/organizations' },
+            { label: 'Workspaces', to: `/orgs/${resolvedOrgId}/workspaces` },
+            { label: 'Diagrams', to: `/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams` },
+            { label: 'Upload' },
+          ]}
+        />
         <div className="flex items-center gap-4">
           <div className="glow-icon">
             <DiagramIcon className="h-5 w-5" />

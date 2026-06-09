@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { analysisApi } from '../api/analysis';
-import { ArchitectureScoreCard, ArrowLeftIcon, Button, ErrorState, LoadingState, SparkIcon } from '../components';
+import { ArchitectureScoreCard, Breadcrumbs, Button, ErrorState, LoadingState, SparkIcon } from '../components';
 import { MissingComponentsSection } from '../components/AIAnalysisResults';
 
 export function AnalysisResultPage() {
@@ -33,9 +33,13 @@ export function AnalysisResultPage() {
   return (
     <div className="page-shell max-w-6xl">
       <section className="page-header">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="w-fit" icon={<ArrowLeftIcon className="h-4 w-4" />}>
-          Back
-        </Button>
+        <Breadcrumbs
+          items={[
+            { label: 'Organizations', to: '/organizations' },
+            { label: 'Diagram', to: `/orgs/${orgId}/diagrams/${diagramId}` },
+            { label: 'Analysis Result' },
+          ]}
+        />
         <div className="flex items-center gap-4">
           <div className="glow-icon">
             <SparkIcon className="h-5 w-5" />

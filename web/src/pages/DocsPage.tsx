@@ -1,4 +1,4 @@
-import { Card, DiagramIcon, DocsIcon, HealthIcon, SettingsIcon, SparkIcon } from '../components';
+import { Breadcrumbs, Card, DiagramIcon, DocsIcon, HealthIcon, SettingsIcon, SparkIcon } from '../components';
 
 export function DocsPage() {
   const sections = [
@@ -31,9 +31,10 @@ export function DocsPage() {
 
   return (
     <div className="page-shell">
-      <section className="page-header">
-        <h1 className="page-title">CoArchitect AI Docs</h1>
-        <p className="page-description">
+      <section className="space-y-3 py-2">
+        <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Docs' }]} />
+        <h1 className="text-3xl font-bold tracking-normal text-secondary-950 dark:text-white">CoArchitect AI Docs</h1>
+        <p className="max-w-3xl text-sm leading-6 text-secondary-600 dark:text-secondary-300">
           A compact guide for using the tool during the hackathon demo. The current product is intentionally unauthenticated so the architecture review flow stays fast.
         </p>
       </section>

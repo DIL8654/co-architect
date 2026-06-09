@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Modal, ErrorState, LoadingState, EmptyState, ArrowLeftIcon, PlusIcon, WorkspaceIcon } from '../components';
+import { Breadcrumbs, Button, Modal, ErrorState, LoadingState, EmptyState, PlusIcon, WorkspaceIcon } from '../components';
 import { WorkspaceCard } from '../components/WorkspaceCard';
 import { useWorkspaces, useCreateWorkspace, useDeleteWorkspace } from '../hooks/useWorkspaces';
 
@@ -80,9 +80,9 @@ export function WorkspaceListPage() {
       <section className="page-header">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Button variant="ghost" onClick={() => navigate('/organizations')} className="mb-3" icon={<ArrowLeftIcon className="h-4 w-4" />}>
-              Back
-            </Button>
+            <div className="mb-4">
+              <Breadcrumbs items={[{ label: 'Organizations', to: '/organizations' }, { label: 'Workspaces' }]} />
+            </div>
             <div className="flex items-center gap-4">
               <div className="glow-icon">
                 <WorkspaceIcon className="h-5 w-5" />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Table, ErrorState, LoadingState, EmptyState, ArrowLeftIcon, DiagramIcon, UploadIcon } from '../components';
+import { Breadcrumbs, Button, ErrorState, LoadingState, EmptyState, DiagramIcon, UploadIcon } from '../components';
 import { useDiagrams, useDeleteDiagram } from '../hooks/useDiagrams';
 import type { ArchitectureDiagram } from '../api/diagrams';
 
@@ -70,63 +70,20 @@ export function DiagramListPage() {
     );
   }
 
-  const columns = [
-    {
-      header: 'Title',
-      accessor: 'name' as keyof ArchitectureDiagram,
-      render: (value: string) => <span className="font-semibold text-secondary-950 dark:text-white">{value}</span>,
-    },
-    {
-      header: 'Uploaded By',
-      accessor: 'uploadedByUserId' as keyof ArchitectureDiagram,
-      render: (value: string) => <span className="text-secondary-600 dark:text-secondary-400">{value}</span>,
-    },
-    {
-      header: 'Upload Date',
-      accessor: 'uploadedAt' as keyof ArchitectureDiagram,
-      render: (value: string) => new Date(value).toLocaleDateString(),
-    },
-    {
-      header: 'Architecture Score',
-      accessor: 'architectureScore' as keyof ArchitectureDiagram,
-      render: (value: any) => (
-        <span className="rounded-full bg-primary-100 px-2 py-1 text-sm text-primary-800 dark:bg-cyan-400/10 dark:text-cyan-200">
-          {value !== null && value !== undefined ? `${value.toFixed(1)}/100` : 'Not scored'}
-        </span>
-      ),
-    },
-    {
-      header: 'Actions',
-      accessor: 'id' as keyof ArchitectureDiagram,
-      render: (value: string) => (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleSelectDiagram({ id: value } as any)}
-          >
-            View
-          </Button>
-          <Button
-            size="sm"
-            variant="danger"
-            onClick={() => handleDeleteDiagram(value)}
-          >
-            Delete
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="page-shell">
       <section className="page-header">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Button variant="ghost" onClick={() => navigate(`/orgs/${resolvedOrgId}/workspaces`)} className="mb-3" icon={<ArrowLeftIcon className="h-4 w-4" />}>
-              Back
-            </Button>
+            <div className="mb-4">
+              <Breadcrumbs
+                items={[
+                  { label: 'Organizations', to: '/organizations' },
+                  { label: 'Workspaces', to: `/orgs/${resolvedOrgId}/workspaces` },
+                  { label: 'Diagrams' },
+                ]}
+              />
+            </div>
             <div className="flex items-center gap-4">
               <div className="glow-icon">
                 <DiagramIcon className="h-5 w-5" />
@@ -148,8 +105,39 @@ export function DiagramListPage() {
         </div>
       </section>
 
-      <div>
-        <Table columns={columns} data={diagrams} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {diagrams.map((diagram) => (
+          <article
+            key={diagram.id}
+            className="group overflow-hidden rounded-2xl border border-secondary-200 bg-white/[0.86] shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-white/5"
+          >
+            <button type="button" onClick={() => handleSelectDiagram(diagram)} className="block w-full p-5 text-left">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div className="glow-icon">
+                  <DiagramIcon className="h-5 w-5" />
+                </div>
+                <span className="rounded-full bg-primary-100 px-2 py-1 text-xs font-semibold text-primary-800 dark:bg-cyan-400/10 dark:text-cyan-200">
+                  {diagram.architectureScore !== null && diagram.architectureScore !== undefined ? `${diagram.architectureScore.toFixed(1)}/100` : 'Not scored'}
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-secondary-950 dark:text-white">{diagram.name}</h2>
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-600 dark:text-secondary-300">
+                {diagram.description || diagram.originalFileName || 'Architecture diagram'}
+              </p>
+              <p className="mt-4 text-xs text-secondary-500 dark:text-secondary-400">
+                Uploaded {new Date(diagram.uploadedAt).toLocaleDateString()}
+              </p>
+            </button>
+            <div className="flex items-center justify-between border-t border-secondary-200 px-5 py-3 dark:border-white/10">
+              <Button size="sm" variant="ghost" onClick={() => handleSelectDiagram(diagram)}>
+                Open
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => handleDeleteDiagram(diagram.id)}>
+                Delete
+              </Button>
+            </div>
+          </article>
+        ))}
       </div>
     </div>
   );

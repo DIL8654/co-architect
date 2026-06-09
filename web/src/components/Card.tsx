@@ -11,17 +11,17 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     return (
       <div
         ref={ref}
-        className={`bg-white rounded-lg border border-secondary-200 shadow-sm ${className}`}
+        className={`rounded-2xl border border-secondary-200 bg-white/[0.88] shadow-sm backdrop-blur-xl transition-colors dark:border-white/10 dark:bg-white/5 ${className}`}
         {...props}
       >
         {header && (
-          <div className="px-6 py-4 border-b border-secondary-200 font-semibold text-secondary-900">
+          <div className="border-b border-secondary-200 px-6 py-4 font-semibold text-secondary-950 dark:border-white/10 dark:text-white">
             {header}
           </div>
         )}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-4 text-secondary-700 dark:text-secondary-200">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-secondary-200 bg-secondary-50">
+          <div className="border-t border-secondary-200 bg-secondary-50/80 px-6 py-4 dark:border-white/10 dark:bg-white/[0.03]">
             {footer}
           </div>
         )}

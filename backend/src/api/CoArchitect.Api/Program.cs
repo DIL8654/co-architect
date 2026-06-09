@@ -65,6 +65,7 @@ if (dataStoreOptions.UsePostgres)
     }
 
     builder.Services.AddSingleton<IObjectStore>(new PostgresObjectStore(connectionString));
+    builder.Services.AddScoped<IAiFoundrySettingsRepository, ObjectStoreAiFoundrySettingsRepository>();
     builder.Services.AddScoped<IOrganizationRepository, PostgresOrganizationRepository>();
     builder.Services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
     builder.Services.AddScoped<IDiagramRepository, PostgresDiagramRepository>();
@@ -80,6 +81,7 @@ else if (dataStoreOptions.UseTiDb)
     }
 
     builder.Services.AddSingleton<IObjectStore>(new TidbObjectStore(connectionString));
+    builder.Services.AddScoped<IAiFoundrySettingsRepository, ObjectStoreAiFoundrySettingsRepository>();
     builder.Services.AddScoped<IOrganizationRepository, PostgresOrganizationRepository>();
     builder.Services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
     builder.Services.AddScoped<IDiagramRepository, PostgresDiagramRepository>();
@@ -89,6 +91,7 @@ else if (dataStoreOptions.UseTiDb)
 else
 {
     builder.Services.AddScoped<IOrganizationRepository, MockOrganizationRepository>();
+    builder.Services.AddScoped<IAiFoundrySettingsRepository, InMemoryAiFoundrySettingsRepository>();
     builder.Services.AddScoped<IWorkspaceRepository, MockWorkspaceRepository>();
     builder.Services.AddScoped<IDiagramRepository, MockDiagramRepository>();
     builder.Services.AddScoped<IDiagramCommentRepository, MockDiagramCommentRepository>();
@@ -107,7 +110,8 @@ else
 builder.Services.AddControllers();
 
 var architectureAgentProvider = configuration["ArchitectureAgent:Provider"];
-if (!string.Equals(architectureAgentProvider, "Mock", StringComparison.OrdinalIgnoreCase) && foundryOptions.IsConfigured)
+if (string.Equals(architectureAgentProvider, "AzureFoundry", StringComparison.OrdinalIgnoreCase) ||
+    (!string.Equals(architectureAgentProvider, "Mock", StringComparison.OrdinalIgnoreCase) && foundryOptions.IsConfigured))
 {
     builder.Services.AddHttpClient<IArchitectureAgentService, AzureFoundryArchitectureAgentService>();
 }

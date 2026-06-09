@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using CoArchitect.Application.Interfaces;
+using CoArchitect.Domain.Entities;
 using CoArchitect.Infrastructure.Persistence;
 using CoArchitect.Infrastructure.Settings;
 using Microsoft.AspNetCore.Mvc;
@@ -15,19 +17,22 @@ public sealed class InfraHealthController : ControllerBase
     private readonly DataStoreOptions _dataStoreOptions;
     private readonly ArchitectureStorageOptions _storageOptions;
     private readonly AzureFoundryArchitectureAgentOptions _foundryOptions;
+    private readonly IAiFoundrySettingsRepository _foundrySettingsRepository;
 
     public InfraHealthController(
         IServiceProvider services,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         ArchitectureStorageOptions storageOptions,
-        AzureFoundryArchitectureAgentOptions foundryOptions)
+        AzureFoundryArchitectureAgentOptions foundryOptions,
+        IAiFoundrySettingsRepository foundrySettingsRepository)
     {
         _services = services;
         _httpClientFactory = httpClientFactory;
         _dataStoreOptions = configuration.GetSection("DataStore").Get<DataStoreOptions>() ?? new DataStoreOptions();
         _storageOptions = storageOptions;
         _foundryOptions = foundryOptions;
+        _foundrySettingsRepository = foundrySettingsRepository;
     }
 
     [HttpGet]
@@ -108,7 +113,8 @@ public sealed class InfraHealthController : ControllerBase
 
     private async Task<InfraHealthCheck> CheckFoundryAsync(CancellationToken cancellationToken)
     {
-        if (!_foundryOptions.IsConfigured)
+        var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
+        if (!foundryOptions.IsConfigured)
         {
             return InfraHealthCheck.Degraded("azureFoundry", "AzureFoundry", "Foundry endpoint, agent id, or model deployment is missing.");
         }
@@ -116,24 +122,24 @@ public sealed class InfraHealthController : ControllerBase
         try
         {
             var client = _httpClientFactory.CreateClient();
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(_foundryOptions));
-            if (!string.IsNullOrWhiteSpace(_foundryOptions.ApiKey))
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
+            if (!string.IsNullOrWhiteSpace(foundryOptions.ApiKey))
             {
-                request.Headers.Add("api-key", _foundryOptions.ApiKey);
+                request.Headers.Add("api-key", foundryOptions.ApiKey);
             }
 
-            if (!string.IsNullOrWhiteSpace(_foundryOptions.BearerToken))
+            if (!string.IsNullOrWhiteSpace(foundryOptions.BearerToken))
             {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _foundryOptions.BearerToken);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", foundryOptions.BearerToken);
             }
 
             request.Content = JsonContent.Create(new
             {
-                model = _foundryOptions.ModelDeployment,
+                model = foundryOptions.ModelDeployment,
                 input = "Health check. Reply with a short JSON object: {\"status\":\"ok\"}.",
                 metadata = new Dictionary<string, string>
                 {
-                    ["agent_id"] = _foundryOptions.AgentId!
+                    ["agent_id"] = foundryOptions.AgentId!
                 }
             });
 
@@ -171,6 +177,28 @@ public sealed class InfraHealthController : ControllerBase
                 .Select(Uri.EscapeDataString));
 
         return new Uri($"{baseUrl.TrimEnd('/')}/{escapedPath}{query}");
+    }
+
+    private async Task<AzureFoundryArchitectureAgentOptions> GetEffectiveFoundryOptionsAsync(CancellationToken cancellationToken)
+    {
+        var saved = await _foundrySettingsRepository.GetAsync(cancellationToken);
+        return new AzureFoundryArchitectureAgentOptions
+        {
+            ProjectEndpoint = First(saved?.ProjectEndpoint, _foundryOptions.ProjectEndpoint),
+            AgentId = First(saved?.AgentId, _foundryOptions.AgentId),
+            ModelDeployment = First(saved?.ModelDeployment, _foundryOptions.ModelDeployment),
+            ApiVersion = First(saved?.ApiVersion, _foundryOptions.ApiVersion),
+            ApiKey = First(saved?.ApiKey, _foundryOptions.ApiKey),
+            BearerToken = _foundryOptions.BearerToken,
+            ClientId = _foundryOptions.ClientId,
+            ClientSecret = _foundryOptions.ClientSecret,
+            TenantId = _foundryOptions.TenantId,
+        };
+    }
+
+    private static string? First(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private static Uri BuildFoundryEndpointUri(AzureFoundryArchitectureAgentOptions options)

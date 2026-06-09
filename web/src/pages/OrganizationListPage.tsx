@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Table, Badge, EmptyState, LoadingState, ErrorState } from '../components';
+import { Button, Card, Table, Badge, EmptyState, LoadingState, ErrorState, BuildingIcon, PlusIcon } from '../components';
 import { useOrganizations } from '../hooks/useOrganizations';
 import type { Organization } from '../api/organizations';
 
@@ -25,12 +25,12 @@ export function OrganizationListPage() {
 
   if (!organizations || organizations.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="page-shell">
         <EmptyState
           title="No organizations yet"
           description="Create your first organization to get started."
           action={
-            <Button onClick={() => navigate('/organizations/new')} variant="primary">
+            <Button onClick={() => navigate('/organizations/new')} variant="primary" icon={<PlusIcon className="h-4 w-4" />}>
               Create Organization
             </Button>
           }
@@ -43,12 +43,12 @@ export function OrganizationListPage() {
     {
       header: 'Name',
       accessor: 'name' as keyof Organization,
-      render: (value: string) => <span className="font-medium">{value}</span>,
+      render: (value: string) => <span className="font-semibold text-secondary-950 dark:text-white">{value}</span>,
     },
     {
       header: 'Slug',
       accessor: 'slug' as keyof Organization,
-      render: (value: string) => <code className="text-sm bg-secondary-100 px-2 py-1 rounded">{value}</code>,
+      render: (value: string) => <code className="rounded-lg bg-secondary-100 px-2 py-1 text-sm text-secondary-700 dark:bg-white/10 dark:text-secondary-200">{value}</code>,
     },
     {
       header: 'Members',
@@ -78,13 +78,23 @@ export function OrganizationListPage() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-secondary-900">Organizations</h1>
-        <Button onClick={() => navigate('/organizations/new')}>
+    <div className="page-shell">
+      <section className="page-header">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="glow-icon">
+              <BuildingIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="page-title">Organizations</h1>
+              <p className="page-description mt-2">Create an organization, then move into workspaces and architecture diagrams.</p>
+            </div>
+          </div>
+          <Button onClick={() => navigate('/organizations/new')} icon={<PlusIcon className="h-4 w-4" />}>
           New Organization
-        </Button>
-      </div>
+          </Button>
+        </div>
+      </section>
 
       <Card>
         <Table columns={columns} data={organizations} />

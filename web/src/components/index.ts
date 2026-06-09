@@ -16,3 +16,4 @@ export { ScoreCard } from './ScoreCard';
 export { RoadmapSection } from './RoadmapSection';
 export { MissingComponentsSection } from './AIAnalysisResults';
 export { RunAnalysisButton } from './RunAnalysisButton';
+export * from './Icons';

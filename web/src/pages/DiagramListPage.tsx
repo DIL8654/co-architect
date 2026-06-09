@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Table, ErrorState, LoadingState, EmptyState } from '../components';
+import { Button, Table, ErrorState, LoadingState, EmptyState, ArrowLeftIcon, DiagramIcon, UploadIcon } from '../components';
 import { useDiagrams, useDeleteDiagram } from '../hooks/useDiagrams';
 import type { ArchitectureDiagram } from '../api/diagrams';
 
@@ -61,6 +61,7 @@ export function DiagramListPage() {
               navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/upload`)
             }
             variant="primary"
+            icon={<UploadIcon className="h-4 w-4" />}
           >
             Upload Diagram
           </Button>
@@ -73,12 +74,12 @@ export function DiagramListPage() {
     {
       header: 'Title',
       accessor: 'name' as keyof ArchitectureDiagram,
-      render: (value: string) => <span className="font-medium">{value}</span>,
+      render: (value: string) => <span className="font-semibold text-secondary-950 dark:text-white">{value}</span>,
     },
     {
       header: 'Uploaded By',
       accessor: 'uploadedByUserId' as keyof ArchitectureDiagram,
-      render: (value: string) => <span className="text-secondary-600">{value}</span>,
+      render: (value: string) => <span className="text-secondary-600 dark:text-secondary-400">{value}</span>,
     },
     {
       header: 'Upload Date',
@@ -89,7 +90,7 @@ export function DiagramListPage() {
       header: 'Architecture Score',
       accessor: 'architectureScore' as keyof ArchitectureDiagram,
       render: (value: any) => (
-        <span className="px-2 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
+        <span className="rounded-full bg-primary-100 px-2 py-1 text-sm text-primary-800 dark:bg-cyan-400/10 dark:text-cyan-200">
           {value !== null && value !== undefined ? `${value.toFixed(1)}/100` : 'Not scored'}
         </span>
       ),
@@ -119,19 +120,35 @@ export function DiagramListPage() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-secondary-900">Diagrams</h1>
-        <Button
-          onClick={() =>
-            navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/upload`)
-          }
-        >
-          Upload Diagram
-        </Button>
-      </div>
+    <div className="page-shell">
+      <section className="page-header">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Button variant="ghost" onClick={() => navigate(`/orgs/${resolvedOrgId}/workspaces`)} className="mb-3" icon={<ArrowLeftIcon className="h-4 w-4" />}>
+              Back
+            </Button>
+            <div className="flex items-center gap-4">
+              <div className="glow-icon">
+                <DiagramIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="page-title">Diagrams</h1>
+                <p className="page-description mt-2">Upload architecture evidence and open any diagram to run AI analysis.</p>
+              </div>
+            </div>
+          </div>
+          <Button
+            icon={<UploadIcon className="h-4 w-4" />}
+            onClick={() =>
+              navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/upload`)
+            }
+          >
+            Upload Diagram
+          </Button>
+        </div>
+      </section>
 
-      <div className="bg-white rounded-lg border border-secondary-200 overflow-hidden">
+      <div>
         <Table columns={columns} data={diagrams} />
       </div>
     </div>

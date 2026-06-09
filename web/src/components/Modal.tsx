@@ -1,4 +1,5 @@
 import React from 'react';
+import { CloseIcon } from './Icons';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -13,20 +14,20 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full mx-4 z-50">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200">
-          <h2 className="text-lg font-semibold text-secondary-900">{title}</h2>
+      <div className="fixed inset-0 bg-secondary-950/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-50 mx-4 w-full max-w-md rounded-2xl border border-secondary-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0B1220]">
+        <div className="flex items-center justify-between border-b border-secondary-200 px-6 py-4 dark:border-white/10">
+          <h2 className="text-lg font-semibold text-secondary-950 dark:text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="text-secondary-400 hover:text-secondary-600 text-xl"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-secondary-400 transition hover:bg-secondary-100 hover:text-secondary-700 dark:hover:bg-white/10 dark:hover:text-white"
             aria-label="Close"
           >
-            ✕
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
-        {footer && <div className="px-6 py-4 border-t border-secondary-200 bg-secondary-50">{footer}</div>}
+        <div className="px-6 py-4 text-secondary-700 dark:text-secondary-200">{children}</div>
+        {footer && <div className="border-t border-secondary-200 bg-secondary-50 px-6 py-4 dark:border-white/10 dark:bg-white/[0.03]">{footer}</div>}
       </div>
     </div>
   );

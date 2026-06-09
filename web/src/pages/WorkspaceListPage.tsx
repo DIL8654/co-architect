@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Modal, ErrorState, LoadingState, EmptyState } from '../components';
+import { Button, Modal, ErrorState, LoadingState, EmptyState, ArrowLeftIcon, PlusIcon, WorkspaceIcon } from '../components';
 import { WorkspaceCard } from '../components/WorkspaceCard';
 import { useWorkspaces, useCreateWorkspace, useDeleteWorkspace } from '../hooks/useWorkspaces';
 
@@ -76,29 +76,39 @@ export function WorkspaceListPage() {
     );
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <Button variant="ghost" onClick={() => navigate('/organizations')} className="mb-3">
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold text-secondary-900">Workspaces</h1>
+    <div className="page-shell">
+      <section className="page-header">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Button variant="ghost" onClick={() => navigate('/organizations')} className="mb-3" icon={<ArrowLeftIcon className="h-4 w-4" />}>
+              Back
+            </Button>
+            <div className="flex items-center gap-4">
+              <div className="glow-icon">
+                <WorkspaceIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="page-title">Workspaces</h1>
+                <p className="page-description mt-2">Group architecture diagrams by product, platform, or review area.</p>
+              </div>
+            </div>
+          </div>
+          <Button onClick={() => setIsCreateModalOpen(true)} icon={<PlusIcon className="h-4 w-4" />}>New Workspace</Button>
         </div>
-        <Button onClick={() => setIsCreateModalOpen(true)}>New Workspace</Button>
-      </div>
+      </section>
 
       {!workspaces || workspaces.length === 0 ? (
         <EmptyState
           title="No workspaces yet"
           description="Create your first workspace to start uploading diagrams."
           action={
-            <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
+            <Button onClick={() => setIsCreateModalOpen(true)} variant="primary" icon={<PlusIcon className="h-4 w-4" />}>
               Create Workspace
             </Button>
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="entity-grid">
           {workspaces.map((workspace) => (
             <WorkspaceCard
               key={workspace.id}
@@ -121,7 +131,7 @@ export function WorkspaceListPage() {
       >
         <div className="space-y-4 p-4">
           <div>
-            <label className="block text-sm font-medium text-secondary-900 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-secondary-900 dark:text-secondary-100">
               Workspace Name
             </label>
             <input
@@ -132,7 +142,7 @@ export function WorkspaceListPage() {
                 if (nameError) setNameError('');
               }}
               placeholder="E.g., Microservices Architecture"
-              className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full rounded-xl border border-secondary-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
               disabled={createMutation.isPending}
               autoFocus
             />

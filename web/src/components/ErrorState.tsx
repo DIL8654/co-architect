@@ -1,4 +1,5 @@
 import React from 'react';
+import { HealthIcon } from './Icons';
 
 export interface ErrorStateProps {
   title: string;
@@ -8,12 +9,12 @@ export interface ErrorStateProps {
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ title, message, action }) => {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 bg-error-50 rounded-lg">
-      <div className="w-16 h-16 bg-error-100 rounded-full flex items-center justify-center mb-4">
-        <span className="text-2xl">⚠️</span>
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-error-200 bg-error-50/80 px-4 py-12 text-center dark:border-error-500/25 dark:bg-error-500/10">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-error-100 text-error-700 dark:bg-error-500/15 dark:text-error-200">
+        <HealthIcon className="h-6 w-6" />
       </div>
-      <h3 className="text-lg font-semibold text-error-800 mb-2">{title}</h3>
-      {message && <p className="text-error-700 text-center mb-6 max-w-sm">{message}</p>}
+      <h3 className="mb-2 text-lg font-semibold text-error-800 dark:text-error-100">{title}</h3>
+      {message && <p className="mb-6 max-w-sm text-center text-error-700 dark:text-error-200">{message}</p>}
       {action && <div>{action}</div>}
     </div>
   );

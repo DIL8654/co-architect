@@ -12,6 +12,9 @@ import { OrganizationMembersPage } from '../pages/OrganizationMembersPage';
 import { LandingPage } from '../pages/LandingPage';
 import { AnalysisResultPage } from '../pages/AnalysisResultPage';
 import { InfraHealthPage } from '../pages/InfraHealthPage';
+import { DashboardPage } from '../pages/DashboardPage';
+import { DocsPage } from '../pages/DocsPage';
+import { SettingsPage } from '../pages/SettingsPage';
 
 export const router = createBrowserRouter([
   {
@@ -23,8 +26,20 @@ export const router = createBrowserRouter([
         element: <LandingPage />,
       },
       {
+        path: 'dashboard',
+        element: <DashboardPage />,
+      },
+      {
         path: 'organizations',
         element: <OrganizationListPage />,
+      },
+      {
+        path: 'docs',
+        element: <DocsPage />,
+      },
+      {
+        path: 'settings',
+        element: <SettingsPage />,
       },
       {
         path: 'health',

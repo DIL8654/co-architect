@@ -14,18 +14,16 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
 
     private readonly AzureFoundryArchitectureAgentOptions _options;
     private readonly HttpClient _httpClient;
+    private readonly IAiFoundrySettingsRepository _settingsRepository;
 
     public AzureFoundryArchitectureAgentService(
         AzureFoundryArchitectureAgentOptions options,
-        HttpClient httpClient)
+        HttpClient httpClient,
+        IAiFoundrySettingsRepository settingsRepository)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-
-        if (!_options.IsConfigured)
-        {
-            throw new InvalidOperationException("Azure AI Foundry configuration is incomplete.");
-        }
+        _settingsRepository = settingsRepository ?? throw new ArgumentNullException(nameof(settingsRepository));
     }
 
     public async Task<AgentAnalysisResult> AnalyzeAsync(Guid architectureDiagramId, string diagramContent, CancellationToken cancellationToken)
@@ -34,15 +32,21 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildEndpointUri(_options));
-            AddAuthenticationHeaders(request);
+            var options = await GetEffectiveOptionsAsync(cancellationToken);
+            if (!options.IsConfigured)
+            {
+                return CreateFallbackResult(architectureDiagramId, diagramContent, "Azure AI Foundry configuration is incomplete.");
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildEndpointUri(options));
+            AddAuthenticationHeaders(request, options);
             request.Content = JsonContent.Create(new
             {
-                model = _options.ModelDeployment,
+                model = options.ModelDeployment,
                 input = BuildPrompt(diagramContent),
                 metadata = new Dictionary<string, string>
                 {
-                    ["agent_id"] = _options.AgentId!
+                    ["agent_id"] = options.AgentId!
                 }
             });
 
@@ -73,17 +77,39 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
         }
     }
 
-    private void AddAuthenticationHeaders(HttpRequestMessage request)
+    private async Task<AzureFoundryArchitectureAgentOptions> GetEffectiveOptionsAsync(CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        var saved = await _settingsRepository.GetAsync(cancellationToken);
+        return new AzureFoundryArchitectureAgentOptions
         {
-            request.Headers.Add("api-key", _options.ApiKey);
+            ProjectEndpoint = First(saved?.ProjectEndpoint, _options.ProjectEndpoint),
+            AgentId = First(saved?.AgentId, _options.AgentId),
+            ModelDeployment = First(saved?.ModelDeployment, _options.ModelDeployment),
+            ApiVersion = First(saved?.ApiVersion, _options.ApiVersion),
+            ApiKey = First(saved?.ApiKey, _options.ApiKey),
+            BearerToken = _options.BearerToken,
+            ClientId = _options.ClientId,
+            ClientSecret = _options.ClientSecret,
+            TenantId = _options.TenantId,
+        };
+    }
+
+    private static void AddAuthenticationHeaders(HttpRequestMessage request, AzureFoundryArchitectureAgentOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        {
+            request.Headers.Add("api-key", options.ApiKey);
         }
 
-        if (!string.IsNullOrWhiteSpace(_options.BearerToken))
+        if (!string.IsNullOrWhiteSpace(options.BearerToken))
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.BearerToken);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.BearerToken);
         }
+    }
+
+    private static string? First(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private static string BuildPrompt(string diagramContent)

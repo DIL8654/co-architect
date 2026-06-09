@@ -1,4 +1,5 @@
 import React from 'react';
+import { SparkIcon } from './Icons';
 
 export interface EmptyStateProps {
   title: string;
@@ -8,12 +9,12 @@ export interface EmptyStateProps {
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ title, description, action }) => {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4">
-      <div className="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mb-4">
-        <span className="text-2xl">📭</span>
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-secondary-300 bg-white/70 px-4 py-12 text-center dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="glow-icon mb-4 h-14 w-14">
+        <SparkIcon className="h-6 w-6" />
       </div>
-      <h3 className="text-lg font-semibold text-secondary-900 mb-2">{title}</h3>
-      {description && <p className="text-secondary-600 text-center mb-6 max-w-sm">{description}</p>}
+      <h3 className="mb-2 text-lg font-semibold text-secondary-950 dark:text-white">{title}</h3>
+      {description && <p className="mb-6 max-w-sm text-center text-secondary-600 dark:text-secondary-300">{description}</p>}
       {action && <div>{action}</div>}
     </div>
   );

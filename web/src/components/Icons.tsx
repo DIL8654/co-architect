@@ -1,0 +1,97 @@
+import React from 'react';
+
+export type IconProps = React.SVGProps<SVGSVGElement>;
+
+const base = {
+  width: 20,
+  height: 20,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
+export function LogoMark({ className = '', ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 128 128" className={className} fill="none" {...props}>
+      <rect width="128" height="128" rx="30" fill="#080F1F" />
+      <path d="M28 70.5C28 48.6848 45.6848 31 67.5 31H92V55.5C92 77.3152 74.3152 95 52.5 95H28V70.5Z" fill="url(#logoGradient)" />
+      <path d="M40 70.3C40 55.5 52 43.5 66.8 43.5H80V56.7C80 71.5 68 83.5 53.2 83.5H40V70.3Z" fill="#F8FAFC" />
+      <path d="M64 28L72.7887 51.2113L96 60L72.7887 68.7887L64 92L55.2113 68.7887L32 60L55.2113 51.2113L64 28Z" fill="#37D3FF" fillOpacity="0.86" />
+      <circle cx="64" cy="60" r="9" fill="#7C3AED" />
+      <defs>
+        <linearGradient id="logoGradient" x1="28" y1="95" x2="94.5" y2="28.5" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#2563EB" />
+          <stop offset="0.5" stopColor="#22D3EE" />
+          <stop offset="1" stopColor="#8B5CF6" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+export function SunIcon(props: IconProps) {
+  return <svg {...base} {...props}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>;
+}
+
+export function MoonIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M20.4 14.1A8.2 8.2 0 0 1 9.9 3.6 8.7 8.7 0 1 0 20.4 14.1Z" /></svg>;
+}
+
+export function SystemIcon(props: IconProps) {
+  return <svg {...base} {...props}><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>;
+}
+
+export function UserIcon(props: IconProps) {
+  return <svg {...base} {...props}><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></svg>;
+}
+
+export function DashboardIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M4 13h6V4H4v9ZM14 20h6V4h-6v16ZM4 20h6v-3H4v3Z" /></svg>;
+}
+
+export function BuildingIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M4 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16" /><path d="M9 21v-4h3v4M8 7h1M12 7h1M8 11h1M12 11h1M20 21V10h-3" /></svg>;
+}
+
+export function WorkspaceIcon(props: IconProps) {
+  return <svg {...base} {...props}><rect x="3" y="5" width="7" height="7" rx="1.5" /><rect x="14" y="5" width="7" height="7" rx="1.5" /><rect x="8.5" y="16" width="7" height="5" rx="1.5" /></svg>;
+}
+
+export function DiagramIcon(props: IconProps) {
+  return <svg {...base} {...props}><rect x="3" y="4" width="6" height="5" rx="1.4" /><rect x="15" y="4" width="6" height="5" rx="1.4" /><rect x="9" y="15" width="6" height="5" rx="1.4" /><path d="M9 6.5h6M6 9v2a4 4 0 0 0 4 4h2M18 9v2a4 4 0 0 1-4 4h-2" /></svg>;
+}
+
+export function SettingsIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7.07 4.2l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.13.38.49 1 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z" /></svg>;
+}
+
+export function DocsIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M6 3h8l4 4v14H6V3Z" /><path d="M14 3v5h5M9 13h6M9 17h6M9 9h2" /></svg>;
+}
+
+export function HealthIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" /><path d="M8 12h2l1.2-2.5L14 15l1.2-3H18" /></svg>;
+}
+
+export function PlusIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M12 5v14M5 12h14" /></svg>;
+}
+
+export function UploadIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>;
+}
+
+export function ArrowLeftIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M19 12H5M12 19l-7-7 7-7" /></svg>;
+}
+
+export function SparkIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M13 2 9.8 9.8 2 13l7.8 3.2L13 24l3.2-7.8L24 13l-7.8-3.2L13 2Z" transform="scale(.88) translate(1.6 1.4)" /></svg>;
+}
+
+export function CloseIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="m6 6 12 12M18 6 6 18" /></svg>;
+}

@@ -10,9 +10,9 @@ export const ArchitectureSummary = React.forwardRef<HTMLDivElement, Architecture
     return (
       <Card ref={ref} header="Architecture Summary">
         {description ? (
-          <p className="text-secondary-700 leading-relaxed whitespace-pre-wrap">{description}</p>
+          <p className="whitespace-pre-wrap leading-relaxed text-secondary-700 dark:text-secondary-200">{description}</p>
         ) : (
-          <p className="text-secondary-500 italic">No description provided</p>
+          <p className="text-secondary-500 italic dark:text-secondary-400">No description provided</p>
         )}
       </Card>
     );

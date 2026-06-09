@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArchitectureScoreCard, Button, ErrorState, LoadingState, RunAnalysisButton } from '../components';
+import { ArchitectureScoreCard, ArrowLeftIcon, Button, DiagramIcon, ErrorState, LoadingState, RunAnalysisButton } from '../components';
 import { DiagramViewer } from '../components/DiagramViewer';
 import { ArchitectureSummary } from '../components/ArchitectureSummary';
 import { CommentsSection } from '../components/CommentsSection';
@@ -73,20 +73,26 @@ export function DiagramDetailPage() {
   const imageUrl = diagram.fileUrl ?? '';
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
-          ← Back
+    <div className="page-shell">
+      <section className="page-header">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="w-fit" icon={<ArrowLeftIcon className="h-4 w-4" />}>
+          Back
         </Button>
-        <h1 className="text-4xl font-bold text-secondary-900">{diagram.name}</h1>
-        <p className="text-secondary-600 mt-1">
-          Uploaded by {diagram.uploadedByUserId} on {new Date(diagram.uploadedAt).toLocaleDateString()}
-        </p>
-      </div>
+        <div className="flex items-center gap-4">
+          <div className="glow-icon">
+            <DiagramIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="page-title">{diagram.name}</h1>
+            <p className="page-description mt-2">
+              Uploaded by {diagram.uploadedByUserId} on {new Date(diagram.uploadedAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column - Diagram (2 columns on lg) */}
         <div className="lg:col-span-2 space-y-6">
           <DiagramViewer imageUrl={imageUrl} fileName={diagram.originalFileName} title={diagram.name} />
@@ -141,15 +147,15 @@ export function DiagramDetailPage() {
 
               {/* AI Analysis Evidence */}
               {analysis.evidence && analysis.evidence.length > 0 && (
-                <div className="bg-white rounded-lg border border-secondary-200 overflow-hidden">
-                  <div className="bg-secondary-100 px-4 py-3 border-b border-secondary-200">
-                    <h3 className="font-semibold text-secondary-900">Analysis Evidence</h3>
+                <div className="overflow-hidden rounded-2xl border border-secondary-200 bg-white/[0.88] shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+                  <div className="border-b border-secondary-200 bg-secondary-50/90 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                    <h3 className="font-semibold text-secondary-950 dark:text-white">Analysis Evidence</h3>
                   </div>
-                  <div className="p-4 space-y-3">
+                  <div className="space-y-3 p-4">
                     {analysis.evidence.map((item, idx) => (
-                      <div key={idx} className="border-l-4 border-primary-400 pl-3 py-2">
-                        <p className="text-sm font-medium text-secondary-900">{item.summary}</p>
-                        <p className="text-sm text-secondary-600 mt-1">{item.detail}</p>
+                      <div key={idx} className="border-l-4 border-primary-400 py-2 pl-3 dark:border-cyan-300">
+                        <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.summary}</p>
+                        <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">{item.detail}</p>
                       </div>
                     ))}
                   </div>

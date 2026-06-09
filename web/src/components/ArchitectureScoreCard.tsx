@@ -83,62 +83,62 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
       <Card ref={ref} header="Architecture Intelligence Score">
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl border border-primary-100 bg-primary-50 p-4">
+            <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 dark:border-cyan-300/20 dark:bg-cyan-400/10">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Current Score</p>
               <div className="mt-2 flex items-end gap-2">
-                <span className="text-4xl font-bold text-primary-700">{formatScore(currentScore)}</span>
-                <span className="pb-1 text-sm font-medium text-secondary-500">/ 100</span>
+                <span className="text-4xl font-bold text-primary-700 dark:text-cyan-100">{formatScore(currentScore)}</span>
+                <span className="pb-1 text-sm font-medium text-secondary-500 dark:text-secondary-400">/ 100</span>
               </div>
-              <p className="mt-2 text-xs text-secondary-600">Architecture Intelligence Score</p>
+              <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">Architecture Intelligence Score</p>
             </div>
 
-            <div className="rounded-xl border border-secondary-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Score Band</p>
+            <div className="rounded-xl border border-secondary-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Score Band</p>
               <div className="mt-2">
                 <Badge variant={bandMeta.variant}>{bandMeta.label}</Badge>
               </div>
-              <p className="mt-3 text-xs text-secondary-600">
+              <p className="mt-3 text-xs text-secondary-600 dark:text-secondary-300">
                 {currentAnalysis.status === 'Completed' ? 'Based on the latest completed analysis' : 'Waiting for a completed analysis run'}
               </p>
             </div>
 
-            <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Improvement Trend</p>
+            <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Improvement Trend</p>
               <div className="mt-2 flex items-end gap-2">
-                <span className="text-3xl font-bold text-secondary-900">
+                <span className="text-3xl font-bold text-secondary-950 dark:text-white">
                   {trendMeta ? `${scoreDelta! > 0 ? '+' : ''}${scoreDelta!.toFixed(1)}` : '—'}
                 </span>
-                <span className="pb-1 text-sm font-medium text-secondary-500">pts</span>
+                <span className="pb-1 text-sm font-medium text-secondary-500 dark:text-secondary-400">pts</span>
               </div>
               {trendMeta ? (
                 <div className="mt-2">
                   <Badge variant={trendMeta.variant}>{trendMeta.label}</Badge>
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-secondary-600">Run analysis again to compare against the previous score.</p>
+                <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">Run analysis again to compare against the previous score.</p>
               )}
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-secondary-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Previous Score</p>
+            <div className="rounded-xl border border-secondary-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Previous Score</p>
               <div className="mt-2 flex items-end gap-2">
-                <span className="text-3xl font-bold text-secondary-700">{formatScore(previousScore)}</span>
-                <span className="pb-1 text-sm font-medium text-secondary-500">/ 100</span>
+                <span className="text-3xl font-bold text-secondary-700 dark:text-secondary-200">{formatScore(previousScore)}</span>
+                <span className="pb-1 text-sm font-medium text-secondary-500 dark:text-secondary-400">/ 100</span>
               </div>
-              <p className="mt-2 text-xs text-secondary-600">
+              <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">
                 {previousScore === null ? 'No previous completed score is available yet.' : previousAnalysis?.scoreBand ?? 'Previous completed analysis'}
               </p>
             </div>
 
-            <div className="rounded-xl border border-secondary-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Current Score</p>
+            <div className="rounded-xl border border-secondary-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Current Score</p>
               <div className="mt-2 flex items-end gap-2">
-                <span className="text-3xl font-bold text-secondary-900">{formatScore(currentScore)}</span>
-                <span className="pb-1 text-sm font-medium text-secondary-500">/ 100</span>
+                <span className="text-3xl font-bold text-secondary-950 dark:text-white">{formatScore(currentScore)}</span>
+                <span className="pb-1 text-sm font-medium text-secondary-500 dark:text-secondary-400">/ 100</span>
               </div>
-              <p className="mt-2 text-xs text-secondary-600">
+              <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">
                 {currentAnalysis.completedAt ? `Completed ${new Date(currentAnalysis.completedAt).toLocaleString()}` : 'Analysis still in progress or pending.'}
               </p>
             </div>
@@ -146,8 +146,8 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
 
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold text-secondary-900">Dimension Scores</h4>
-              <span className="text-xs text-secondary-500">0-5 maturity scale mapped to weighted contribution</span>
+              <h4 className="text-sm font-semibold text-secondary-950 dark:text-white">Dimension Scores</h4>
+              <span className="text-xs text-secondary-500 dark:text-secondary-400">0-5 maturity scale mapped to weighted contribution</span>
             </div>
 
             {currentAnalysis.dimensionBreakdowns && currentAnalysis.dimensionBreakdowns.length > 0 ? (
@@ -158,25 +158,25 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
                   const contributionWidth = breakdown ? Math.max(0, Math.min(100, (breakdown.contribution / maxContribution) * 100)) : 0;
 
                   return (
-                    <div key={dimension.key} className="rounded-lg border border-secondary-100 bg-secondary-50 p-3">
+                    <div key={dimension.key} className="rounded-xl border border-secondary-100 bg-secondary-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium text-secondary-900">{dimension.label}</p>
-                          <p className="text-xs text-secondary-500">{breakdown ? `Maturity ${breakdown.maturity}/5` : 'No score available'}</p>
+                          <p className="text-sm font-semibold text-secondary-950 dark:text-white">{dimension.label}</p>
+                          <p className="text-xs text-secondary-500 dark:text-secondary-400">{breakdown ? `Maturity ${breakdown.maturity}/5` : 'No score available'}</p>
                         </div>
-                        <div className="text-right text-xs text-secondary-600">
+                        <div className="text-right text-xs text-secondary-600 dark:text-secondary-300">
                           <div>{breakdown ? `${breakdown.contribution.toFixed(1)} pts` : '— pts'}</div>
                           <div>{breakdown ? `${breakdown.weight.toFixed(0)}% weight` : '— weight'}</div>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <div className="h-2 rounded-full bg-secondary-200">
+                        <div className="h-2 rounded-full bg-secondary-200 dark:bg-white/10">
                           <div
                             className="h-2 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-500"
                             style={{ width: `${maturityPercent}%` }}
                           />
                         </div>
-                        <div className="h-1 rounded-full bg-secondary-200">
+                        <div className="h-1 rounded-full bg-secondary-200 dark:bg-white/10">
                           <div
                             className="h-1 rounded-full bg-success-500/70 transition-all duration-500"
                             style={{ width: `${contributionWidth}%` }}
@@ -188,7 +188,7 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
                 })}
               </div>
             ) : (
-              <p className="rounded-lg border border-dashed border-secondary-200 bg-secondary-50 px-4 py-6 text-center text-sm text-secondary-500">
+              <p className="rounded-xl border border-dashed border-secondary-200 bg-secondary-50 px-4 py-6 text-center text-sm text-secondary-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-secondary-400">
                 Dimension scores will appear after the next analysis run.
               </p>
             )}

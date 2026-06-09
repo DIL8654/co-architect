@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { analysisApi } from '../api/analysis';
-import { ArchitectureScoreCard, Button, ErrorState, LoadingState } from '../components';
+import { ArchitectureScoreCard, ArrowLeftIcon, Button, ErrorState, LoadingState, SparkIcon } from '../components';
 import { MissingComponentsSection } from '../components/AIAnalysisResults';
 
 export function AnalysisResultPage() {
@@ -31,11 +31,21 @@ export function AnalysisResultPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-8">
-      <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
-        Back
-      </Button>
-      <h1 className="mb-6 text-3xl font-bold text-secondary-900">Analysis Result</h1>
+    <div className="page-shell max-w-6xl">
+      <section className="page-header">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="w-fit" icon={<ArrowLeftIcon className="h-4 w-4" />}>
+          Back
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="glow-icon">
+            <SparkIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="page-title">Analysis Result</h1>
+            <p className="page-description mt-2">Architecture Intelligence Score, missing controls, recommendations, and trade-offs.</p>
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <ArchitectureScoreCard currentAnalysis={analysis} />
@@ -43,26 +53,26 @@ export function AnalysisResultPage() {
         <div className="space-y-6">
           <MissingComponentsSection controls={analysis.missingControls ?? []} />
 
-          <section className="rounded-lg border border-secondary-200 bg-white p-5">
-            <h2 className="mb-3 text-xl font-semibold text-secondary-900">Recommendations</h2>
+          <section className="rounded-2xl border border-secondary-200 bg-white/[0.88] p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+            <h2 className="mb-3 text-xl font-semibold text-secondary-950 dark:text-white">Recommendations</h2>
             <div className="space-y-3">
               {analysis.recommendations.map((item) => (
-                <div key={item.title} className="border-l-4 border-primary-500 pl-3">
-                  <p className="font-medium text-secondary-900">{item.title}</p>
-                  <p className="text-sm text-secondary-600">{item.description}</p>
+                <div key={item.title} className="border-l-4 border-primary-500 pl-3 dark:border-cyan-300">
+                  <p className="font-semibold text-secondary-950 dark:text-white">{item.title}</p>
+                  <p className="text-sm text-secondary-600 dark:text-secondary-300">{item.description}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-lg border border-secondary-200 bg-white p-5">
-            <h2 className="mb-3 text-xl font-semibold text-secondary-900">Trade-offs</h2>
+          <section className="rounded-2xl border border-secondary-200 bg-white/[0.88] p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+            <h2 className="mb-3 text-xl font-semibold text-secondary-950 dark:text-white">Trade-offs</h2>
             <div className="space-y-4">
               {analysis.tradeoffs.map((tradeoff) => (
                 <div key={tradeoff.scenario}>
-                  <p className="font-medium text-secondary-900">{tradeoff.scenario}</p>
-                  <p className="mt-1 text-sm text-success-700">Pros: {tradeoff.pros.join(', ')}</p>
-                  <p className="text-sm text-error-700">Cons: {tradeoff.cons.join(', ')}</p>
+                  <p className="font-semibold text-secondary-950 dark:text-white">{tradeoff.scenario}</p>
+                  <p className="mt-1 text-sm text-success-700 dark:text-success-500">Pros: {tradeoff.pros.join(', ')}</p>
+                  <p className="text-sm text-error-700 dark:text-error-500">Cons: {tradeoff.cons.join(', ')}</p>
                 </div>
               ))}
             </div>

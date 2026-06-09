@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, ErrorState } from '../components';
+import { ArrowLeftIcon, Button, DiagramIcon, ErrorState, UploadIcon } from '../components';
 import { useUploadDiagram } from '../hooks/useDiagrams';
 
 const SUPPORTED_FORMATS = ['png', 'jpg', 'jpeg', 'svg'];
@@ -106,17 +106,35 @@ export function UploadDiagramPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold text-secondary-900 mb-6">Upload Architecture Diagram</h1>
+    <div className="page-shell max-w-3xl">
+      <section className="page-header">
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={() => navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams`)}
+          icon={<ArrowLeftIcon className="h-4 w-4" />}
+          className="w-fit"
+        >
+          Back
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="glow-icon">
+            <DiagramIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="page-title">Upload Architecture Diagram</h1>
+            <p className="page-description mt-2">Add a diagram image, a text architecture description, or both.</p>
+          </div>
+        </div>
+      </section>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* File Upload */}
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-secondary-200 bg-white/[0.88] p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-secondary-900">
+          <label className="block text-sm font-semibold text-secondary-900 dark:text-secondary-100">
             Select Image *
           </label>
           <div
-            className="border-2 border-dashed border-secondary-300 rounded-lg p-8 text-center hover:border-primary-500 transition"
+            className="rounded-2xl border-2 border-dashed border-secondary-300 bg-secondary-50/70 p-8 text-center transition hover:border-primary-500 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-cyan-300"
             onDragOver={(e) => {
               e.preventDefault();
               e.currentTarget.classList.add('border-primary-500', 'bg-primary-50');
@@ -144,11 +162,13 @@ export function UploadDiagramPage() {
               disabled={uploadMutation.isPending}
             />
             <label htmlFor="file-input" className="cursor-pointer">
-              <div className="text-4xl mb-2">📁</div>
-              <p className="text-secondary-900 font-medium">
+              <span className="glow-icon mx-auto mb-4">
+                <UploadIcon className="h-5 w-5" />
+              </span>
+              <p className="font-semibold text-secondary-950 dark:text-white">
                 {selectedFile ? selectedFile.name : 'Drag and drop an image here'}
               </p>
-              <p className="text-secondary-600 text-sm mt-1">
+              <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">
                 or click to browse. You can also submit a text-only architecture description.
               </p>
             </label>
@@ -159,18 +179,18 @@ export function UploadDiagramPage() {
         {/* File Preview */}
         {filePreview && (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-secondary-900">Preview</label>
+            <label className="block text-sm font-semibold text-secondary-900 dark:text-secondary-100">Preview</label>
             <img
               src={filePreview}
               alt="Preview"
-              className="max-h-64 rounded-lg border border-secondary-300"
+              className="max-h-64 rounded-2xl border border-secondary-300 dark:border-white/10"
             />
           </div>
         )}
 
         {/* Diagram Name */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-secondary-900">
+          <label className="block text-sm font-semibold text-secondary-900 dark:text-secondary-100">
             Diagram Name *
           </label>
           <input
@@ -181,7 +201,7 @@ export function UploadDiagramPage() {
               if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
             }}
             placeholder="E.g., Microservices Architecture v1.0"
-            className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full rounded-xl border border-secondary-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
             disabled={uploadMutation.isPending}
           />
           {errors.name && <p className="text-error-600 text-sm">{errors.name}</p>}
@@ -189,7 +209,7 @@ export function UploadDiagramPage() {
 
         {/* Architecture Description */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-secondary-900">
+          <label className="block text-sm font-semibold text-secondary-900 dark:text-secondary-100">
             Architecture Description
           </label>
           <textarea
@@ -197,14 +217,14 @@ export function UploadDiagramPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe the architecture, key components, and design patterns..."
             rows={5}
-            className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            className="w-full resize-none rounded-xl border border-secondary-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
             disabled={uploadMutation.isPending}
           />
-          <p className="text-secondary-600 text-xs">Optional - provide context for AI analysis</p>
+          <p className="text-xs text-secondary-600 dark:text-secondary-400">Optional - provide context for AI analysis</p>
         </div>
 
         {/* Submit Error */}
-        {errors.submit && <p className="text-error-600 text-sm p-3 bg-error-50 rounded">{errors.submit}</p>}
+        {errors.submit && <p className="rounded-xl bg-error-50 p-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-200">{errors.submit}</p>}
 
         {/* Buttons */}
         <div className="flex gap-2 pt-4">
@@ -220,6 +240,7 @@ export function UploadDiagramPage() {
             type="submit"
             isLoading={uploadMutation.isPending}
             disabled={!selectedFile && !description.trim()}
+            icon={<UploadIcon className="h-4 w-4" />}
           >
             Save Diagram
           </Button>

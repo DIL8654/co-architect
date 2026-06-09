@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Spinner } from '../components';
+import { BuildingIcon, Button, Card, PlusIcon, Spinner } from '../components';
 import { useCreateOrganization, useCheckSlug } from '../hooks/useOrganizations';
 
 interface FormData {
@@ -82,11 +82,23 @@ export function OrganizationSetupPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-65px)] items-center justify-center bg-white px-4">
-      <Card className="w-full max-w-md" header="Create Organization">
+    <div className="page-shell max-w-2xl">
+      <section className="page-header">
+        <div className="flex items-center gap-4">
+          <div className="glow-icon">
+            <BuildingIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="page-title">Create Organization</h1>
+            <p className="page-description mt-2">Start the architecture review workspace with a simple organization boundary.</p>
+          </div>
+        </div>
+      </section>
+
+      <Card className="mx-auto w-full max-w-md" header="Create Organization">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-secondary-900 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-secondary-900 dark:text-secondary-100">
               Organization Name
             </label>
             <input
@@ -94,14 +106,14 @@ export function OrganizationSetupPage() {
               value={formData.name}
               onChange={handleNameChange}
               placeholder="Acme Corp"
-              className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full rounded-xl border border-secondary-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
               disabled={createMutation.isPending}
             />
             {errors.name && <p className="text-error-600 text-sm mt-1">{errors.name}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-secondary-900 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-secondary-900 dark:text-secondary-100">
               Slug
             </label>
             <div className="flex gap-2">
@@ -110,14 +122,14 @@ export function OrganizationSetupPage() {
                 value={formData.slug}
                 onChange={handleSlugChange}
                 placeholder="acme-corp"
-                className="flex-1 px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex-1 rounded-xl border border-secondary-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 disabled={createMutation.isPending}
               />
               {formData.slug && slugQuery.isLoading && <Spinner size="sm" />}
             </div>
             {errors.slug && <p className="text-error-600 text-sm mt-1">{errors.slug}</p>}
             {formData.slug && !errors.slug && slugQuery.data && (
-              <p className="text-success-600 text-sm mt-1">✓ Slug available</p>
+              <p className="mt-1 text-sm text-success-600">Slug available</p>
             )}
           </div>
 
@@ -134,6 +146,7 @@ export function OrganizationSetupPage() {
               type="submit"
               disabled={createMutation.isPending || slugQuery.data === false}
               isLoading={createMutation.isPending}
+              icon={<PlusIcon className="h-4 w-4" />}
             >
               Create
             </Button>

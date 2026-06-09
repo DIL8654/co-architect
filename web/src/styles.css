@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-secondary-900;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-white;
+  }
+
+  .top-nav {
+    @apply flex items-center justify-between border-b border-secondary-200 bg-white px-6 py-4;
+  }
+
+  .brand {
+    @apply text-lg font-bold text-secondary-900;
+  }
+
+  .top-nav-items {
+    @apply flex items-center gap-3 text-sm font-medium text-secondary-700;
+  }
+
+  .top-nav-items button {
+    @apply rounded-md px-3 py-2 hover:bg-secondary-100;
+  }
+
+  .content-area {
+    @apply min-h-[calc(100vh-65px)] bg-white;
+  }
+}

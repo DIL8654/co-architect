@@ -1,0 +1,16 @@
+.DS_Store
+*.log
+
+# Local runtime configuration and secrets
+backend/.env
+web/.env
+web/.env.local
+
+# Build outputs
+backend/src/**/bin/
+backend/src/**/obj/
+backend/tests/**/bin/
+backend/tests/**/obj/
+web/dist/
+web/node_modules/
+web/.vite/

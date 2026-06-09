@@ -1,0 +1,9 @@
+Microsoft Visual Studio Solution File, CoArchitect placeholder
+
+Projects:
+  backend/src/api/CoArchitect.Domain/CoArchitect.Domain.csproj
+  backend/src/api/CoArchitect.Application/CoArchitect.Application.csproj
+  backend/src/api/CoArchitect.Infrastructure/CoArchitect.Infrastructure.csproj
+  backend/src/api/CoArchitect.Api/CoArchitect.Api.csproj
+
+Note: This is a lightweight placeholder solution file named with .slnx as requested. Use `dotnet new sln` and `dotnet sln add` to create a proper .sln if needed.

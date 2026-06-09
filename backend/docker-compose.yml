@@ -1,0 +1,71 @@
+services:
+  coarchitect-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${API_PORT:-5010}:80'
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ArchitectureAgent__Provider=${ARCHITECTURE_AGENT_PROVIDER:-Mock}
+      - DataStore__Provider=${DATASTORE_PROVIDER:-Mock}
+      - ArchitectureStorage__Provider=${ARCHITECTURE_STORAGE_PROVIDER:-None}
+      - ArchitectureStorage__ContainerSasUrl=${ARCHITECTURE_STORAGE_CONTAINER_SAS_URL:-}
+      - AZURE_AI_FOUNDRY_PROJECT_ENDPOINT=${AZURE_AI_FOUNDRY_PROJECT_ENDPOINT:-}
+      - AZURE_AI_FOUNDRY_AGENT_ID=${AZURE_AI_FOUNDRY_AGENT_ID:-}
+      - AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT=${AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT:-}
+      - AZURE_AI_FOUNDRY_API_VERSION=${AZURE_AI_FOUNDRY_API_VERSION:-}
+      - AZURE_AI_FOUNDRY_API_KEY=${AZURE_AI_FOUNDRY_API_KEY:-}
+      - AZURE_AI_FOUNDRY_BEARER_TOKEN=${AZURE_AI_FOUNDRY_BEARER_TOKEN:-}
+      - AZURE_CLIENT_ID=
+      - AZURE_CLIENT_SECRET=
+      - AZURE_TENANT_ID=
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING:-${POSTGRES_CONNECTION_STRING:-Host=postgres;Database=coarchitect;Username=postgres;Password=postgres}}
+      - ConnectionStrings__Default=${DATABASE_CONNECTION_STRING:-${POSTGRES_CONNECTION_STRING:-Host=postgres;Database=coarchitect;Username=postgres;Password=postgres}}
+      - Cors__AllowedOrigins__0=http://localhost:5173
+      - Cors__AllowedOrigins__1=http://127.0.0.1:5173
+    depends_on:
+      azurite:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/80'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: coarchitect
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - '${AZURITE_BLOB_PORT:-10000}:10000'
+      - '${AZURITE_QUEUE_PORT:-10001}:10001'
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  azurite-data:
+  postgres-data:

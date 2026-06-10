@@ -10,7 +10,7 @@ describe('api client local storage isolation', () => {
 
     localStorage.setItem('accessToken', 'test-token-123');
 
-    const response = await apiClient.get('/api/organizations', {
+    const response = await apiClient.get('/api/workspaces', {
       adapter: async (config) => {
         expect(config.headers?.Authorization).toBeUndefined();
         const headerNames = Object.keys(config.headers ?? {});

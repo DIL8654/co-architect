@@ -2,11 +2,10 @@ namespace CoArchitect.Infrastructure.Repositories;
 
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
-using CoArchitect.Infrastructure.Seeding;
 
 public sealed class MockAgentAnalysisRunRepository : IAgentAnalysisRunRepository
 {
-    private static readonly Dictionary<Guid, AgentAnalysisRun> _runs = DemoDataGenerator.AnalysisRuns.ToDictionary(run => run.Id);
+    private static readonly Dictionary<Guid, AgentAnalysisRun> _runs = new();
     private static readonly object _lock = new();
 
     public Task<AgentAnalysisRun?> GetByIdAsync(Guid runId, CancellationToken cancellationToken)
@@ -63,6 +62,26 @@ public sealed class MockAgentAnalysisRunRepository : IAgentAnalysisRunRepository
         lock (_lock)
         {
             _runs[run.Id] = run;
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task DeleteByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_lock)
+        {
+            var ids = _runs.Values
+                .Where(run => run.ArchitectureDiagramId == diagramId)
+                .Select(run => run.Id)
+                .ToList();
+
+            foreach (var id in ids)
+            {
+                _runs.Remove(id);
+            }
+
             return Task.CompletedTask;
         }
     }

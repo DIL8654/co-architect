@@ -2,11 +2,10 @@ namespace CoArchitect.Infrastructure.Repositories;
 
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
-using CoArchitect.Infrastructure.Seeding;
 
 public sealed class MockWorkspaceRepository : IWorkspaceRepository
 {
-    private static readonly Dictionary<Guid, Workspace> _workspaces = DemoDataGenerator.Workspaces.ToDictionary(workspace => workspace.Id);
+    private static readonly Dictionary<Guid, Workspace> _workspaces = new();
     private static readonly object _lock = new();
 
     public Task<Workspace?> GetByIdAsync(Guid workspaceId, CancellationToken cancellationToken)
@@ -27,6 +26,17 @@ public sealed class MockWorkspaceRepository : IWorkspaceRepository
         lock (_lock)
         {
             var workspaces = _workspaces.Values.Where(w => w.OrganizationId == organizationId).ToList();
+            return Task.FromResult(workspaces.AsEnumerable());
+        }
+    }
+
+    public Task<IEnumerable<Workspace>> GetByTenantIdAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_lock)
+        {
+            var workspaces = _workspaces.Values.Where(w => w.TenantId == tenantId).ToList();
             return Task.FromResult(workspaces.AsEnumerable());
         }
     }

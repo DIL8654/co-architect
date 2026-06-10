@@ -5,6 +5,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppLayout } from './AppLayout';
 
 function renderLayout(path = '/') {
+  localStorage.setItem(
+    'coarchitect.local-profile',
+    JSON.stringify({
+      state: {
+        isConfigured: true,
+        displayName: 'Test Architect',
+        organizationLabel: 'Northwind Team',
+      },
+      version: 0,
+    }),
+  );
+
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -50,10 +62,10 @@ describe('AppLayout', () => {
 
     expect(screen.getByLabelText('CoArchitect AI home')).toBeTruthy();
     expect(screen.getByText('Dashboard')).toBeTruthy();
-    expect(screen.getByText('Organizations')).toBeTruthy();
-    expect(screen.getByText('Infra Health')).toBeTruthy();
-    expect(screen.getByText('Docs')).toBeTruthy();
-    expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.getByText('Workspaces')).toBeTruthy();
+    expect(screen.getByText('Knowledge Base')).toBeTruthy();
+    expect(screen.getByText('Health')).toBeTruthy();
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
   });
 
   it('defaults to dark mode and can switch to light mode', async () => {

@@ -1,5 +1,43 @@
 import { apiClient } from './axios';
 
+export type FrameworkSelectionMode = 'AutoDetect' | 'Manual';
+export type ReviewFramework =
+  | 'AzureWellArchitected'
+  | 'AwsWellArchitected'
+  | 'Iso25010'
+  | 'OwaspAsvs';
+
+export interface ReviewContext {
+  businessDomain?: string;
+  targetUsers?: string;
+  expectedTraffic?: string;
+  dataSensitivity?: string;
+  cloudProviderPreference?: string;
+  complianceNeeds?: string;
+  currentPainPoints?: string;
+}
+
+export interface QualityAttributeWeight {
+  key: string;
+  label: string;
+  weight: number;
+}
+
+export interface FrameworkSelectionSummary {
+  mode: FrameworkSelectionMode;
+  detectedCloudProvider?: string;
+  confidenceScore: number;
+  requestedFrameworks: ReviewFramework[];
+  selectedFrameworks: ReviewFramework[];
+  selectionRationale: string[];
+}
+
+export interface DiagramReviewSetup {
+  reviewContext: ReviewContext;
+  frameworkSelection: FrameworkSelectionSummary;
+  qualityAttributeWeights: QualityAttributeWeight[];
+}
+
 export interface ArchitectureDiagram {
   id: string;
   workspaceId: string;
@@ -10,14 +48,28 @@ export interface ArchitectureDiagram {
   description?: string;
   uploadedAt: string;
   architectureScore?: number;
+  reviewSetup: DiagramReviewSetup;
 }
 
 export interface UploadDiagramRequest {
-  organizationId: string;
   workspaceId: string;
   name: string;
   description?: string;
   file?: File;
+  reviewSetup: DiagramReviewSetupInput;
+}
+
+export interface DiagramReviewSetupInput {
+  businessDomain?: string;
+  targetUsers?: string;
+  expectedTraffic?: string;
+  dataSensitivity?: string;
+  cloudProviderPreference?: string;
+  complianceNeeds?: string;
+  currentPainPoints?: string;
+  frameworkSelectionMode: FrameworkSelectionMode;
+  requestedFrameworks: ReviewFramework[];
+  qualityAttributeWeights: QualityAttributeWeight[];
 }
 
 export const diagramApi = {
@@ -28,12 +80,13 @@ export const diagramApi = {
     if (data.description) {
       formData.append('description', data.description);
     }
+    formData.append('reviewSetupJson', JSON.stringify(data.reviewSetup));
     if (data.file) {
       formData.append('file', data.file);
     }
 
     const response = await apiClient.post<ArchitectureDiagram>(
-      `/api/orgs/${data.organizationId}/workspaces/${data.workspaceId}/diagrams`,
+      `/api/workspaces/${data.workspaceId}/diagrams`,
       formData,
       {
       headers: {
@@ -44,15 +97,15 @@ export const diagramApi = {
     return response.data;
   },
 
-  async listDiagrams(organizationId: string, workspaceId: string): Promise<ArchitectureDiagram[]> {
+  async listDiagrams(workspaceId: string): Promise<ArchitectureDiagram[]> {
     const response = await apiClient.get<ArchitectureDiagram[]>(
-      `/api/orgs/${organizationId}/workspaces/${workspaceId}/diagrams`
+      `/api/workspaces/${workspaceId}/diagrams`
     );
     return response.data;
   },
 
-  async getDiagram(organizationId: string, diagramId: string): Promise<ArchitectureDiagram> {
-    const response = await apiClient.get<ArchitectureDiagram>(`/api/orgs/${organizationId}/diagrams/${diagramId}`);
+  async getDiagram(diagramId: string): Promise<ArchitectureDiagram> {
+    const response = await apiClient.get<ArchitectureDiagram>(`/api/diagrams/${diagramId}`);
     return response.data;
   },
 

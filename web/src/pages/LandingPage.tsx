@@ -1,18 +1,19 @@
-import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge, Button, Card, DiagramIcon, HealthIcon, LogoMark, SettingsIcon, SparkIcon } from '../components';
-import { organizationApi } from '../api/organizations';
+import { useQuery } from '@tanstack/react-query';
+import { EmptyState, LoadingState, Button, DiagramIcon } from '../components';
 import { workspaceApi } from '../api/workspaces';
 import { diagramApi, type ArchitectureDiagram } from '../api/diagrams';
-
-const sampleDescription =
-  'A B2B SaaS platform with React frontend, .NET API, cloud database, Blob Storage, no API gateway, no monitoring, no tenant isolation, no audit logging, no disaster recovery plan, and no secrets management.';
+import { analysisApi, type AnalysisRunTimelineItem, type ArchitectureAnalysisResult } from '../api/analysis';
+import { buildAnalysisComparison, getReviewFreshness } from '../lib/analysisComparison';
 
 interface ArchitectureOverview {
-  organizationCount: number;
   workspaceCount: number;
-  diagrams: Array<ArchitectureDiagram & { organizationId: string; workspaceName: string }>;
+  diagrams: Array<ArchitectureDiagram & {
+    workspaceName: string;
+    latestAnalysis: ArchitectureAnalysisResult | null;
+    analysisRuns: AnalysisRunTimelineItem[];
+  }>;
 }
 
 export function LandingPage() {
@@ -24,176 +25,163 @@ export function LandingPage() {
   });
 
   const diagrams = overview?.diagrams ?? [];
-  const scoredDiagrams = diagrams.filter((diagram) => diagram.architectureScore !== null && diagram.architectureScore !== undefined);
+  const scoredDiagrams = diagrams.filter((diagram) => diagram.latestAnalysis?.finalScore !== null && diagram.latestAnalysis?.finalScore !== undefined);
   const averageScore = scoredDiagrams.length
-    ? scoredDiagrams.reduce((total, diagram) => total + (diagram.architectureScore ?? 0), 0) / scoredDiagrams.length
+    ? scoredDiagrams.reduce((total, diagram) => total + (diagram.latestAnalysis?.finalScore ?? 0), 0) / scoredDiagrams.length
     : null;
-  const latestDiagrams = [...diagrams].sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()).slice(0, 4);
+  const latestDiagrams = [...diagrams].sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()).slice(0, 8);
+  const highestRiskDiagrams = [...scoredDiagrams]
+    .sort((a, b) => (a.latestAnalysis?.finalScore ?? 0) - (b.latestAnalysis?.finalScore ?? 0))
+    .slice(0, 5);
+  const firstWorkspaceId = useMemo(() => diagrams[0]?.workspaceId ?? null, [diagrams]);
 
   if (isLoading) {
-    return <LandingShell />;
+    return <LoadingState message="Loading architecture overview..." />;
   }
 
   if (!diagrams.length) {
     return (
-      <LandingShell>
-        <Card>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-semibold text-secondary-500 dark:text-secondary-400">Start flow</p>
-              <h2 className="mt-1 text-2xl font-bold text-secondary-950 dark:text-white">No diagrams yet</h2>
-            </div>
-            <p className="text-sm leading-6 text-secondary-600 dark:text-secondary-300">
-              Create an organization, create a workspace, then upload an architecture description or diagram to generate your first Architecture Intelligence Score.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <MiniFeature icon={<DiagramIcon className="h-4 w-4" />} label="Create" />
-              <MiniFeature icon={<SparkIcon className="h-4 w-4" />} label="Analyze" />
-              <MiniFeature icon={<HealthIcon className="h-4 w-4" />} label="Improve" />
-            </div>
-            <div className="rounded-2xl border border-secondary-200 bg-secondary-50/80 p-4 text-sm leading-6 text-secondary-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-secondary-300">
-              {sampleDescription}
-            </div>
-            <Button onClick={() => navigate('/organizations')} icon={<SparkIcon className="h-4 w-4" />}>
-              Start architecture review
-            </Button>
+      <div className="page-shell">
+        <section className="page-header">
+          <div>
+            <h1 className="page-title">Architecture Intelligence</h1>
+            <p className="page-description">Start with a workspace, upload a diagram, and run your first multi-agent architecture review.</p>
           </div>
-        </Card>
-      </LandingShell>
+        </section>
+        <EmptyState
+          title="No diagrams yet"
+          description="Create a workspace, upload architecture evidence, and generate your first Architecture Intelligence Score."
+          action={
+            <Button onClick={() => navigate(firstWorkspaceId ? `/workspaces/${firstWorkspaceId}/diagrams/upload` : '/workspaces')}>
+              Start Demo
+            </Button>
+          }
+        />
+      </div>
     );
   }
 
   return (
-    <div className="page-shell space-y-6">
-      <section className="flex flex-col gap-5 py-2 lg:flex-row lg:items-end lg:justify-between">
+    <div className="page-shell">
+      <section className="page-header">
         <div>
-          <div className="mb-5 flex items-center gap-4">
-            <span className="logo-shell h-12 w-12">
-              <LogoMark className="h-10 w-10" />
-            </span>
-            <Badge variant="secondary">Architecture dashboard</Badge>
-          </div>
-          <h1 className="text-4xl font-bold tracking-normal text-secondary-950 dark:text-white">Architecture Intelligence</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary-600 dark:text-secondary-300">
-            Your active architecture reviews, maturity score coverage, and latest diagrams.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button onClick={() => navigate('/organizations')} icon={<DiagramIcon className="h-4 w-4" />}>
-            Open canvas
-          </Button>
-          <Button variant="secondary" onClick={() => navigate('/health')}>
-            Infra health
-          </Button>
+          <h1 className="page-title">Architecture Intelligence</h1>
+          <p className="page-description">Recent diagrams, score coverage, and review freshness across the workspace catalog.</p>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-4">
-        <DashboardMetric label="Organizations" value={overview?.organizationCount ?? 0} />
-        <DashboardMetric label="Workspaces" value={overview?.workspaceCount ?? 0} />
-        <DashboardMetric label="Diagrams" value={diagrams.length} />
-        <DashboardMetric label="Average Score" value={averageScore === null ? '—' : averageScore.toFixed(1)} accent />
+        <KpiTile label="Workspaces" value={overview?.workspaceCount ?? 0} />
+        <KpiTile label="Diagrams" value={diagrams.length} />
+        <KpiTile label="Scored" value={scoredDiagrams.length} />
+        <KpiTile label="Average Score" value={averageScore === null ? '—' : averageScore.toFixed(1)} />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <Card header="Recent Diagrams">
-          <div className="grid gap-3">
-            {latestDiagrams.map((diagram) => (
-              <button
-                key={diagram.id}
-                type="button"
-                onClick={() => navigate(`/orgs/${diagram.organizationId}/diagrams/${diagram.id}`)}
-                className="rounded-2xl border border-secondary-200 bg-secondary-50/70 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.07]"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-secondary-950 dark:text-white">{diagram.name}</p>
-                    <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">{diagram.workspaceName}</p>
-                  </div>
-                  <Badge variant={diagram.architectureScore !== null && diagram.architectureScore !== undefined ? 'primary' : 'secondary'}>
-                    {diagram.architectureScore !== null && diagram.architectureScore !== undefined ? `${diagram.architectureScore.toFixed(1)}/100` : 'Not scored'}
-                  </Badge>
-                </div>
-              </button>
-            ))}
-          </div>
-        </Card>
-
-        <Card header="Maturity Levels">
-          <div className="space-y-4">
-            <MaturityBar label="Scored coverage" value={diagrams.length ? (scoredDiagrams.length / diagrams.length) * 100 : 0} />
-            <MaturityBar label="Average maturity" value={averageScore ?? 0} />
-            <p className="text-sm leading-6 text-secondary-600 dark:text-secondary-300">
-              Open any diagram to view dimension scores, missing controls, roadmap items, and analysis evidence in the insights drawer.
-            </p>
-          </div>
-        </Card>
-      </section>
-    </div>
-  );
-}
-
-function LandingShell({ children }: { children?: ReactNode }) {
-  const navigate = useNavigate();
-
-  return (
-    <div className="page-shell flex min-h-[calc(100vh-120px)] items-center">
-      <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-        <div>
-          <div className="mb-6 flex items-center gap-4">
-            <span className="logo-shell h-14 w-14">
-              <LogoMark className="h-11 w-11" />
-            </span>
-            <span className="rounded-full border border-secondary-200 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-secondary-600 dark:border-white/10 dark:bg-white/5 dark:text-cyan-200">
-              Enterprise architecture review
-            </span>
-          </div>
-          <h1 className="max-w-4xl text-5xl font-bold tracking-normal text-secondary-950 dark:text-white">CoArchitect AI</h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-secondary-600 dark:text-secondary-300">
-            Review a software architecture, calculate its Architecture Intelligence Score, and turn missing capabilities into clear recommendations.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button size="lg" onClick={() => navigate('/organizations')} icon={<SparkIcon className="h-5 w-5" />}>
-              Start
-            </Button>
-            <Button size="lg" variant="secondary" onClick={() => navigate('/settings')}>
-              AI Settings
-            </Button>
-          </div>
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_320px]">
+        <div className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
+          <div className="panel-header">Recent Diagrams</div>
+          <table className="w-full">
+            <thead className="border-b border-[#dde1e6] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Diagram</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Workspace</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Score</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Uploaded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestDiagrams.map((diagram) => {
+                const comparison = buildAnalysisComparison(diagram.analysisRuns);
+                const freshness = getReviewFreshness(diagram.uploadedAt, comparison?.latest);
+                return (
+                  <tr
+                    key={diagram.id}
+                    onClick={() => navigate(`/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
+                    className="cursor-pointer border-b border-[#eef1f4] transition last:border-0 hover:bg-[#f8f9fb] dark:border-white/10 dark:hover:bg-white/[0.03]"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="glow-icon h-8 w-8">
+                          <DiagramIcon className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="font-medium text-secondary-950 dark:text-white">{diagram.name}</p>
+                          {diagram.latestAnalysis?.executiveSummary ? (
+                            <p className="mt-0.5 line-clamp-1 text-xs text-secondary-500 dark:text-secondary-400">{diagram.latestAnalysis.executiveSummary}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{diagram.workspaceName}</td>
+                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">
+                      {diagram.latestAnalysis?.finalScore !== null && diagram.latestAnalysis?.finalScore !== undefined
+                        ? diagram.latestAnalysis.finalScore.toFixed(1)
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{freshness}</td>
+                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{new Date(diagram.uploadedAt).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {children ?? (
-          <Card>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-secondary-500 dark:text-secondary-400">Loading</p>
-                <h2 className="mt-1 text-2xl font-bold text-secondary-950 dark:text-white">Preparing workspace overview</h2>
-              </div>
-              <p className="text-sm leading-6 text-secondary-600 dark:text-secondary-300">
-                Checking organizations, workspaces, and diagrams.
-              </p>
-            </div>
-          </Card>
-        )}
-      </div>
+        <aside className="space-y-4 rounded-xl border border-[#dde1e6] bg-white p-5 dark:border-white/10 dark:bg-[#08101d]">
+          <div>
+            <h2 className="text-lg font-semibold text-secondary-950 dark:text-white">Maturity</h2>
+            <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">Score coverage across the current workspaces.</p>
+          </div>
+          <MaturityBar label="Scored coverage" value={diagrams.length ? (scoredDiagrams.length / diagrams.length) * 100 : 0} />
+          <MaturityBar label="Average maturity" value={averageScore ?? 0} />
+          <p className="text-sm leading-6 text-secondary-600 dark:text-secondary-300">
+            Select a diagram from the sidebar tree or table above to inspect dimension scores, missing controls, and ADR history.
+          </p>
+        </aside>
+      </section>
+
+      {highestRiskDiagrams.length > 0 ? (
+        <section className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
+          <div className="panel-header">Needs Attention</div>
+          <table className="w-full">
+            <thead className="border-b border-[#dde1e6] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Diagram</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Score Band</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Score</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Top Gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {highestRiskDiagrams.map((diagram) => (
+                <tr
+                  key={`attention-${diagram.id}`}
+                  onClick={() => navigate(`/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
+                  className="cursor-pointer border-b border-[#eef1f4] transition last:border-0 hover:bg-[#f8f9fb] dark:border-white/10 dark:hover:bg-white/[0.03]"
+                >
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-secondary-950 dark:text-white">{diagram.name}</p>
+                    <p className="text-xs text-secondary-500 dark:text-secondary-400">{diagram.workspaceName}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{diagram.latestAnalysis?.scoreBand ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-error-600 dark:text-error-400">{diagram.latestAnalysis?.finalScore?.toFixed(1) ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{diagram.latestAnalysis?.missingControls?.[0]?.name ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
     </div>
   );
 }
 
-function MiniFeature({ icon, label }: { icon: ReactNode; label: string }) {
+function KpiTile({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-secondary-200 bg-white px-3 py-2 text-sm font-semibold text-secondary-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-200">
-      <span className="text-primary-600 dark:text-cyan-200">{icon}</span>
-      {label}
-    </div>
-  );
-}
-
-function DashboardMetric({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
-  return (
-    <div className={`rounded-2xl border p-4 shadow-sm backdrop-blur-xl ${accent ? 'border-primary-200 bg-primary-50 dark:border-cyan-300/20 dark:bg-cyan-400/10' : 'border-secondary-200 bg-white/[0.84] dark:border-white/10 dark:bg-white/5'}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-secondary-950 dark:text-white">{value}</p>
+    <div className="kpi-tile">
+      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{value}</p>
     </div>
   );
 }
@@ -202,45 +190,36 @@ function MaturityBar({ label, value }: { label: string; value: number }) {
   const bounded = Math.max(0, Math.min(100, value));
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-        <span className="font-semibold text-secondary-950 dark:text-white">{label}</span>
-        <span className="text-secondary-500 dark:text-secondary-400">{bounded.toFixed(0)}%</span>
+      <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-secondary-500">
+        <span>{label}</span>
+        <span>{bounded.toFixed(0)}%</span>
       </div>
-      <div className="h-2 rounded-full bg-secondary-200 dark:bg-white/10">
-        <div className="h-2 rounded-full bg-gradient-to-r from-primary-500 to-cyan-400" style={{ width: `${bounded}%` }} />
+      <div className="h-2 rounded-full bg-[#e5e7eb] dark:bg-white/10">
+        <div className="h-2 rounded-full bg-primary-500" style={{ width: `${bounded}%` }} />
       </div>
     </div>
   );
 }
 
 async function loadArchitectureOverview(): Promise<ArchitectureOverview> {
-  const organizations = await organizationApi.listOrganizations();
-  const workspaceGroups = await Promise.all(
-    organizations.map(async (organization) => ({
-      organization,
-      workspaces: await workspaceApi.listWorkspaces(organization.id),
-    })),
-  );
-
+  const workspaces = await workspaceApi.listWorkspaces();
   const diagramGroups = await Promise.all(
-    workspaceGroups.flatMap(({ organization, workspaces }) =>
-      workspaces.map(async (workspace) => ({
-        organizationId: organization.id,
-        workspaceName: workspace.name,
-        diagrams: await diagramApi.listDiagrams(organization.id, workspace.id),
-      })),
-    ),
+    workspaces.map(async (workspace) => {
+      const diagrams = await diagramApi.listDiagrams(workspace.id);
+      const enriched = await Promise.all(
+        diagrams.map(async (diagram) => ({
+          ...diagram,
+          workspaceName: workspace.name,
+          latestAnalysis: await analysisApi.getDiagramAnalysis(diagram.id),
+          analysisRuns: await analysisApi.listAnalysisRuns(workspace.id, diagram.id),
+        })),
+      );
+      return enriched;
+    }),
   );
 
   return {
-    organizationCount: organizations.length,
-    workspaceCount: workspaceGroups.reduce((total, group) => total + group.workspaces.length, 0),
-    diagrams: diagramGroups.flatMap((group) =>
-      group.diagrams.map((diagram) => ({
-        ...diagram,
-        organizationId: group.organizationId,
-        workspaceName: group.workspaceName,
-      })),
-    ),
+    workspaceCount: workspaces.length,
+    diagrams: diagramGroups.flat(),
   };
 }

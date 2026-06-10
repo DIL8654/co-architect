@@ -95,3 +95,15 @@ export function SparkIcon(props: IconProps) {
 export function CloseIcon(props: IconProps) {
   return <svg {...base} {...props}><path d="m6 6 12 12M18 6 6 18" /></svg>;
 }
+
+export function ChevronRightIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="m9 6 6 6-6 6" /></svg>;
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="m6 9 6 6 6-6" /></svg>;
+}
+
+export function BellIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M15 17H9" /><path d="M18 17H6c1.1-1 2-2.8 2-5V9a4 4 0 1 1 8 0v3c0 2.2.9 4 2 5Z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>;
+}

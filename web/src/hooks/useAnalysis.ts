@@ -13,12 +13,20 @@ export function useRunAnalysis() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { organizationId: string; diagramId: string }) => analysisApi.runAnalysis(data.organizationId, data.diagramId),
+    mutationFn: (data: { workspaceId: string; diagramId: string }) => analysisApi.runAnalysis(data.workspaceId, data.diagramId),
     onSuccess: (data) => {
       // Invalidate and refetch the analysis data
       queryClient.invalidateQueries({
         queryKey: ['diagram-analysis', data.diagramId],
       });
     },
+  });
+}
+
+export function useAnalysisRuns(workspaceId: string, diagramId: string) {
+  return useQuery({
+    queryKey: ['analysis-runs', workspaceId, diagramId],
+    queryFn: () => analysisApi.listAnalysisRuns(workspaceId, diagramId),
+    enabled: !!workspaceId && !!diagramId,
   });
 }

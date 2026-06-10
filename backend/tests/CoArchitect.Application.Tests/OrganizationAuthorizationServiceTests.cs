@@ -1,6 +1,6 @@
 using CoArchitect.Domain.Enums;
+using CoArchitect.Domain.Entities;
 using CoArchitect.Infrastructure.Repositories;
-using CoArchitect.Infrastructure.Seeding;
 using CoArchitect.Infrastructure.Services;
 using Xunit;
 
@@ -13,9 +13,16 @@ public class OrganizationAuthorizationServiceTests
     {
         var repository = new MockOrganizationRepository();
         var service = new OrganizationAuthorizationService(repository);
+        var organizationId = Guid.NewGuid();
+
+        await repository.AddAsync(new Organization
+        {
+            Id = organizationId,
+            Name = "Access Test Org",
+        }, CancellationToken.None);
 
         var randomUserId = Guid.NewGuid();
-        var isMember = await service.IsMemberAsync(DemoDataGenerator.OrganizationId, randomUserId, CancellationToken.None);
+        var isMember = await service.IsMemberAsync(organizationId, randomUserId, CancellationToken.None);
 
         Assert.False(isMember);
     }
@@ -25,10 +32,30 @@ public class OrganizationAuthorizationServiceTests
     {
         var repository = new MockOrganizationRepository();
         var service = new OrganizationAuthorizationService(repository);
+        var organizationId = Guid.NewGuid();
+        var ownerUserId = Guid.NewGuid();
+
+        await repository.AddAsync(new Organization
+        {
+            Id = organizationId,
+            Name = "Role Test Org",
+            Members = new List<OrganizationUser>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    OrganizationId = organizationId,
+                    UserId = ownerUserId,
+                    AddedByUserId = ownerUserId,
+                    Role = OrganizationRole.Owner,
+                    JoinedAt = DateTime.UtcNow,
+                },
+            },
+        }, CancellationToken.None);
 
         var hasRole = await service.HasRoleAsync(
-            DemoDataGenerator.OrganizationId,
-            DemoDataGenerator.OwnerUserId,
+            organizationId,
+            ownerUserId,
             OrganizationRole.Writer,
             CancellationToken.None);
 

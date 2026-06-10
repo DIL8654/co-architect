@@ -31,35 +31,36 @@ public class DiagramCommentsController : ControllerBase
     }
 
     [HttpPost("comments")]
-    [HttpPost("/api/orgs/{organizationId:guid}/diagrams/{diagramId:guid}/comments")]
+    [HttpPost("/api/workspaces/{workspaceId:guid}/diagrams/{diagramId:guid}/comments")]
     public async Task<ActionResult<DiagramCommentResponse>> CreateComment(
-        [FromRoute] Guid? organizationId,
+        [FromRoute] Guid? workspaceId,
         [FromRoute] Guid? diagramId,
         [FromBody] CreateCommentRequest request,
         CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
 
         if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest("Comment content is required.");
+            return this.ValidationProblemFor(nameof(request.Content), "Comment content is required.");
 
         var resolvedDiagramId = diagramId ?? request.DiagramId;
         if (resolvedDiagramId == Guid.Empty)
-            return BadRequest("Diagram is required.");
+            return this.ValidationProblemFor(nameof(request.DiagramId), "Diagram is required.");
 
         var diagram = await _diagramRepository.GetByIdAsync(resolvedDiagramId, cancellationToken);
         if (diagram is null)
-            return BadRequest("Diagram not found.");
+            return this.NotFoundProblem("Diagram not found.");
 
         var workspace = await _workspaceRepository.GetByIdAsync(diagram.WorkspaceId, cancellationToken);
         if (workspace is null)
-            return BadRequest("Workspace not found.");
-
-        if (organizationId.HasValue && workspace.OrganizationId != organizationId.Value)
-            return BadRequest("Diagram does not belong to organization.");
+            return this.NotFoundProblem("Workspace not found.");
 
         var currentUser = _currentUserService.GetCurrentUser();
+        if (workspaceId.HasValue && workspace.Id != workspaceId.Value)
+            return this.ValidationProblemFor("workspaceId", "Diagram does not belong to workspace.");
+        if (workspace.TenantId != currentUser.TenantId)
+            return this.NotFoundProblem("Diagram not found.");
 
         var comment = new DiagramComment
         {
@@ -87,22 +88,25 @@ public class DiagramCommentsController : ControllerBase
     }
 
     [HttpGet("{diagramId}/comments")]
-    [HttpGet("/api/orgs/{organizationId:guid}/diagrams/{diagramId:guid}/comments")]
+    [HttpGet("/api/workspaces/{workspaceId:guid}/diagrams/{diagramId:guid}/comments")]
     public async Task<ActionResult<IEnumerable<DiagramCommentResponse>>> GetDiagramComments(
-        [FromRoute] Guid? organizationId,
+        [FromRoute] Guid? workspaceId,
         [FromRoute] Guid diagramId,
         CancellationToken cancellationToken)
     {
         var diagram = await _diagramRepository.GetByIdAsync(diagramId, cancellationToken);
         if (diagram is null)
-            return NotFound("Diagram not found.");
+            return this.NotFoundProblem("Diagram not found.");
 
         var workspace = await _workspaceRepository.GetByIdAsync(diagram.WorkspaceId, cancellationToken);
         if (workspace is null)
-            return NotFound("Workspace not found.");
+            return this.NotFoundProblem("Workspace not found.");
 
-        if (organizationId.HasValue && workspace.OrganizationId != organizationId.Value)
-            return BadRequest("Diagram does not belong to organization.");
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (workspaceId.HasValue && workspace.Id != workspaceId.Value)
+            return this.ValidationProblemFor("workspaceId", "Diagram does not belong to workspace.");
+        if (workspace.TenantId != currentUser.TenantId)
+            return this.NotFoundProblem("Diagram not found.");
 
         var comments = await _commentRepository.GetByDiagramIdAsync(diagramId, cancellationToken);
 
@@ -127,15 +131,19 @@ public class DiagramCommentsController : ControllerBase
     {
         var comment = await _commentRepository.GetByIdAsync(commentId, cancellationToken);
         if (comment is null)
-            return NotFound();
+            return this.NotFoundProblem("Comment not found.");
 
         var diagram = await _diagramRepository.GetByIdAsync(comment.ArchitectureDiagramId, cancellationToken);
         if (diagram is null)
-            return NotFound("Diagram not found.");
+            return this.NotFoundProblem("Diagram not found.");
 
         var workspace = await _workspaceRepository.GetByIdAsync(diagram.WorkspaceId, cancellationToken);
         if (workspace is null)
-            return NotFound("Workspace not found.");
+            return this.NotFoundProblem("Workspace not found.");
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (workspace.TenantId != currentUser.TenantId)
+            return this.NotFoundProblem("Comment not found.");
 
         await _commentRepository.DeleteAsync(commentId, cancellationToken);
         await _commentRepository.SaveChangesAsync(cancellationToken);

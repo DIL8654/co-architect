@@ -9,7 +9,7 @@ interface AnalysisStep {
 }
 
 interface RunAnalysisButtonProps {
-  organizationId: string;
+  workspaceId: string;
   diagramId: string;
   onAnalysisComplete?: (analysis: ArchitectureAnalysisResult) => void;
   disabled?: boolean;
@@ -29,7 +29,7 @@ const STEP_DURATION = 1200; // 1.2 seconds per step for smooth animation
 const TOTAL_DURATION = ANALYSIS_STEPS.length * STEP_DURATION;
 
 export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysisButtonProps>(
-  ({ organizationId, diagramId, onAnalysisComplete, disabled }, ref) => {
+  ({ workspaceId, diagramId, onAnalysisComplete, disabled }, ref) => {
     const [isRunning, setIsRunning] = useState(false);
     const [steps, setSteps] = useState<AnalysisStep[]>(
       ANALYSIS_STEPS.map((step) => ({ ...step, status: 'pending' as const }))
@@ -77,7 +77,7 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
     const runAnalysisAPI = async () => {
       try {
         const { analysisApi } = await import('../api/analysis');
-        const result = await analysisApi.runAnalysis(organizationId, diagramId);
+        const result = await analysisApi.runAnalysis(workspaceId, diagramId);
         setAnalysisResult(result);
         setShowResults(true);
         onAnalysisComplete?.(result);

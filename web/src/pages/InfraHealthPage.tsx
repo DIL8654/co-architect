@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Badge, Button, Card, ErrorState, HealthIcon, LoadingState } from '../components';
+import { Badge, Breadcrumbs, Button, ErrorState, LoadingState } from '../components';
 import { infraHealthApi, type InfraHealthCheck } from '../api/infraHealth';
 
 const statusVariant = {
@@ -23,13 +23,7 @@ function titleForCheck(check: InfraHealthCheck) {
 }
 
 export function InfraHealthPage() {
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-    isFetching,
-  } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['infra-health'],
     queryFn: () => infraHealthApi.getInfraHealth(),
     refetchOnWindowFocus: false,
@@ -50,19 +44,15 @@ export function InfraHealthPage() {
   }
 
   return (
-    <div className="page-shell max-w-5xl">
+    <div className="page-shell">
       <section className="page-header">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="glow-icon">
-              <HealthIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="page-title">Infrastructure Health</h1>
-              <p className="page-description mt-2">
-                Last checked {new Date(data.checkedAt).toLocaleString()}
-              </p>
-            </div>
+        <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Health' }]} />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="page-title">Infrastructure Health</h1>
+            <p className="page-description">
+              Verify the runtime connectivity required for architecture review. Last checked {new Date(data.checkedAt).toLocaleString()}.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Badge variant={statusVariant[data.status]}>{data.status}</Badge>
@@ -73,22 +63,51 @@ export function InfraHealthPage() {
         </div>
       </section>
 
-      <div className="grid gap-4">
-        {data.checks.map((check) => (
-          <Card key={check.name}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-secondary-950 dark:text-white">{titleForCheck(check)}</h2>
-                <p className="mt-1 text-sm text-secondary-500 dark:text-secondary-400">{check.provider}</p>
-              </div>
-              <Badge variant={statusVariant[check.status]}>{check.status}</Badge>
-            </div>
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-secondary-700 dark:text-secondary-200">
-              {check.message}
-            </p>
-          </Card>
-        ))}
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Overall</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{data.status}</p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Checks</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{data.checks.length}</p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Healthy</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">
+            {data.checks.filter((item) => item.status === 'healthy').length}
+          </p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Attention</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">
+            {data.checks.filter((item) => item.status !== 'healthy').length}
+          </p>
+        </div>
       </div>
+
+      <section className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
+        <table className="w-full">
+          <thead className="border-b border-[#dde1e6] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Service</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Provider</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.checks.map((check) => (
+              <tr key={check.name} className="border-b border-[#eef1f4] align-top last:border-0 dark:border-white/10">
+                <td className="px-4 py-4 text-sm font-medium text-secondary-950 dark:text-white">{titleForCheck(check)}</td>
+                <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{check.provider}</td>
+                <td className="px-4 py-4"><Badge variant={statusVariant[check.status]}>{check.status}</Badge></td>
+                <td className="px-4 py-4 text-sm leading-6 text-secondary-700 dark:text-secondary-200">{check.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }

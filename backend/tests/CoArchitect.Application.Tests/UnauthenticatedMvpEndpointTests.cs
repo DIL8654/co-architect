@@ -1,6 +1,7 @@
 using CoArchitect.Api.Controllers;
 using CoArchitect.Api.DTOs;
 using CoArchitect.Api.Services;
+using CoArchitect.Application.Interfaces;
 using CoArchitect.Application.Services;
 using CoArchitect.Domain.Models;
 using CoArchitect.Infrastructure.Repositories;
@@ -15,39 +16,45 @@ namespace CoArchitect.Application.Tests;
 public class UnauthenticatedMvpEndpointTests
 {
     [Fact]
-    public void SystemCurrentUser_IsStableAuditPlaceholder()
+    public void LocalCurrentUser_IsStableTenantScopedPlaceholder()
     {
-        var user = new SystemCurrentUserService().GetCurrentUser();
+        var user = new LocalCurrentUserService().GetCurrentUser();
 
         Assert.Equal(Guid.Parse("00000000-0000-0000-0000-000000000001"), user.UserId);
-        Assert.Equal("system@coarchitect.ai", user.Email);
-        Assert.Equal("CoArchitect System User", user.DisplayName);
+        Assert.Equal(Guid.Parse("00000000-0000-0000-0000-000000000101"), user.TenantId);
+        Assert.Equal("local-admin@coarchitect.ai", user.Email);
+        Assert.Equal("CoArchitect Local Admin", user.DisplayName);
+        Assert.Contains(FronteggRoles.Admin, user.Roles);
     }
 
     [Fact]
     public async Task RequiredMvpFlow_WorksWithoutAuth()
     {
-        var currentUserService = new SystemCurrentUserService();
-        var organizationRepository = new MockOrganizationRepository();
+        var currentUserService = new LocalCurrentUserService();
         var workspaceRepository = new MockWorkspaceRepository();
         var diagramRepository = new MockDiagramRepository();
         var commentRepository = new MockDiagramCommentRepository();
         var analysisRepository = new MockAgentAnalysisRunRepository();
+        var adrRepository = new MockAdrRepository();
+        IFrameworkSelectionService frameworkSelectionService = new FrameworkSelectionService();
 
-        var organizationsController = new OrganizationsController(
-            organizationRepository,
-            currentUserService,
-            NullLogger<OrganizationsController>.Instance);
         var workspacesController = new WorkspacesController(
             workspaceRepository,
-            organizationRepository,
             diagramRepository,
+            commentRepository,
+            analysisRepository,
+            adrRepository,
+            currentUserService,
             NullLogger<WorkspacesController>.Instance);
         var diagramsController = new DiagramsController(
             diagramRepository,
             workspaceRepository,
+            commentRepository,
+            analysisRepository,
+            adrRepository,
             currentUserService,
             new NoopArchitectureFileStorage(),
+            frameworkSelectionService,
             NullLogger<DiagramsController>.Instance);
         var commentsController = new DiagramCommentsController(
             commentRepository,
@@ -58,82 +65,106 @@ public class UnauthenticatedMvpEndpointTests
         var analysisController = new DiagramAnalysisController(
             analysisRepository,
             diagramRepository,
-            new MockArchitectureAgentService(),
+            new MultiAgentArchitectureAnalysisService(new MockArchitectureAgentService(), frameworkSelectionService),
             new ArchitectureIntelligenceScoreService(),
             workspaceRepository,
+            currentUserService,
             NullLogger<DiagramAnalysisController>.Instance);
-
-        var slug = $"test-org-{Guid.NewGuid():N}";
-        var slugAvailable = await organizationsController.CheckSlugAvailable(slug, CancellationToken.None);
-        var slugOk = AssertOk<bool>(slugAvailable);
-        Assert.True(slugOk);
-
-        var createdOrganization = await organizationsController.CreateOrganization(
-            new CreateOrganizationRequest { Name = $"Test Org {Guid.NewGuid():N}", Slug = slug },
-            CancellationToken.None);
-        var organization = AssertCreated<OrganizationResponse>(createdOrganization);
-        Assert.Equal(1, organization.MemberCount);
-
-        var organizations = AssertOk<IEnumerable<OrganizationResponse>>(
-            await organizationsController.ListOrganizations(CancellationToken.None));
-        Assert.Contains(organizations, item => item.Id == organization.Id);
+        var adrsController = new AdrsController(
+            adrRepository,
+            new AdrGenerationService(),
+            diagramRepository,
+            workspaceRepository,
+            commentRepository,
+            analysisRepository,
+            currentUserService);
 
         var createdWorkspace = await workspacesController.CreateWorkspace(
-            organization.Id,
-            new CreateWorkspaceRequest { OrganizationId = organization.Id, Name = "Test Workspace" },
+            new CreateWorkspaceRequest { Name = "Test Workspace" },
             CancellationToken.None);
         var workspace = AssertCreated<WorkspaceResponse>(createdWorkspace);
 
         var workspaces = AssertOk<IEnumerable<WorkspaceResponse>>(
-            await workspacesController.ListWorkspaces(organization.Id, null, CancellationToken.None));
+            await workspacesController.ListWorkspaces(CancellationToken.None));
         Assert.Contains(workspaces, item => item.Id == workspace.Id);
 
         var createdDiagram = await diagramsController.UploadDiagram(
-            organization.Id,
             workspace.Id,
             new UploadDiagramRequest
             {
                 WorkspaceId = workspace.Id,
                 Name = "Test Architecture",
-                Description = "React frontend, .NET API, PostgreSQL, no monitoring, no tenant isolation, no audit logging.",
+                Description = "React frontend, .NET API, TiDB, no monitoring, no tenant isolation, no audit logging.",
+                ReviewSetupJson = """
+                {
+                  "businessDomain":"B2B SaaS",
+                  "targetUsers":"External customer tenants",
+                  "expectedTraffic":"Moderate burst traffic",
+                  "dataSensitivity":"PII",
+                  "cloudProviderPreference":"Azure",
+                  "complianceNeeds":"Audit logging and tenant isolation",
+                  "currentPainPoints":"No monitoring",
+                  "frameworkSelectionMode":"AutoDetect",
+                  "requestedFrameworks":[],
+                  "qualityAttributeWeights":[
+                    { "key":"security","label":"Security","weight":25 },
+                    { "key":"availability","label":"Availability","weight":20 },
+                    { "key":"scalability","label":"Scalability","weight":15 },
+                    { "key":"cost","label":"Cost","weight":10 },
+                    { "key":"maintainability","label":"Maintainability","weight":10 },
+                    { "key":"compliance","label":"Compliance","weight":10 },
+                    { "key":"deliverySpeed","label":"Delivery Speed","weight":10 }
+                  ]
+                }
+                """,
             },
             CancellationToken.None);
         var diagram = AssertCreated<ArchitectureDiagramResponse>(createdDiagram);
-        Assert.Equal(SystemCurrentUserService.UserId, diagram.UploadedByUserId);
+        Assert.Equal(LocalCurrentUserService.UserId, diagram.UploadedByUserId);
 
         var diagrams = AssertOk<IEnumerable<ArchitectureDiagramResponse>>(
-            await diagramsController.ListDiagrams(organization.Id, workspace.Id, null, CancellationToken.None));
+            await diagramsController.ListDiagrams(workspace.Id, null, CancellationToken.None));
         Assert.Contains(diagrams, item => item.Id == diagram.Id);
 
         var loadedDiagram = AssertOk<ArchitectureDiagramResponse>(
-            await diagramsController.GetDiagram(organization.Id, diagram.Id, CancellationToken.None));
+            await diagramsController.GetDiagram(diagram.Id, CancellationToken.None));
         Assert.Equal(diagram.Id, loadedDiagram.Id);
 
         var createdComment = await commentsController.CreateComment(
-            organization.Id,
+            workspace.Id,
             diagram.Id,
             new CreateCommentRequest { DiagramId = diagram.Id, Content = "Looks ready for analysis." },
             CancellationToken.None);
         var comment = AssertCreated<DiagramCommentResponse>(createdComment);
-        Assert.Equal(SystemCurrentUserService.UserId, comment.UserId);
+        Assert.Equal(LocalCurrentUserService.UserId, comment.UserId);
 
         var comments = AssertOk<IEnumerable<DiagramCommentResponse>>(
-            await commentsController.GetDiagramComments(organization.Id, diagram.Id, CancellationToken.None));
+            await commentsController.GetDiagramComments(workspace.Id, diagram.Id, CancellationToken.None));
         Assert.Contains(comments, item => item.Id == comment.Id);
 
-        var runResult = await analysisController.RunAnalysis(organization.Id, diagram.Id, CancellationToken.None);
+        var runResult = await analysisController.RunAnalysis(workspace.Id, diagram.Id, CancellationToken.None);
         var analysis = AssertOk<ArchitectureAnalysisResponse>(runResult);
         Assert.NotEqual(Guid.Empty, analysis.Id);
         Assert.True(analysis.FinalScore > 0);
-        Assert.False(string.IsNullOrWhiteSpace(analysis.ScoreBand));
-        Assert.NotEmpty(analysis.DimensionBreakdowns);
-        Assert.NotEmpty(analysis.MissingControls);
-        Assert.NotEmpty(analysis.Recommendations);
-        Assert.NotEmpty(analysis.Tradeoffs);
+        Assert.NotEmpty(analysis.AgentTrace);
 
         var loadedAnalysis = AssertOk<ArchitectureAnalysisResponse>(
-            await analysisController.GetAnalysisRun(organization.Id, diagram.Id, analysis.Id, CancellationToken.None));
+            await analysisController.GetAnalysisRun(workspace.Id, diagram.Id, analysis.Id, CancellationToken.None));
         Assert.Equal(analysis.Id, loadedAnalysis.Id);
+
+        var history = AssertOk<IEnumerable<AnalysisRunTimelineItemResponse>>(
+            await analysisController.ListAnalysisRuns(workspace.Id, diagram.Id, CancellationToken.None));
+        Assert.Contains(history, item => item.Id == analysis.Id);
+
+        var adrResponse = AssertCreated<AdrResponse>(
+            await adrsController.Generate(workspace.Id, diagram.Id, CancellationToken.None));
+        Assert.Equal(1, adrResponse.LatestVersionNumber);
+        Assert.NotNull(adrResponse.LatestVersion);
+
+        var regenerated = AssertOk<AdrResponse>(
+            await adrsController.Regenerate(workspace.Id, diagram.Id, adrResponse.Id, CancellationToken.None));
+        Assert.Equal(2, regenerated.LatestVersionNumber);
+        Assert.Equal(2, regenerated.Versions.Count);
     }
 
     [Fact]
@@ -156,6 +187,52 @@ public class UnauthenticatedMvpEndpointTests
 
         Assert.True(score.FinalScore > 0);
         Assert.NotEmpty(score.DimensionBreakdown);
+    }
+
+    [Fact]
+    public async Task WorkspaceCreate_InvalidRequest_ReturnsProblemDetails()
+    {
+        var controller = new WorkspacesController(
+            new MockWorkspaceRepository(),
+            new MockDiagramRepository(),
+            new MockDiagramCommentRepository(),
+            new MockAgentAnalysisRunRepository(),
+            new MockAdrRepository(),
+            new LocalCurrentUserService(),
+            NullLogger<WorkspacesController>.Instance);
+
+        var result = await controller.CreateWorkspace(
+            new CreateWorkspaceRequest { Name = "   " },
+            CancellationToken.None);
+
+        var objectResult = Assert.IsAssignableFrom<ObjectResult>(result.Result);
+        Assert.Equal(400, objectResult.StatusCode);
+        var problem = Assert.IsType<ValidationProblemDetails>(objectResult.Value);
+        Assert.Equal("Validation failed", problem.Title);
+        Assert.Contains("Workspace name is required.", problem.Errors[nameof(CreateWorkspaceRequest.Name)]);
+    }
+
+    [Fact]
+    public async Task DiagramLookup_MissingDiagram_ReturnsProblemDetails()
+    {
+        var controller = new DiagramsController(
+            new MockDiagramRepository(),
+            new MockWorkspaceRepository(),
+            new MockDiagramCommentRepository(),
+            new MockAgentAnalysisRunRepository(),
+            new MockAdrRepository(),
+            new LocalCurrentUserService(),
+            new NoopArchitectureFileStorage(),
+            new FrameworkSelectionService(),
+            NullLogger<DiagramsController>.Instance);
+
+        var result = await controller.GetDiagram(Guid.NewGuid(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(404, objectResult.StatusCode);
+        var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal("Resource not found", problem.Title);
+        Assert.Equal("Diagram not found.", problem.Detail);
     }
 
     private static T AssertOk<T>(ActionResult<T> result)

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Card, EmptyState, LoadingState } from '../components';
+import { Badge, Breadcrumbs, Button, Card, EmptyState, LoadingState } from '../components';
 import { useDiagram } from '../hooks/useDiagrams';
 import { useDiagramAnalysis } from '../hooks/useAnalysis';
 import type { MissingControl } from '../api/analysis';
@@ -162,7 +162,7 @@ export function RecommendationsPage() {
   const [sortField, setSortField] = useState<SortField>('severity');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  const { data: diagram, isLoading: isDiagramLoading, isError: isDiagramError } = useDiagram(resolvedOrgId!, diagramId!);
+  const { data: diagram, isLoading: isDiagramLoading, isError: isDiagramError } = useDiagram(diagramId!);
   const { data: analysis, isLoading: isAnalysisLoading } = useDiagramAnalysis(diagramId!);
 
   const rows = useMemo<RecommendationRow[]>(() => {
@@ -237,41 +237,50 @@ export function RecommendationsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <Button variant="ghost" onClick={() => navigate(-1)} className="mb-3">
-            ← Back
-          </Button>
-          <h1 className="text-4xl font-bold text-secondary-900">Recommendations</h1>
-          <p className="mt-2 text-secondary-600">
-            Missing components for {diagram.name}
-          </p>
-        </div>
+    <div className="page-shell">
+      <section className="page-header">
+        <Breadcrumbs
+          items={[
+            { label: 'Organizations', to: '/organizations' },
+            { label: 'Diagram', to: `/orgs/${resolvedOrgId}/diagrams/${diagramId}` },
+            { label: 'Recommendations' },
+          ]}
+        />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="page-title">Recommendations</h1>
+            <p className="page-description">
+              Table view of missing components and recommended improvements for {diagram.name}.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => navigate(`/orgs/${resolvedOrgId}/diagrams/${diagramId}`)}>
-            View Diagram
-          </Button>
-          <Button variant="secondary" onClick={clearFilters}>
-            Clear Filters
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => navigate(`/orgs/${resolvedOrgId}/diagrams/${diagramId}`)}>
+              Back to Diagram
+            </Button>
+            <Button variant="secondary" onClick={clearFilters}>
+              Clear Filters
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card header="Missing Components">
-          <p className="text-3xl font-bold text-secondary-900">{rows.length}</p>
-          <p className="text-sm text-secondary-600 mt-1">Findings identified by the analysis</p>
-        </Card>
-        <Card header="Filtered Results">
-          <p className="text-3xl font-bold text-secondary-900">{filteredRows.length}</p>
-          <p className="text-sm text-secondary-600 mt-1">Rows shown after filters and sorting</p>
-        </Card>
-        <Card header="Current Analysis">
-          <p className="text-3xl font-bold text-secondary-900">{analysis?.finalScore?.toFixed(1) ?? '—'}</p>
-          <p className="text-sm text-secondary-600 mt-1">{analysis?.scoreBand ?? 'No score band available'}</p>
-        </Card>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Missing Components</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{rows.length}</p>
+          <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">Findings identified by the analysis</p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Filtered Results</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{filteredRows.length}</p>
+          <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">Rows shown after filters and sorting</p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Current Score</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{analysis?.finalScore?.toFixed(1) ?? '—'}</p>
+          <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">{analysis?.scoreBand ?? 'No score band available'}</p>
+        </div>
       </div>
 
       <Card header="Filters and Sorting">

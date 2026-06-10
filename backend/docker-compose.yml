@@ -21,35 +21,18 @@ services:
       - AZURE_CLIENT_SECRET=
       - AZURE_TENANT_ID=
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1
-      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING:-${POSTGRES_CONNECTION_STRING:-Host=postgres;Database=coarchitect;Username=postgres;Password=postgres}}
-      - ConnectionStrings__Default=${DATABASE_CONNECTION_STRING:-${POSTGRES_CONNECTION_STRING:-Host=postgres;Database=coarchitect;Username=postgres;Password=postgres}}
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING:-}
+      - ConnectionStrings__Default=${DATABASE_CONNECTION_STRING:-}
       - Cors__AllowedOrigins__0=http://localhost:5173
       - Cors__AllowedOrigins__1=http://127.0.0.1:5173
+      - Cors__AllowedOrigins__2=http://[::1]:5173
     depends_on:
       azurite:
-        condition: service_healthy
-      postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/80'"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: coarchitect
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - '${POSTGRES_PORT:-5432}:5432'
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 3s
       retries: 5
 
   azurite:
@@ -68,4 +51,3 @@ services:
 
 volumes:
   azurite-data:
-  postgres-data:

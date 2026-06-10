@@ -6,5 +6,6 @@ public interface IDiagramCommentRepository
     Task<IEnumerable<Domain.Entities.DiagramComment>> GetByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken);
     Task<Domain.Entities.DiagramComment> AddAsync(Domain.Entities.DiagramComment comment, CancellationToken cancellationToken);
     Task DeleteAsync(Guid commentId, CancellationToken cancellationToken);
+    Task DeleteByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

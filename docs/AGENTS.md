@@ -1,98 +1,42 @@
 # CoArchitect AI Agents
 
-## Architecture Parser Agent
+## Current State
 
-Purpose:
-Extract architecture components from text and diagrams.
+The current MVP uses a single analysis flow with domain-specific scoring and recommendation outputs.
 
-Outputs:
-- Components
-- Data stores
-- Integrations
-- Security controls
-- Missing information
+## Planned Multi-Agent Model
 
----
+CoArchitect AI is being planned as a multi-agent reasoning platform.
 
-## Security Agent
+Primary planned agents:
 
-Focus:
-- Authentication
-- Authorization
-- Secrets Management
-- Encryption
-- Tenant Isolation
-- Audit Logging
+- Intake Agent
+- Diagram Understanding Agent
+- Framework Selection Agent
+- Azure Well-Architected Agent
+- AWS Well-Architected Agent
+- ISO 25010 Quality Agent
+- OWASP ASVS Agent
+- Trade-off Balancing Agent
+- Architecture Scoring Agent
+- ADR Generation Agent
+- Critic / Verifier Agent
+- Recommendation Composer Agent
 
----
+## Orchestration
 
-## Availability Agent
+Planned orchestration:
 
-Focus:
-- High Availability
-- Backup Strategy
-- Disaster Recovery
-- RTO
-- RPO
-- Failover
+Planner -> Specialist Agents -> Trade-off Balancer -> Scoring -> ADR Generator -> Critic -> Final Composer
 
----
+## Grounding
 
-## Scalability Agent
+Specialist agents should ground on curated knowledge summaries and templates under `docs/knowledge-base/`.
 
-Focus:
-- Horizontal Scaling
-- Caching
-- Queueing
-- Partitioning
-- Database Scaling
+## References
 
----
-
-## Operational Excellence Agent
-
-Focus:
-- Monitoring
-- Alerting
-- Tracing
-- Logging
-- Runbooks
-
----
-
-## Compliance Agent
-
-Focus:
-- GDPR
-- SOC2
-- ISO27001
-- Data Retention
-- Data Deletion
-
----
-
-## Tradeoff Agent
-
-Focus:
-Evaluate architecture tradeoffs.
-
-Example:
-
-Pros:
-- Simpler architecture
-
-Cons:
-- Lower scalability
-
----
-
-## Recommendation Agent
-
-Purpose:
-Aggregate all findings.
-
-Output:
-- Missing Components
-- Risks
-- Recommendations
-- Priorities
+- `docs/REASONING_AGENTS_PLAN.md`
+- `docs/FRAMEWORK_SELECTION.md`
+- `docs/TRADEOFF_BALANCING.md`
+- `docs/ADR_WORKFLOW.md`
+- `docs/KNOWLEDGE_BASE_PLAN.md`

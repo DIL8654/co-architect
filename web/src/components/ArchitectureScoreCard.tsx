@@ -6,6 +6,7 @@ import type { ArchitectureAnalysisResult, DimensionBreakdown } from '../api/anal
 interface ArchitectureScoreCardProps {
   currentAnalysis: ArchitectureAnalysisResult;
   previousAnalysis?: ArchitectureAnalysisResult | null;
+  showDimensions?: boolean;
 }
 
 interface DimensionConfig {
@@ -71,7 +72,7 @@ const getDimensionValue = (breakdowns: DimensionBreakdown[] | undefined, key: st
 const formatScore = (score?: number | null) => (score === null || score === undefined ? '—' : score.toFixed(1));
 
 export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, ArchitectureScoreCardProps>(
-  ({ currentAnalysis, previousAnalysis }, ref) => {
+  ({ currentAnalysis, previousAnalysis, showDimensions = true }, ref) => {
     const currentScore = currentAnalysis.finalScore ?? null;
     const previousScore = previousAnalysis?.finalScore ?? null;
     const bandMeta = getBandMeta(currentScore ?? undefined, currentAnalysis.scoreBand);
@@ -82,7 +83,7 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
     return (
       <Card ref={ref} header="Architecture Intelligence Score">
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3">
             <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 dark:border-cyan-300/20 dark:bg-cyan-400/10">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Current Score</p>
               <div className="mt-2 flex items-end gap-2">
@@ -120,7 +121,7 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3">
             <div className="rounded-xl border border-secondary-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
               <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Previous Score</p>
               <div className="mt-2 flex items-end gap-2">
@@ -144,10 +145,11 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
             </div>
           </div>
 
+          {showDimensions && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <h4 className="text-sm font-semibold text-secondary-950 dark:text-white">Dimension Scores</h4>
-              <span className="text-xs text-secondary-500 dark:text-secondary-400">0-5 maturity scale mapped to weighted contribution</span>
+              <span className="text-xs text-secondary-500 dark:text-secondary-400">0-5 maturity scale</span>
             </div>
 
             {currentAnalysis.dimensionBreakdowns && currentAnalysis.dimensionBreakdowns.length > 0 ? (
@@ -159,12 +161,12 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
 
                   return (
                     <div key={dimension.key} className="rounded-xl border border-secondary-100 bg-secondary-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-                      <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="mb-2 flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-secondary-950 dark:text-white">{dimension.label}</p>
                           <p className="text-xs text-secondary-500 dark:text-secondary-400">{breakdown ? `Maturity ${breakdown.maturity}/5` : 'No score available'}</p>
                         </div>
-                        <div className="text-right text-xs text-secondary-600 dark:text-secondary-300">
+                        <div className="shrink-0 text-right text-xs text-secondary-600 dark:text-secondary-300">
                           <div>{breakdown ? `${breakdown.contribution.toFixed(1)} pts` : '— pts'}</div>
                           <div>{breakdown ? `${breakdown.weight.toFixed(0)}% weight` : '— weight'}</div>
                         </div>
@@ -193,6 +195,7 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
               </p>
             )}
           </div>
+          )}
         </div>
       </Card>
     );

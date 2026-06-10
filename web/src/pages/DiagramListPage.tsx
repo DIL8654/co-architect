@@ -1,71 +1,41 @@
-import React from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Breadcrumbs, Button, ErrorState, LoadingState, EmptyState, DiagramIcon, UploadIcon } from '../components';
-import { useDiagrams, useDeleteDiagram } from '../hooks/useDiagrams';
-import type { ArchitectureDiagram } from '../api/diagrams';
+import { Breadcrumbs, Button, DiagramIcon, EmptyState, ErrorState, LoadingState, Modal, UploadIcon } from '../components';
+import { useDeleteDiagram, useDiagrams } from '../hooks/useDiagrams';
 
 export function DiagramListPage() {
-  const { orgId, organizationId, workspaceId } = useParams<{ orgId: string; organizationId: string; workspaceId: string }>();
-  const resolvedOrgId = orgId ?? organizationId;
+  const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
-  const { data: diagrams, isLoading, isError, refetch } = useDiagrams(resolvedOrgId, workspaceId);
+  const { data: diagrams, isLoading, isError, refetch } = useDiagrams(workspaceId);
   const deleteMutation = useDeleteDiagram();
+  const [diagramToDelete, setDiagramToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  if (!workspaceId || !resolvedOrgId) {
-    return (
-      <ErrorState
-        title="Invalid workspace"
-        message="Please select a valid organization and workspace."
-      />
-    );
+  if (!workspaceId) {
+    return <ErrorState title="Invalid workspace" message="Please select a valid workspace." />;
   }
 
-  const handleDeleteDiagram = async (diagramId: string) => {
-    if (confirm('Are you sure you want to delete this diagram?')) {
-      try {
-        await deleteMutation.mutateAsync(diagramId);
-        refetch();
-      } catch (error) {
-        console.error('Failed to delete diagram:', error);
-      }
-    }
-  };
+  const uploadRoute = `/workspaces/${workspaceId}/diagrams/upload`;
 
-  const handleSelectDiagram = (diagram: ArchitectureDiagram) => {
-    navigate(`/orgs/${resolvedOrgId}/diagrams/${diagram.id}`);
+  const handleDeleteDiagram = async () => {
+    if (!diagramToDelete) return;
+
+    try {
+      await deleteMutation.mutateAsync(diagramToDelete.id);
+      setDiagramToDelete(null);
+      refetch();
+    } catch (error) {
+      console.error('Failed to delete diagram:', error);
+    }
   };
 
   if (isLoading) return <LoadingState message="Loading diagrams..." />;
 
-  if (isError)
+  if (isError) {
     return (
       <ErrorState
         title="Failed to load diagrams"
         message="An error occurred while fetching diagrams."
-        action={
-          <Button variant="primary" onClick={() => refetch()}>
-            Retry
-          </Button>
-        }
-      />
-    );
-
-  if (!diagrams || diagrams.length === 0) {
-    return (
-      <EmptyState
-        title="No diagrams yet"
-        description="Upload your first architecture diagram to get started."
-        action={
-          <Button
-            onClick={() =>
-              navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/upload`)
-            }
-            variant="primary"
-            icon={<UploadIcon className="h-4 w-4" />}
-          >
-            Upload Diagram
-          </Button>
-        }
+        action={<Button onClick={() => refetch()}>Retry</Button>}
       />
     );
   }
@@ -73,72 +43,92 @@ export function DiagramListPage() {
   return (
     <div className="page-shell">
       <section className="page-header">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Breadcrumbs items={[{ label: 'Workspaces', to: '/workspaces' }, { label: 'Diagrams' }]} />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-4">
-              <Breadcrumbs
-                items={[
-                  { label: 'Organizations', to: '/organizations' },
-                  { label: 'Workspaces', to: `/orgs/${resolvedOrgId}/workspaces` },
-                  { label: 'Diagrams' },
-                ]}
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="glow-icon">
-                <DiagramIcon className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="page-title">Diagrams</h1>
-                <p className="page-description mt-2">Upload architecture evidence and open any diagram to run AI analysis.</p>
-              </div>
-            </div>
+            <h1 className="page-title">Diagrams</h1>
+            <p className="page-description">
+              Upload architecture evidence here. Open a specific diagram from the sidebar tree to work in the detail workspace.
+            </p>
           </div>
-          <Button
-            icon={<UploadIcon className="h-4 w-4" />}
-            onClick={() =>
-              navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/upload`)
-            }
-          >
+          <Button onClick={() => navigate(uploadRoute)} icon={<UploadIcon className="h-4 w-4" />}>
             Upload Diagram
           </Button>
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {diagrams.map((diagram) => (
-          <article
-            key={diagram.id}
-            className="group overflow-hidden rounded-2xl border border-secondary-200 bg-white/[0.86] shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-white/5"
-          >
-            <button type="button" onClick={() => handleSelectDiagram(diagram)} className="block w-full p-5 text-left">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div className="glow-icon">
-                  <DiagramIcon className="h-5 w-5" />
-                </div>
-                <span className="rounded-full bg-primary-100 px-2 py-1 text-xs font-semibold text-primary-800 dark:bg-cyan-400/10 dark:text-cyan-200">
-                  {diagram.architectureScore !== null && diagram.architectureScore !== undefined ? `${diagram.architectureScore.toFixed(1)}/100` : 'Not scored'}
-                </span>
-              </div>
-              <h2 className="text-lg font-bold text-secondary-950 dark:text-white">{diagram.name}</h2>
-              <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-600 dark:text-secondary-300">
-                {diagram.description || diagram.originalFileName || 'Architecture diagram'}
-              </p>
-              <p className="mt-4 text-xs text-secondary-500 dark:text-secondary-400">
-                Uploaded {new Date(diagram.uploadedAt).toLocaleDateString()}
-              </p>
-            </button>
-            <div className="flex items-center justify-between border-t border-secondary-200 px-5 py-3 dark:border-white/10">
-              <Button size="sm" variant="ghost" onClick={() => handleSelectDiagram(diagram)}>
-                Open
-              </Button>
-              <Button size="sm" variant="danger" onClick={() => handleDeleteDiagram(diagram.id)}>
-                Delete
-              </Button>
-            </div>
-          </article>
-        ))}
-      </div>
+      {!diagrams || diagrams.length === 0 ? (
+        <EmptyState
+          title="No diagrams yet"
+          description="Upload your first architecture image or description to begin the review flow."
+          action={
+            <Button onClick={() => navigate(uploadRoute)} icon={<UploadIcon className="h-4 w-4" />}>
+              Upload Diagram
+            </Button>
+          }
+        />
+      ) : (
+        <section className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
+          <table className="w-full">
+            <thead className="border-b border-[#dde1e6] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Diagram</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Score</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Uploaded</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Source</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-secondary-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagrams.map((diagram) => (
+                <tr key={diagram.id} className="border-b border-[#eef1f4] last:border-0 dark:border-white/10">
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className="glow-icon h-9 w-9">
+                        <DiagramIcon className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="font-medium text-secondary-950 dark:text-white">{diagram.name}</p>
+                        <p className="text-xs text-secondary-500 dark:text-secondary-400">Use the sidebar tree to open details</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{scoreLabel(diagram.architectureScore)}</td>
+                  <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">
+                    {new Date(diagram.uploadedAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{diagram.originalFileName || 'Description'}</td>
+                  <td className="px-4 py-4 text-right">
+                    <Button size="sm" variant="danger" onClick={() => setDiagramToDelete({ id: diagram.id, name: diagram.name })}>
+                      Delete
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      <Modal isOpen={!!diagramToDelete} onClose={() => setDiagramToDelete(null)} title="Delete Diagram">
+        <div className="space-y-4 p-4">
+          <p className="text-sm text-secondary-600 dark:text-secondary-300">
+            Delete <strong>{diagramToDelete?.name}</strong> and all comments, analysis runs, and ADR versions?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDiagramToDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDeleteDiagram} isLoading={deleteMutation.isPending}>
+              Delete Diagram
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
+}
+
+function scoreLabel(score?: number) {
+  return score !== null && score !== undefined ? `${score.toFixed(1)}/100` : 'Not scored';
 }

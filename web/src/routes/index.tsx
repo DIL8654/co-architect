@@ -1,25 +1,46 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
-import { OrganizationListPage } from '../pages/OrganizationListPage';
-import { OrganizationSetupPage } from '../pages/OrganizationSetupPage';
 import { WorkspaceListPage } from '../pages/WorkspaceListPage';
 import { DiagramListPage } from '../pages/DiagramListPage';
 import { UploadDiagramPage } from '../pages/UploadDiagramPage';
 import { DiagramDetailPage } from '../pages/DiagramDetailPage';
-import { RecommendationsPage } from '../pages/RecommendationsPage';
-import { TradeoffAnalysisPage } from '../pages/TradeoffAnalysisPage';
-import { OrganizationMembersPage } from '../pages/OrganizationMembersPage';
 import { LandingPage } from '../pages/LandingPage';
 import { AnalysisResultPage } from '../pages/AnalysisResultPage';
 import { InfraHealthPage } from '../pages/InfraHealthPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { DocsPage } from '../pages/DocsPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { LocalSetupPage } from '../pages/LocalSetupPage';
+import { useLocalIdentity } from '../hooks/useLocalIdentity';
+
+function AppBootstrapLayout() {
+  const identity = useLocalIdentity();
+
+  if (!identity.isConfigured) {
+    return <Navigate to="/setup" replace />;
+  }
+
+  return <AppLayout />;
+}
+
+function LocalSetupRoute() {
+  const identity = useLocalIdentity();
+
+  if (identity.isConfigured) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <LocalSetupPage />;
+}
 
 export const router = createBrowserRouter([
   {
+    path: '/setup',
+    element: <LocalSetupRoute />,
+  },
+  {
     path: '/',
-    element: <AppLayout />,
+    element: <AppBootstrapLayout />,
     children: [
       {
         index: true,
@@ -28,10 +49,6 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <DashboardPage />,
-      },
-      {
-        path: 'organizations',
-        element: <OrganizationListPage />,
       },
       {
         path: 'docs',
@@ -46,52 +63,28 @@ export const router = createBrowserRouter([
         element: <InfraHealthPage />,
       },
       {
-        path: 'organizations/new',
-        element: <OrganizationSetupPage />,
-      },
-      {
-        path: 'orgs/:orgId/workspaces',
+        path: 'workspaces',
         element: <WorkspaceListPage />,
       },
       {
-        path: 'orgs/:orgId/members',
-        element: <OrganizationMembersPage />,
-      },
-      {
-        path: 'orgs/:orgId/workspaces/:workspaceId/diagrams',
+        path: 'workspaces/:workspaceId',
         element: <DiagramListPage />,
       },
       {
-        path: 'orgs/:orgId/workspaces/:workspaceId/diagrams/upload',
+        path: 'workspaces/:workspaceId/diagrams',
+        element: <DiagramListPage />,
+      },
+      {
+        path: 'workspaces/:workspaceId/diagrams/upload',
         element: <UploadDiagramPage />,
       },
       {
-        path: 'orgs/:orgId/diagrams/:diagramId',
+        path: 'workspaces/:workspaceId/diagrams/:diagramId',
         element: <DiagramDetailPage />,
       },
       {
-        path: 'orgs/:orgId/diagrams/:diagramId/analysis/:runId',
+        path: 'workspaces/:workspaceId/diagrams/:diagramId/analysis-runs/:runId',
         element: <AnalysisResultPage />,
-      },
-      {
-        path: 'orgs/:orgId/workspaces/:workspaceId/diagrams/:diagramId',
-        element: <DiagramDetailPage />,
-      },
-      {
-        path: 'orgs/:orgId/workspaces/:workspaceId/diagrams/:diagramId/recommendations',
-        element: <RecommendationsPage />,
-      },
-      {
-        path: 'orgs/:orgId/workspaces/:workspaceId/diagrams/:diagramId/tradeoffs',
-        element: <TradeoffAnalysisPage />,
-      },
-      {
-        path: 'organizations/:organizationId/workspaces',
-        element: <WorkspaceListPage />,
-      },
-      {
-        path: 'organizations/:organizationId/workspaces/:workspaceId/diagrams',
-        element: <DiagramListPage />,
       },
     ],
   },

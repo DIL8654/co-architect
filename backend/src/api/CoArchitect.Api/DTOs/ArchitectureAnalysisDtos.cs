@@ -5,6 +5,10 @@ public sealed class ArchitectureAnalysisResponse
     public Guid Id { get; init; }
     public Guid DiagramId { get; init; }
     public string Status { get; init; } = string.Empty;
+    public string ExecutiveSummary { get; init; } = string.Empty;
+    public List<string> OpenQuestions { get; init; } = new();
+    public List<string> CriticNotes { get; init; } = new();
+    public List<AgentExecutionTraceResponse> AgentTrace { get; init; } = new();
     public List<EvidenceItemResponse> Evidence { get; init; } = new();
     public List<MissingControlResponse> MissingControls { get; init; } = new();
     public List<RecommendationResponse> Recommendations { get; init; } = new();
@@ -13,6 +17,20 @@ public sealed class ArchitectureAnalysisResponse
     public double? FinalScore { get; init; }
     public string? ScoreBand { get; init; }
     public List<DimensionBreakdownResponse> DimensionBreakdowns { get; init; } = new();
+    public DiagramReviewSetupResponse ReviewSetup { get; init; } = new();
+    public DateTime CreatedAt { get; init; }
+    public DateTime? CompletedAt { get; init; }
+}
+
+public sealed class AnalysisRunTimelineItemResponse
+{
+    public Guid Id { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public double? FinalScore { get; init; }
+    public string? ScoreBand { get; init; }
+    public string ExecutiveSummary { get; init; } = string.Empty;
+    public string? TopFinding { get; init; }
+    public List<string> Frameworks { get; init; } = new();
     public DateTime CreatedAt { get; init; }
     public DateTime? CompletedAt { get; init; }
 }
@@ -60,4 +78,17 @@ public sealed class DimensionBreakdownResponse
     public int Maturity { get; init; }
     public double Weight { get; init; }
     public double Contribution { get; init; }
+}
+
+public sealed class AgentExecutionTraceResponse
+{
+    public string AgentName { get; init; } = string.Empty;
+    public string Role { get; init; } = string.Empty;
+    public string? Framework { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public string Summary { get; init; } = string.Empty;
+    public List<string> Highlights { get; init; } = new();
+    public bool UsedFoundry { get; init; }
+    public DateTime StartedAt { get; init; }
+    public DateTime CompletedAt { get; init; }
 }

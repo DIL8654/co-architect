@@ -1,26 +1,26 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { diagramApi } from '../api/diagrams';
+import { diagramApi, type DiagramReviewSetupInput } from '../api/diagrams';
 
 export function useUploadDiagram() {
   return useMutation({
-    mutationFn: (data: { organizationId: string; workspaceId: string; name: string; description?: string; file?: File }) =>
+    mutationFn: (data: { workspaceId: string; name: string; description?: string; file?: File; reviewSetup: DiagramReviewSetupInput }) =>
       diagramApi.uploadDiagram(data),
   });
 }
 
-export function useDiagrams(organizationId?: string, workspaceId?: string) {
+export function useDiagrams(workspaceId?: string) {
   return useQuery({
-    queryKey: ['diagrams', organizationId, workspaceId],
-    queryFn: () => diagramApi.listDiagrams(organizationId!, workspaceId!),
-    enabled: !!organizationId && !!workspaceId,
+    queryKey: ['diagrams', workspaceId],
+    queryFn: () => diagramApi.listDiagrams(workspaceId!),
+    enabled: !!workspaceId,
   });
 }
 
-export function useDiagram(organizationId: string, diagramId: string) {
+export function useDiagram(diagramId: string) {
   return useQuery({
-    queryKey: ['diagram', organizationId, diagramId],
-    queryFn: () => diagramApi.getDiagram(organizationId, diagramId),
-    enabled: !!organizationId && !!diagramId,
+    queryKey: ['diagram', diagramId],
+    queryFn: () => diagramApi.getDiagram(diagramId),
+    enabled: !!diagramId,
   });
 }
 

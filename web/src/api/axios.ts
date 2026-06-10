@@ -10,8 +10,62 @@ export const apiClient = axios.create({
   },
 });
 
+export interface ApiProblemDetails {
+  title?: string;
+  detail?: string;
+  status?: number;
+  errors?: Record<string, string[]>;
+}
+
+export function getProblemDetails(error: unknown): ApiProblemDetails | undefined {
+  if (!axios.isAxiosError(error)) {
+    return undefined;
+  }
+
+  const detail = error.response?.data;
+  if (!detail || typeof detail !== 'object') {
+    return undefined;
+  }
+
+  return detail as ApiProblemDetails;
+}
+
+export function getFieldError(error: unknown, field: string): string | undefined {
+  const problem = getProblemDetails(error);
+  if (!problem?.errors) {
+    return undefined;
+  }
+
+  const directMatch = problem.errors[field];
+  if (directMatch?.length) {
+    return directMatch[0];
+  }
+
+  const caseInsensitiveKey = Object.keys(problem.errors).find((key) => key.toLowerCase() === field.toLowerCase());
+  return caseInsensitiveKey ? problem.errors[caseInsensitiveKey]?.[0] : undefined;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    const problem = getProblemDetails(error);
+    if (problem) {
+      const firstValidationError = problem.errors
+        ? Object.values(problem.errors).flat().find((message) => typeof message === 'string' && message.trim())
+        : undefined;
+
+      if (firstValidationError) {
+        return firstValidationError;
+      }
+
+      if (typeof problem.detail === 'string' && problem.detail.trim()) {
+        return problem.detail;
+      }
+
+      if (typeof problem.title === 'string' && problem.title.trim()) {
+        return problem.title;
+      }
+    }
+
     const detail = error.response?.data;
     if (typeof detail === 'string' && detail.trim()) {
       return detail;

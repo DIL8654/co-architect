@@ -7,5 +7,6 @@ public interface IAgentAnalysisRunRepository
     Task<IEnumerable<Domain.Entities.AgentAnalysisRun>> GetByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken);
     Task<Domain.Entities.AgentAnalysisRun> AddAsync(Domain.Entities.AgentAnalysisRun run, CancellationToken cancellationToken);
     Task UpdateAsync(Domain.Entities.AgentAnalysisRun run, CancellationToken cancellationToken);
+    Task DeleteByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

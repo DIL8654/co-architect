@@ -3,7 +3,7 @@ namespace CoArchitect.Application.Interfaces;
 public interface IArchitectureFileStorage
 {
     Task<string?> SaveDiagramFileAsync(
-        Guid organizationId,
+        Guid tenantId,
         Guid workspaceId,
         Guid diagramId,
         string fileName,

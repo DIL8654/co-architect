@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { apiClient } from './axios';
+import Axios from 'axios';
+import { apiClient, getErrorMessage, getFieldError } from './axios';
 
 describe('api client', () => {
   beforeEach(() => {
@@ -14,7 +15,7 @@ describe('api client', () => {
     localStorage.setItem('accessToken', 'test-token-123');
     localStorage.setItem('demoRole', 'Commenter');
 
-    const response = await apiClient.get('/api/organizations', {
+    const response = await apiClient.get('/api/workspaces', {
       adapter: async (config) => {
         expect(config.headers?.Authorization).toBeUndefined();
         const headerNames = Object.keys(config.headers ?? {});
@@ -31,5 +32,30 @@ describe('api client', () => {
     });
 
     expect(response.status).toBe(200);
+  });
+
+  it('prefers problem details messages and validation fields', () => {
+    const error = new Axios.AxiosError(
+      'Bad Request',
+      '400',
+      undefined,
+      undefined,
+      {
+        data: {
+          title: 'Validation failed',
+          detail: 'Workspace name is required.',
+          errors: {
+            name: ['Workspace name is required.'],
+          },
+        },
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {},
+        config: {} as never,
+      },
+    );
+
+    expect(getErrorMessage(error)).toBe('Workspace name is required.');
+    expect(getFieldError(error, 'name')).toBe('Workspace name is required.');
   });
 });

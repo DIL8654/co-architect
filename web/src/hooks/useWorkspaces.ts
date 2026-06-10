@@ -3,16 +3,15 @@ import { workspaceApi } from '../api/workspaces';
 
 export function useCreateWorkspace() {
   return useMutation({
-    mutationFn: (data: { organizationId: string; name: string }) =>
+    mutationFn: (data: { name: string }) =>
       workspaceApi.createWorkspace(data),
   });
 }
 
-export function useWorkspaces(organizationId?: string) {
+export function useWorkspaces() {
   return useQuery({
-    queryKey: ['workspaces', organizationId],
-    queryFn: () => workspaceApi.listWorkspaces(organizationId),
-    enabled: !!organizationId,
+    queryKey: ['workspaces'],
+    queryFn: () => workspaceApi.listWorkspaces(),
   });
 }
 

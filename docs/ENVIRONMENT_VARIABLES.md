@@ -5,7 +5,7 @@
 | Variable | Description | Local Value | Cloud Value | Secret? |
 |----------|-------------|-------------|-------------|---------|
 | `ASPNETCORE_ENVIRONMENT` | Runtime environment | `Development` | `Production` | No |
-| `DataStore__Provider` | Data store provider: `Mock` or `Postgres` | `Mock` | `Postgres` | No |
+| `DataStore__Provider` | Data store provider: `TiDB` or `Mock` | `TiDB` | `TiDB` | No |
 | `ArchitectureStorage__Provider` | File storage provider: `None` or `AzureBlobSas` | `None` | `AzureBlobSas` | No |
 | `ArchitectureStorage__ContainerSasUrl` | Azure Blob container SAS URL for diagram uploads | empty | container SAS URL or replaced by managed identity implementation | Yes |
 | `ArchitectureAgent__Provider` | Force architecture analysis provider | `Mock` | `AzureFoundry` | No |
@@ -15,7 +15,7 @@
 | `AZURE_CLIENT_ID` | App registration client ID | empty | `<client-id>` | No |
 | `AZURE_CLIENT_SECRET` | App registration secret | empty | `<secret>` | Yes |
 | `AZURE_TENANT_ID` | Azure tenant | empty | `<tenant-id>` | No |
-| `ConnectionStrings__DefaultConnection` | PostgreSQL connection | `Host=localhost;Database=coarchitect;Username=postgres;Password=postgres` | Azure PostgreSQL connection string | Yes |
+| `ConnectionStrings__DefaultConnection` | TiDB connection | `Server=<tidb-host>;Port=4000;Database=coarchitect;User=<user>;Password=<password>;SslMode=Preferred;` | TiDB connection string | Yes |
 | `Cors__AllowedOrigins__0` | First allowed CORS origin | `http://localhost:5173` | frontend URL | No |
 | `Cors__AllowedOrigins__1` | Second allowed CORS origin | `http://127.0.0.1:5173` | optional | No |
 
@@ -47,8 +47,8 @@ Use `docs/AZURE_LOCAL_RESOURCES_GUIDE.md` when pointing the local app at Azure r
 Typical backend settings:
 
 ```bash
-DataStore__Provider=Postgres
-ConnectionStrings__DefaultConnection='Host=<server>.postgres.database.azure.com;Port=5432;Database=coarchitect;Username=<user>;Password=<password>;Ssl Mode=Require;Trust Server Certificate=true'
+DataStore__Provider=TiDB
+ConnectionStrings__DefaultConnection='Server=<tidb-host>;Port=4000;Database=coarchitect;User=<user>;Password=<password>;SslMode=Preferred;'
 ArchitectureStorage__Provider=AzureBlobSas
 ArchitectureStorage__ContainerSasUrl='https://<account>.blob.core.windows.net/architecture-diagrams?<sas-token>'
 ArchitectureAgent__Provider=Mock

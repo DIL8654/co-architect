@@ -52,6 +52,26 @@ public sealed class MockDiagramCommentRepository : IDiagramCommentRepository
         }
     }
 
+    public Task DeleteByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_lock)
+        {
+            var ids = _comments.Values
+                .Where(comment => comment.ArchitectureDiagramId == diagramId)
+                .Select(comment => comment.Id)
+                .ToList();
+
+            foreach (var id in ids)
+            {
+                _comments.Remove(id);
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

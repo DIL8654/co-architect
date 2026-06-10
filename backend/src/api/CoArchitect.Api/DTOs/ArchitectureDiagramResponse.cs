@@ -11,4 +11,5 @@ public sealed class ArchitectureDiagramResponse
     public string? Description { get; init; }
     public DateTime UploadedAt { get; init; }
     public decimal? ArchitectureScore { get; init; }
+    public DiagramReviewSetupResponse ReviewSetup { get; init; } = new();
 }

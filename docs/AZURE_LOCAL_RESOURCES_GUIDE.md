@@ -1,8 +1,9 @@
 # Azure Local Resources Guide
 
-This guide describes the simple hackathon setup where CoArchitect runs locally while using manually created Azure resources.
+This guide describes the simple hackathon setup where CoArchitect runs locally while using manually created cloud resources.
 
-The goal is not full infrastructure automation. The goal is a working MVP that can be tested locally against Azure PostgreSQL, Azure Blob Storage, Azure Key Vault, and later Azure AI Foundry.
+The goal is not full infrastructure automation. The goal is a working MVP that can be tested locally against TiDB, Azure Blob Storage, Azure Key Vault, and Azure AI Foundry.
+The local runtime should start empty. Do not rely on seeded organizations, workspaces, diagrams, or demo analysis runs.
 
 ## Target Setup
 
@@ -10,7 +11,7 @@ The goal is not full infrastructure automation. The goal is a working MVP that c
 |------|----------------|----------------|
 | API | `http://localhost:5010` | Later App Service or Container Apps |
 | Frontend | `http://localhost:5173` | Later Static Web Apps or Storage static website |
-| Database | `DataStore__Provider=Postgres` | Azure Database for PostgreSQL Flexible Server |
+| Database | `DataStore__Provider=TiDB` | TiDB Cloud |
 | Diagram files | `ArchitectureStorage__Provider=AzureBlobSas` | Azure Storage Blob container |
 | Secrets | Environment variables exported locally | Azure Key Vault |
 | AI | `ArchitectureAgent__Provider=Mock` first | Later Azure AI Foundry |
@@ -19,7 +20,7 @@ The goal is not full infrastructure automation. The goal is a working MVP that c
 
 Create these manually in one Azure subscription/resource group:
 
-1. Azure Database for PostgreSQL Flexible Server.
+1. TiDB Cloud.
 2. Azure Storage Account with one private blob container.
 3. Azure Key Vault for secrets.
 4. Azure AI Foundry project and model deployment when you are ready to test real AI.
@@ -27,13 +28,12 @@ Create these manually in one Azure subscription/resource group:
 
 Keep cost low:
 
-- Use the smallest PostgreSQL SKU that works for the demo.
 - Stop or scale down resources when not testing.
 - Keep blob storage on standard locally redundant storage.
 - Use mock AI until the rest of the flow is stable.
 - Avoid provisioning production networking until the MVP needs it.
 
-## PostgreSQL
+## Database
 
 Create a database named:
 
@@ -41,19 +41,19 @@ Create a database named:
 coarchitect
 ```
 
-Allow local access from your current public IP address in the PostgreSQL firewall settings.
+For TiDB Cloud, allow local access from your current public IP address if required by your cluster settings.
 
-Store the connection string in Key Vault as:
+Store the connection string in Key Vault as one secret value. Suggested names:
 
 ```text
-coarchitect-postgres-connection-string
+coarchitect-tidb-connection-string
 ```
 
-Local environment variable:
+Local `backend/.env` value for TiDB:
 
 ```bash
-DataStore__Provider=Postgres
-ConnectionStrings__DefaultConnection='Host=<server>.postgres.database.azure.com;Port=5432;Database=coarchitect;Username=<user>;Password=<password>;Ssl Mode=Require;Trust Server Certificate=true'
+DATASTORE_PROVIDER=TiDB
+DATABASE_CONNECTION_STRING='Server=<tidb-host>;Port=4000;Database=coarchitect;User=<user>;Password=<password>;SslMode=Preferred;'
 ```
 
 The API creates its MVP JSONB object table automatically on first use.
@@ -94,7 +94,7 @@ Use Key Vault as the manual secret source of truth.
 Suggested secrets:
 
 ```text
-coarchitect-postgres-connection-string
+coarchitect-tidb-connection-string
 coarchitect-blob-container-sas-url
 coarchitect-foundry-project-endpoint
 coarchitect-foundry-agent-id
@@ -122,14 +122,29 @@ AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT='<deployment-name>'
 
 If Foundry configuration is incomplete, the API falls back to mock analysis. The AI agent suggests architecture maturity; the application scoring service calculates the final Architecture Intelligence Score.
 
-## Run Locally Against Azure
+### Do You Need Multiple Foundry Agents?
+
+For the current implementation, no.
+
+Use one Foundry agent for the main architecture analysis call.
+
+Current application-led orchestration:
+
+1. The frontend captures review context, framework mode, and quality weights.
+2. The backend selects frameworks and stores the review setup with the diagram.
+3. The saved review setup is appended to the architecture prompt sent to the analysis provider.
+4. The application scoring engine calculates the final score.
+
+Create multiple Foundry agents only when you begin Phase 4 and intentionally split specialist roles into separate Foundry-managed agents.
+
+## Run Locally Against Cloud Resources
 
 Backend:
 
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env with database, blob, and Foundry settings.
+# Edit .env with database, blob, and Foundry settings in one place.
 docker compose up --build
 ```
 
@@ -161,11 +176,12 @@ http://localhost:5173
 - `http://localhost:5010/swagger` loads.
 - `http://localhost:5173/health` shows database, blob storage, and Foundry status.
 - Frontend loads at `http://localhost:5173`.
-- Organization creation persists after API restart when using Azure PostgreSQL.
+- Organization creation persists after API restart when using TiDB.
 - Diagram file upload creates a blob in the Azure container.
 - Comments can be added.
 - Mock analysis returns a score, missing components, recommendations, and trade-offs.
 - Browser requests from `http://localhost:5173` are not blocked by CORS.
+- Requests from `http://127.0.0.1:5173` and `http://[::1]:5173` should also be allowed for local browser variations.
 
 ## Later Deployment
 

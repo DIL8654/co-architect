@@ -3,16 +3,16 @@ import { commentsApi } from '../api/comments';
 
 export function useCreateComment() {
   return useMutation({
-    mutationFn: (data: { organizationId: string; diagramId: string; content: string }) =>
+    mutationFn: (data: { workspaceId: string; diagramId: string; content: string }) =>
       commentsApi.createComment(data),
   });
 }
 
-export function useDiagramComments(organizationId: string, diagramId: string) {
+export function useDiagramComments(workspaceId: string, diagramId: string) {
   return useQuery({
-    queryKey: ['diagram-comments', organizationId, diagramId],
-    queryFn: () => commentsApi.getDiagramComments(organizationId, diagramId),
-    enabled: !!organizationId && !!diagramId,
+    queryKey: ['diagram-comments', workspaceId, diagramId],
+    queryFn: () => commentsApi.getDiagramComments(workspaceId, diagramId),
+    enabled: !!workspaceId && !!diagramId,
   });
 }
 

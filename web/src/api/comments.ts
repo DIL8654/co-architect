@@ -11,7 +11,7 @@ export interface DiagramComment {
 }
 
 export interface CreateCommentRequest {
-  organizationId: string;
+  workspaceId: string;
   diagramId: string;
   content: string;
 }
@@ -19,15 +19,15 @@ export interface CreateCommentRequest {
 export const commentsApi = {
   async createComment(data: CreateCommentRequest): Promise<DiagramComment> {
     const response = await apiClient.post<DiagramComment>(
-      `/api/orgs/${data.organizationId}/diagrams/${data.diagramId}/comments`,
+      `/api/workspaces/${data.workspaceId}/diagrams/${data.diagramId}/comments`,
       { content: data.content }
     );
     return response.data;
   },
 
-  async getDiagramComments(organizationId: string, diagramId: string): Promise<DiagramComment[]> {
+  async getDiagramComments(workspaceId: string, diagramId: string): Promise<DiagramComment[]> {
     const response = await apiClient.get<DiagramComment[]>(
-      `/api/orgs/${organizationId}/diagrams/${diagramId}/comments`
+      `/api/workspaces/${workspaceId}/diagrams/${diagramId}/comments`
     );
     return response.data;
   },

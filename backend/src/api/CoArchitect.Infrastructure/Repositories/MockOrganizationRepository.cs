@@ -2,11 +2,10 @@ namespace CoArchitect.Infrastructure.Repositories;
 
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
-using CoArchitect.Infrastructure.Seeding;
 
 public sealed class MockOrganizationRepository : IOrganizationRepository
 {
-    private static readonly Dictionary<Guid, Organization> _organizations = DemoDataGenerator.Organizations.ToDictionary(organization => organization.Id);
+    private static readonly Dictionary<Guid, Organization> _organizations = new();
     private static readonly object _lock = new();
 
     public Task<Organization?> GetByIdAsync(Guid organizationId, CancellationToken cancellationToken)

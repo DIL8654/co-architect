@@ -6,6 +6,10 @@ using CoArchitect.Infrastructure.Settings;
 using CoArchitect.Infrastructure.Repositories;
 using CoArchitect.Infrastructure.Persistence;
 using CoArchitect.Infrastructure.Storage;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+
+LocalEnvLoader.LoadIntoProcessEnvironment();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +37,7 @@ builder.Services.AddSingleton(storageOptions);
 
 // CORS
 var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5173", "http://127.0.0.1:5173" };
+    ?? new[] { "http://localhost:5173", "http://127.0.0.1:5173", "http://[::1]:5173" };
 
 builder.Services.AddCors(options =>
 {
@@ -49,30 +53,34 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
-
-// TODO: Add external IdP authentication and organization-scoped RBAC after the hackathon MVP.
-builder.Services.AddScoped<ICurrentUserService, SystemCurrentUserService>();
-builder.Services.AddScoped<IArchitectureIntelligenceScoreService, ArchitectureIntelligenceScoreService>();
-
-if (dataStoreOptions.UsePostgres)
+builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
-    var connectionString = configuration.GetConnectionString("DefaultConnection") ?? configuration.GetConnectionString("Default");
-    if (string.IsNullOrWhiteSpace(connectionString))
+    options.InvalidModelStateResponseFactory = context =>
     {
-        throw new InvalidOperationException("DataStore__Provider=Postgres requires ConnectionStrings__DefaultConnection or ConnectionStrings__Default.");
-    }
+        var factory = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>();
+        var problemDetails = factory.CreateValidationProblemDetails(
+            context.HttpContext,
+            context.ModelState,
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Validation failed");
 
-    builder.Services.AddSingleton<IObjectStore>(new PostgresObjectStore(connectionString));
-    builder.Services.AddScoped<IAiFoundrySettingsRepository, ObjectStoreAiFoundrySettingsRepository>();
-    builder.Services.AddScoped<IOrganizationRepository, PostgresOrganizationRepository>();
-    builder.Services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
-    builder.Services.AddScoped<IDiagramRepository, PostgresDiagramRepository>();
-    builder.Services.AddScoped<IDiagramCommentRepository, PostgresDiagramCommentRepository>();
-    builder.Services.AddScoped<IAgentAnalysisRunRepository, PostgresAgentAnalysisRunRepository>();
-}
-else if (dataStoreOptions.UseTiDb)
+        return new BadRequestObjectResult(problemDetails)
+        {
+            ContentTypes = { "application/problem+json" },
+        };
+    };
+});
+
+builder.Services.AddScoped<ICurrentUserService, LocalCurrentUserService>();
+builder.Services.AddScoped<IArchitectureIntelligenceScoreService, ArchitectureIntelligenceScoreService>();
+builder.Services.AddScoped<IFrameworkSelectionService, FrameworkSelectionService>();
+builder.Services.AddScoped<IMultiAgentArchitectureAnalysisService, MultiAgentArchitectureAnalysisService>();
+builder.Services.AddScoped<IAdrGenerationService, AdrGenerationService>();
+
+if (dataStoreOptions.UseTiDb)
 {
     var connectionString = configuration.GetConnectionString("DefaultConnection") ?? configuration.GetConnectionString("Default");
     if (string.IsNullOrWhiteSpace(connectionString))
@@ -81,12 +89,15 @@ else if (dataStoreOptions.UseTiDb)
     }
 
     builder.Services.AddSingleton<IObjectStore>(new TidbObjectStore(connectionString));
+    builder.Services.AddSingleton<IRelationalConnectionFactory>(new TidbConnectionFactory(connectionString));
+    builder.Services.AddSingleton<RelationalSchemaInitializer>();
     builder.Services.AddScoped<IAiFoundrySettingsRepository, ObjectStoreAiFoundrySettingsRepository>();
-    builder.Services.AddScoped<IOrganizationRepository, PostgresOrganizationRepository>();
-    builder.Services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
-    builder.Services.AddScoped<IDiagramRepository, PostgresDiagramRepository>();
-    builder.Services.AddScoped<IDiagramCommentRepository, PostgresDiagramCommentRepository>();
-    builder.Services.AddScoped<IAgentAnalysisRunRepository, PostgresAgentAnalysisRunRepository>();
+    builder.Services.AddScoped<IOrganizationRepository, TidbOrganizationRepository>();
+    builder.Services.AddScoped<IWorkspaceRepository, TidbWorkspaceRepository>();
+    builder.Services.AddScoped<IDiagramRepository, TidbDiagramRepository>();
+    builder.Services.AddScoped<IDiagramCommentRepository, TidbDiagramCommentRepository>();
+    builder.Services.AddScoped<IAgentAnalysisRunRepository, TidbAgentAnalysisRunRepository>();
+    builder.Services.AddScoped<IAdrRepository, TidbAdrRepository>();
 }
 else
 {
@@ -96,6 +107,7 @@ else
     builder.Services.AddScoped<IDiagramRepository, MockDiagramRepository>();
     builder.Services.AddScoped<IDiagramCommentRepository, MockDiagramCommentRepository>();
     builder.Services.AddScoped<IAgentAnalysisRunRepository, MockAgentAnalysisRunRepository>();
+    builder.Services.AddScoped<IAdrRepository, MockAdrRepository>();
 }
 
 if (storageOptions.UseAzureBlobSas)
@@ -124,6 +136,18 @@ else
 builder.Services.AddScoped<IArchitectureAnalyzer, MockArchitectureAgentService>();
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        await Results.Problem(
+            title: "Server error",
+            detail: "An unexpected error occurred while processing the request.",
+            statusCode: StatusCodes.Status500InternalServerError)
+            .ExecuteAsync(context);
+    });
+});
 
 // Middleware: CORS must be before endpoints
 app.UseCors("AllowFrontend");

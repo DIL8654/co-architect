@@ -1,9 +1,22 @@
 import { apiClient } from './axios';
+import type { DiagramReviewSetup } from './diagrams';
 
 export interface EvidenceItem {
   summary: string;
   detail: string;
   severity: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
+export interface AgentExecutionTrace {
+  agentName: string;
+  role: string;
+  framework?: string;
+  status: string;
+  summary: string;
+  highlights: string[];
+  usedFoundry: boolean;
+  startedAt: string;
+  completedAt: string;
 }
 
 export interface MissingControl {
@@ -43,6 +56,10 @@ export interface ArchitectureAnalysisResult {
   id: string;
   diagramId: string;
   status: 'Pending' | 'Running' | 'Completed' | 'Failed';
+  executiveSummary: string;
+  openQuestions: string[];
+  criticNotes: string[];
+  agentTrace: AgentExecutionTrace[];
   evidence: EvidenceItem[];
   missingControls: MissingControl[];
   recommendations: Recommendation[];
@@ -51,6 +68,19 @@ export interface ArchitectureAnalysisResult {
   finalScore?: number;
   scoreBand?: string;
   dimensionBreakdowns?: DimensionBreakdown[];
+  reviewSetup: DiagramReviewSetup;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface AnalysisRunTimelineItem {
+  id: string;
+  status: 'Pending' | 'Running' | 'Completed' | 'Failed';
+  finalScore?: number;
+  scoreBand?: string;
+  executiveSummary: string;
+  topFinding?: string;
+  frameworks: string[];
   createdAt: string;
   completedAt?: string;
 }
@@ -65,17 +95,24 @@ export const analysisApi = {
     }
   },
 
-  async runAnalysis(organizationId: string, diagramId: string): Promise<ArchitectureAnalysisResult> {
+  async runAnalysis(workspaceId: string, diagramId: string): Promise<ArchitectureAnalysisResult> {
     const response = await apiClient.post<ArchitectureAnalysisResult>(
-      `/api/orgs/${organizationId}/diagrams/${diagramId}/analysis-runs`,
+      `/api/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs`,
       {}
     );
     return response.data;
   },
 
-  async getAnalysisRun(organizationId: string, diagramId: string, runId: string): Promise<ArchitectureAnalysisResult> {
+  async getAnalysisRun(workspaceId: string, diagramId: string, runId: string): Promise<ArchitectureAnalysisResult> {
     const response = await apiClient.get<ArchitectureAnalysisResult>(
-      `/api/orgs/${organizationId}/diagrams/${diagramId}/analysis-runs/${runId}`
+      `/api/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs/${runId}`
+    );
+    return response.data;
+  },
+
+  async listAnalysisRuns(workspaceId: string, diagramId: string): Promise<AnalysisRunTimelineItem[]> {
+    const response = await apiClient.get<AnalysisRunTimelineItem[]>(
+      `/api/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs`
     );
     return response.data;
   },

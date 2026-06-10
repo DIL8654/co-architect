@@ -8,6 +8,11 @@ Always read:
 - AZURE_LOCAL_RESOURCES_GUIDE.md
 - SCORING_MODEL.md
 - AGENTS.md
+- REASONING_AGENTS_PLAN.md
+- FRAMEWORK_SELECTION.md
+- TRADEOFF_BALANCING.md
+- ADR_WORKFLOW.md
+- KNOWLEDGE_BASE_PLAN.md
 
 Rules:
 
@@ -34,12 +39,20 @@ Rules:
 
 ## Shared Memory For Copilot/Codex
 
-- Always read `docs/AUTH_DECISION.md` before modifying authentication, authorization, onboarding, routing, organization creation, or API client behavior.
+- Always read `docs/AUTH_DECISION.md` before modifying authentication, authorization, onboarding, routing, workspace creation, tenant handling, or API client behavior.
 - The current app is intentionally unauthenticated for the hackathon MVP.
 - Do not add fake auth, demo auth, role selectors, or header-based role overrides.
 - Do not add token or bearer-header injection to the frontend API client.
 - Do not make UI buttons unavailable based on role/auth in the current MVP.
+- Workspace is the top-level user-facing object.
+- Do not reintroduce user-facing organization flows into the main product shell.
+- Use the fixed local tenant and user placeholder context for local runtime seams until real auth returns.
 - Keep `User`, `OrganizationUser`, `OrganizationRole`, and role enums as future domain concepts if they are useful, but do not enforce them at runtime now.
-- Future production work should add external IdP integration and organization-scoped RBAC.
+- Future production work should add external IdP integration and tenant-aware RBAC.
 - Read `docs/AZURE_LOCAL_RESOURCES_GUIDE.md` before changing database, blob storage, Key Vault, Azure AI Foundry, Docker, or cloud deployment behavior.
 - Keep Azure integration simple for the hackathon: manual resources, secrets exported locally, mock AI fallback, and no fake auth.
+- Future agents must read `docs/REASONING_AGENTS_PLAN.md` before modifying agent orchestration, planner logic, specialist roles, critic behavior, or evaluation flow.
+- Future agents must read `docs/FRAMEWORK_SELECTION.md` before changing framework selection behavior, auto-detection, or framework explanation UX.
+- Future agents must read `docs/TRADEOFF_BALANCING.md` before changing weighting, trade-off recommendation logic, or option comparison behavior.
+- Future agents must read `docs/ADR_WORKFLOW.md` before changing ADR creation, regeneration, HTML preview, or PDF export behavior.
+- Future agents must read `docs/KNOWLEDGE_BASE_PLAN.md` before changing grounded knowledge files, knowledge retrieval behavior, or attribution policy.

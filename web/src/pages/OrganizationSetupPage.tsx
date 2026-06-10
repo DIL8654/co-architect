@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingIcon, Button, Card, PlusIcon, Spinner } from '../components';
+import { useOrganizationSwitcher } from '../hooks/useOrganizationSwitcher';
 import { useCreateOrganization, useCheckSlug } from '../hooks/useOrganizations';
 
 interface FormData {
@@ -15,6 +16,7 @@ interface FormErrors {
 
 export function OrganizationSetupPage() {
   const navigate = useNavigate();
+  const { setOrganizationId } = useOrganizationSwitcher();
   const [formData, setFormData] = useState<FormData>({ name: '', slug: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const createMutation = useCreateOrganization();
@@ -75,6 +77,7 @@ export function OrganizationSetupPage() {
         name: formData.name,
         slug: formData.slug,
       });
+      setOrganizationId(organization.id);
       navigate(`/orgs/${organization.id}/workspaces`);
     } catch (error) {
       setErrors({ slug: 'Failed to create organization' });

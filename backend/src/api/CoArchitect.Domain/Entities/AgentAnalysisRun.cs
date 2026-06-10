@@ -1,4 +1,5 @@
 using CoArchitect.Domain.Enums;
+using CoArchitect.Domain.Models;
 
 namespace CoArchitect.Domain.Entities;
 
@@ -13,6 +14,7 @@ public sealed class AgentAnalysisRun
     public DateTime? CompletedAt { get; init; }
     public string? ReportPath { get; init; }
     public IList<AgentSuggestion> Suggestions { get; init; } = new List<AgentSuggestion>();
+    public AgentAnalysisResult? Result { get; init; }
     public Workspace? Workspace { get; init; }
     public ArchitectureDiagram? ArchitectureDiagram { get; init; }
 }

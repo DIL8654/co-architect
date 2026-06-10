@@ -6,7 +6,7 @@ The current hackathon MVP is unauthenticated. It is suitable for local demos and
 
 Before customer or production deployment, add external IdP integration and organization-scoped RBAC as described in `docs/AUTH_DECISION.md`.
 
-Before deploying the app itself, validate the MVP locally against Azure PostgreSQL and Azure Blob Storage using `docs/AZURE_LOCAL_RESOURCES_GUIDE.md`.
+Before deploying the app itself, validate the MVP locally against TiDB and Azure Blob Storage using `docs/AZURE_LOCAL_RESOURCES_GUIDE.md`.
 
 ## Azure Resources Needed
 
@@ -14,7 +14,7 @@ Before deploying the app itself, validate the MVP locally against Azure PostgreS
 |----------|---------|
 | Azure App Service or Container Apps | Host the .NET API |
 | Azure Static Web Apps or Storage + CDN | Host the React frontend |
-| Azure Database for PostgreSQL | Production database |
+| TiDB Cloud | Production database |
 | Azure Storage Account | Blob storage for diagrams |
 | Azure AI Foundry | AI architecture analysis agent |
 | Azure Key Vault | Secret management |
@@ -34,9 +34,9 @@ Before deploying the app itself, validate the MVP locally against Azure PostgreS
 3. For the MVP, store a container SAS URL securely.
 4. Replace SAS with Managed Identity or user delegation SAS before production.
 
-## PostgreSQL Setup
+## TiDB Setup
 
-1. Create Azure Database for PostgreSQL Flexible Server.
+1. Create a TiDB Cloud cluster.
 2. Configure firewall rules to allow the API host.
 3. Create a database named `coarchitect`.
 4. Store the connection string securely.
@@ -53,7 +53,7 @@ Configure environment variables from `docs/ENVIRONMENT_VARIABLES.md`.
 For the MVP Azure-backed configuration, set:
 
 ```text
-DataStore__Provider=Postgres
+DataStore__Provider=TiDB
 ArchitectureStorage__Provider=AzureBlobSas
 ArchitectureAgent__Provider=Mock
 ```
@@ -93,7 +93,7 @@ Cors__AllowedOrigins__0=https://your-frontend.example.com
 - Store secrets in Azure Key Vault or the hosting platform secret store.
 - Use Managed Identity where possible.
 - Enable HTTPS for all endpoints.
-- Restrict PostgreSQL firewall access to the API host.
+- Restrict TiDB firewall access to the API host.
 - Rotate secrets periodically.
 - Treat the current unauthenticated MVP as a temporary stage.
 - Add external IdP and RBAC before production or customer use.

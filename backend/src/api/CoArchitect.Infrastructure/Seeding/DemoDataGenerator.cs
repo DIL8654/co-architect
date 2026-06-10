@@ -177,6 +177,29 @@ public static class DemoDataGenerator
             Name = "Poor Architecture",
             OriginalFileName = "poor-architecture.drawio",
             Description = "Single-region monolith with local file storage, direct database access, and no explicit failover or security boundary.",
+            ReviewContext = new ArchitectureReviewContext
+            {
+                BusinessDomain = "B2B SaaS",
+                TargetUsers = "External customer tenants and support engineers",
+                ExpectedTraffic = "Moderate daytime traffic with peak month-end reporting",
+                DataSensitivity = "Customer operational data with tenant separation concerns",
+                CloudProviderPreference = "Cloud-neutral",
+                ComplianceNeeds = "Basic auditability and tenant isolation",
+                CurrentPainPoints = "No monitoring, weak secrets management, and single-region risk",
+            },
+            FrameworkSelection = new FrameworkSelectionResult
+            {
+                Mode = FrameworkSelectionMode.AutoDetect,
+                DetectedCloudProvider = "Cloud-neutral",
+                ConfidenceScore = 0.76,
+                SelectedFrameworks = new List<ReviewFramework> { ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs },
+                SelectionRationale = new List<string>
+                {
+                    "ISO/IEC 25010 was chosen as the cloud-neutral quality baseline.",
+                    "OWASP ASVS was added because the SaaS platform exposes APIs and tenant-sensitive data."
+                }
+            },
+            QualityAttributeWeights = DefaultWeights(),
             UploadedAt = SeedBase.AddDays(-7),
         };
     }
@@ -191,6 +214,30 @@ public static class DemoDataGenerator
             Name = "Medium Architecture",
             OriginalFileName = "medium-architecture.drawio",
             Description = "Three-tier SaaS platform with app services, managed database, blob storage, and a queue-based background worker layer.",
+            ReviewContext = new ArchitectureReviewContext
+            {
+                BusinessDomain = "B2B SaaS",
+                TargetUsers = "Operations teams and external customers",
+                ExpectedTraffic = "Steady daily traffic with periodic batch spikes",
+                DataSensitivity = "Tenant data and internal support workflows",
+                CloudProviderPreference = "Azure",
+                ComplianceNeeds = "SOC 2 style controls and audit logging",
+                CurrentPainPoints = "Need better observability and stronger platform guardrails",
+            },
+            FrameworkSelection = new FrameworkSelectionResult
+            {
+                Mode = FrameworkSelectionMode.AutoDetect,
+                DetectedCloudProvider = "Azure",
+                ConfidenceScore = 0.91,
+                SelectedFrameworks = new List<ReviewFramework> { ReviewFramework.AzureWellArchitected, ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs },
+                SelectionRationale = new List<string>
+                {
+                    "Azure Well-Architected was selected because Azure platform services are implied in the description.",
+                    "ISO/IEC 25010 was included for maintainability and broader product quality review.",
+                    "OWASP ASVS was included because the system exposes APIs and tenant-sensitive workflows."
+                }
+            },
+            QualityAttributeWeights = DefaultWeights(),
             UploadedAt = SeedBase.AddDays(-5),
         };
     }
@@ -205,7 +252,45 @@ public static class DemoDataGenerator
             Name = "Enterprise Architecture",
             OriginalFileName = "enterprise-architecture.drawio",
             Description = "Globally distributed SaaS platform with zero-trust edge access, multi-region failover, event-driven services, and centralized governance.",
+            ReviewContext = new ArchitectureReviewContext
+            {
+                BusinessDomain = "Enterprise platform",
+                TargetUsers = "Global customers, partner integrations, and internal platform teams",
+                ExpectedTraffic = "High global traffic with continuous regional demand",
+                DataSensitivity = "PII and regulated enterprise operational data",
+                CloudProviderPreference = "Azure",
+                ComplianceNeeds = "Security, resiliency, and regulated workload governance",
+                CurrentPainPoints = "Balancing platform leverage with team autonomy and cost control",
+            },
+            FrameworkSelection = new FrameworkSelectionResult
+            {
+                Mode = FrameworkSelectionMode.AutoDetect,
+                DetectedCloudProvider = "Azure",
+                ConfidenceScore = 0.93,
+                SelectedFrameworks = new List<ReviewFramework> { ReviewFramework.AzureWellArchitected, ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs },
+                SelectionRationale = new List<string>
+                {
+                    "Azure Well-Architected was selected because the platform appears Azure-oriented and enterprise-scale.",
+                    "ISO/IEC 25010 was included to balance maintainability and product quality concerns.",
+                    "OWASP ASVS was included because the platform handles external users and sensitive data."
+                }
+            },
+            QualityAttributeWeights = DefaultWeights(),
             UploadedAt = SeedBase.AddDays(-2),
+        };
+    }
+
+    private static List<QualityAttributeWeight> DefaultWeights()
+    {
+        return new List<QualityAttributeWeight>
+        {
+            new() { Key = "security", Label = "Security", Weight = 25 },
+            new() { Key = "availability", Label = "Availability", Weight = 20 },
+            new() { Key = "scalability", Label = "Scalability", Weight = 15 },
+            new() { Key = "cost", Label = "Cost", Weight = 10 },
+            new() { Key = "maintainability", Label = "Maintainability", Weight = 10 },
+            new() { Key = "compliance", Label = "Compliance", Weight = 10 },
+            new() { Key = "deliverySpeed", Label = "Delivery Speed", Weight = 10 },
         };
     }
 

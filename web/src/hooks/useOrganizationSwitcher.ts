@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export function useOrganizationSwitcher() {
   const [organizationId, setOrganizationId] = useState<string>(() => {
@@ -9,6 +9,15 @@ export function useOrganizationSwitcher() {
 
     return '';
   });
+
+  useEffect(() => {
+    if (organizationId) {
+      localStorage.setItem('currentOrganizationId', organizationId);
+      return;
+    }
+
+    localStorage.removeItem('currentOrganizationId');
+  }, [organizationId]);
 
   return {
     organizationId,

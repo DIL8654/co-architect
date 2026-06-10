@@ -61,7 +61,7 @@ public sealed class InfraHealthController : ControllerBase
 
     private async Task<InfraHealthCheck> CheckDatabaseAsync(CancellationToken cancellationToken)
     {
-        if (!_dataStoreOptions.UsePostgres && !_dataStoreOptions.UseTiDb)
+        if (!_dataStoreOptions.UseTiDb)
         {
             return InfraHealthCheck.Healthy("database", _dataStoreOptions.Provider, "Using in-memory mock store.");
         }

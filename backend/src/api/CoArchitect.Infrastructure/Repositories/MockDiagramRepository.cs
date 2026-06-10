@@ -2,11 +2,10 @@ namespace CoArchitect.Infrastructure.Repositories;
 
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
-using CoArchitect.Infrastructure.Seeding;
 
 public sealed class MockDiagramRepository : IDiagramRepository
 {
-    private static readonly Dictionary<Guid, ArchitectureDiagram> _diagrams = DemoDataGenerator.Diagrams.ToDictionary(diagram => diagram.Id);
+    private static readonly Dictionary<Guid, ArchitectureDiagram> _diagrams = new();
     private static readonly object _lock = new();
 
     public Task<ArchitectureDiagram?> GetByIdAsync(Guid diagramId, CancellationToken cancellationToken)

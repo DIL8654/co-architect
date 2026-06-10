@@ -3,6 +3,7 @@ using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
 using CoArchitect.Infrastructure.Settings;
 using Microsoft.AspNetCore.Mvc;
+using CoArchitect.Api.Services;
 
 namespace CoArchitect.Api.Controllers;
 
@@ -37,7 +38,7 @@ public sealed class SettingsController : ControllerBase
             string.IsNullOrWhiteSpace(request.AgentId) ||
             string.IsNullOrWhiteSpace(request.ModelDeployment))
         {
-            return BadRequest(new { message = "Project endpoint, agent id, and model deployment are required." });
+            return this.ValidationProblemFor("projectEndpoint", "Project endpoint, agent id, and model deployment are required.");
         }
 
         var existing = await _repository.GetAsync(cancellationToken);

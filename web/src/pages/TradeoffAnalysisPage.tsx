@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Card, EmptyState, LoadingState } from '../components';
+import { Badge, Breadcrumbs, Button, Card, EmptyState, LoadingState } from '../components';
 import { useDiagram } from '../hooks/useDiagrams';
 import { useDiagramAnalysis } from '../hooks/useAnalysis';
 import type { Tradeoff } from '../api/analysis';
@@ -102,7 +102,7 @@ export function TradeoffAnalysisPage() {
   const resolvedOrgId = orgId ?? organizationId;
   const navigate = useNavigate();
 
-  const { data: diagram, isLoading: isDiagramLoading, isError: isDiagramError } = useDiagram(resolvedOrgId!, diagramId!);
+  const { data: diagram, isLoading: isDiagramLoading, isError: isDiagramError } = useDiagram(diagramId!);
   const { data: analysis, isLoading: isAnalysisLoading } = useDiagramAnalysis(diagramId!);
 
   const groupedTradeoffs = useMemo(() => {
@@ -156,47 +156,56 @@ export function TradeoffAnalysisPage() {
   const categoryCount = Object.values(groupedTradeoffs).filter((items) => items.length > 0).length;
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <Button variant="ghost" onClick={() => navigate(-1)} className="mb-3">
-            ← Back
-          </Button>
-          <h1 className="text-4xl font-bold text-secondary-900">Tradeoff Analysis</h1>
-          <p className="mt-2 text-secondary-600">
-            Decision, pros, cons, and alternatives for {diagram.name}
-          </p>
-        </div>
+    <div className="page-shell">
+      <section className="page-header">
+        <Breadcrumbs
+          items={[
+            { label: 'Organizations', to: '/organizations' },
+            { label: 'Diagram', to: `/orgs/${resolvedOrgId}/diagrams/${diagramId}` },
+            { label: 'Trade-off Analysis' },
+          ]}
+        />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="page-title">Trade-off Analysis</h1>
+            <p className="page-description">
+              Decision, pros, cons, and alternatives for {diagram.name}.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/orgs/${resolvedOrgId}/diagrams/${diagramId}`)}
-          >
-            View Diagram
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/${diagramId}/recommendations`)}
-          >
-            View Recommendations
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/orgs/${resolvedOrgId}/diagrams/${diagramId}`)}
+            >
+              Back to Diagram
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/orgs/${resolvedOrgId}/workspaces/${workspaceId}/diagrams/${diagramId}/recommendations`)}
+            >
+              Recommendation Table
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card header="Tradeoffs">
-          <p className="text-3xl font-bold text-secondary-900">{tradeoffCount}</p>
-          <p className="mt-1 text-sm text-secondary-600">Total tradeoff decisions identified</p>
-        </Card>
-        <Card header="Categories">
-          <p className="text-3xl font-bold text-secondary-900">{categoryCount}</p>
-          <p className="mt-1 text-sm text-secondary-600">Grouped by architectural concern</p>
-        </Card>
-        <Card header="Analysis Status">
-          <p className="text-3xl font-bold text-secondary-900">{analysis?.status ?? '—'}</p>
-          <p className="mt-1 text-sm text-secondary-600">Latest diagram analysis state</p>
-        </Card>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Tradeoffs</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{tradeoffCount}</p>
+          <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">Total tradeoff decisions identified</p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Categories</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{categoryCount}</p>
+          <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">Grouped by architectural concern</p>
+        </div>
+        <div className="kpi-tile">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Analysis Status</p>
+          <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{analysis?.status ?? '—'}</p>
+          <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">Latest diagram analysis state</p>
+        </div>
       </div>
 
       {tradeoffCount === 0 ? (

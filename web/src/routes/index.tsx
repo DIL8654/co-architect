@@ -1,4 +1,4 @@
-import { Navigate, createBrowserRouter } from 'react-router-dom';
+import { Navigate, createBrowserRouter, useParams } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { WorkspaceListPage } from '../pages/WorkspaceListPage';
 import { DiagramListPage } from '../pages/DiagramListPage';
@@ -31,6 +31,16 @@ function LocalSetupRoute() {
   }
 
   return <LocalSetupPage />;
+}
+
+function WorkspaceLegacyRedirect() {
+  const { workspaceId } = useParams<{ workspaceId: string }>();
+
+  if (!workspaceId) {
+    return <Navigate to="/workspaces" replace />;
+  }
+
+  return <Navigate to={`/workspaces/${workspaceId}/diagrams`} replace />;
 }
 
 export const router = createBrowserRouter([
@@ -68,7 +78,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'workspaces/:workspaceId',
-        element: <DiagramListPage />,
+        element: <WorkspaceLegacyRedirect />,
       },
       {
         path: 'workspaces/:workspaceId/diagrams',

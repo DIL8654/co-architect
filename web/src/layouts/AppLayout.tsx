@@ -80,7 +80,7 @@ export function AppLayout() {
     <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <header className="top-nav">
         <div className="header-left">
-          <NavLink to="/" className="brand" aria-label="CoArchitect AI home">
+          <NavLink to="/dashboard" className="brand" aria-label="CoArchitect AI home">
             <span className="logo-shell">
               <LogoMark className="h-9 w-9" />
             </span>
@@ -260,7 +260,7 @@ function NavItem({
   collapsed: boolean;
 }) {
   return (
-    <NavLink to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={label}>
+    <NavLink to={to} end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={label}>
       <span className="nav-icon">{icon}</span>
       {!collapsed && <span>{label}</span>}
     </NavLink>

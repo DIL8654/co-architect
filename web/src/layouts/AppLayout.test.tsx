@@ -34,6 +34,18 @@ function renderLayout(path = '/') {
             element: <h1>Test Landing</h1>,
           },
           {
+            path: 'dashboard',
+            element: <h1>Dashboard Route</h1>,
+          },
+          {
+            path: 'workspaces',
+            element: <h1>Workspaces Route</h1>,
+          },
+          {
+            path: 'workspaces/:workspaceId/diagrams',
+            element: <h1>Diagram List Route</h1>,
+          },
+          {
             path: 'settings',
             element: <h1>Settings Route</h1>,
           },
@@ -79,5 +91,20 @@ describe('AppLayout', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(localStorage.getItem('coarchitect.theme')).toBe('light');
+  });
+
+  it('uses dashboard as the brand logo destination', () => {
+    renderLayout('/settings');
+
+    const brandLink = screen.getByLabelText('CoArchitect AI home') as HTMLAnchorElement;
+    expect(brandLink.getAttribute('href')).toBe('/dashboard');
+  });
+
+  it('does not highlight Workspaces nav item on nested workspace diagram routes', () => {
+    renderLayout('/workspaces/abc-123/diagrams');
+
+    const workspacesLink = screen.getByRole('link', { name: 'Workspaces' });
+    expect(workspacesLink.className.includes('active')).toBe(false);
+    expect(screen.getByText('Diagram List Route')).toBeTruthy();
   });
 });

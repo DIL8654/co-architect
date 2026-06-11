@@ -159,7 +159,7 @@ public static class DemoDataGenerator
         return new Workspace
         {
             Id = WorkspaceId,
-            OrganizationId = OrganizationId,
+            TenantId = OrganizationId,
             Name = "Enterprise SaaS Platform",
             CreatedAt = SeedBase.AddDays(-35),
             UpdatedAt = SeedBase.AddDays(-1),

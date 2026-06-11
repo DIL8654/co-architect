@@ -5,7 +5,6 @@ import { DiagramListPage } from '../pages/DiagramListPage';
 import { UploadDiagramPage } from '../pages/UploadDiagramPage';
 import { DiagramDetailPage } from '../pages/DiagramDetailPage';
 import { LandingPage } from '../pages/LandingPage';
-import { AnalysisResultPage } from '../pages/AnalysisResultPage';
 import { InfraHealthPage } from '../pages/InfraHealthPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { DocsPage } from '../pages/DocsPage';
@@ -41,6 +40,17 @@ function WorkspaceLegacyRedirect() {
   }
 
   return <Navigate to={`/workspaces/${workspaceId}/diagrams`} replace />;
+}
+
+function AnalysisRunWorkbenchRedirect() {
+  const { workspaceId, diagramId, runId } = useParams<{ workspaceId: string; diagramId: string; runId: string }>();
+
+  if (!workspaceId || !diagramId) {
+    return <Navigate to="/workspaces" replace />;
+  }
+
+  const search = runId ? `?tab=analysis-runs&runId=${encodeURIComponent(runId)}` : '?tab=analysis-runs';
+  return <Navigate to={`/workspaces/${workspaceId}/diagrams/${diagramId}${search}`} replace />;
 }
 
 export const router = createBrowserRouter([
@@ -94,7 +104,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'workspaces/:workspaceId/diagrams/:diagramId/analysis-runs/:runId',
-        element: <AnalysisResultPage />,
+        element: <AnalysisRunWorkbenchRedirect />,
       },
     ],
   },

@@ -13,6 +13,9 @@ export function useDiagrams(workspaceId?: string) {
     queryKey: ['diagrams', workspaceId],
     queryFn: () => diagramApi.listDiagrams(workspaceId!),
     enabled: !!workspaceId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

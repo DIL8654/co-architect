@@ -190,6 +190,7 @@
 
   .tree-toggle {
     @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-secondary-500 transition hover:bg-[#f4f6f8] dark:text-secondary-400 dark:hover:bg-white/[0.06];
+    flex-basis: 2rem;
   }
 
   .tree-link {
@@ -201,11 +202,15 @@
   }
 
   .tree-link.nested {
-    @apply ml-9 h-8 text-[13px] font-normal;
+    @apply ml-9 h-9 text-[13px] font-normal;
   }
 
   .tree-children {
     @apply mt-1 space-y-1;
+  }
+
+  .tree-diagram-group {
+    @apply min-w-0;
   }
 
   .tree-empty {

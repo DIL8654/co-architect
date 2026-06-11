@@ -86,9 +86,16 @@ The runtime is intentionally unauthenticated for evaluator usability. A fixed lo
 - [SUBMISSION_NOTES.md](hackathon/SUBMISSION_NOTES.md)
 - [FINAL_PRESENTATION_OUTLINE.md](hackathon/FINAL_PRESENTATION_OUTLINE.md)
 
+### Demo
+
+- [DEMO_DATA_PLAN.md](demo/DEMO_DATA_PLAN.md)
+- [DEMO_JOURNEYS.md](demo/DEMO_JOURNEYS.md)
+- [DEMO_SCRIPT.md](demo/DEMO_SCRIPT.md)
+- [DEMO_ASSETS.md](demo/DEMO_ASSETS.md)
+
 ## Current Versus Future
 
-- Current: workspace-centric MVP, one cost-aware Azure AI Foundry expert call, local specialist reasoning, Foundry IQ-style intelligence layer, synthetic demo data, unauthenticated local runtime.
+- Current: workspace-centric MVP, one cost-aware Azure AI Foundry expert call, local specialist reasoning, Foundry IQ-style intelligence layer, seeded synthetic demo journeys, unauthenticated local runtime.
 - Future: real identity, tenant-aware RBAC, richer Foundry-hosted specialists, deeper retrieval through Azure AI Search and enterprise knowledge connectors.
 
 ## Hackathon Alignment Summary

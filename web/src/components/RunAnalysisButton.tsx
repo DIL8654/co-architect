@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Modal, SparkIcon } from './index';
 import type { ArchitectureAnalysisResult } from '../api/analysis';
+import { formatScoreBandLabel } from '../lib/scoreBands';
 
 interface AnalysisStep {
   id: number;
@@ -30,6 +32,7 @@ const TOTAL_DURATION = ANALYSIS_STEPS.length * STEP_DURATION;
 
 export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysisButtonProps>(
   ({ workspaceId, diagramId, onAnalysisComplete, disabled }, ref) => {
+    const navigate = useNavigate();
     const [isRunning, setIsRunning] = useState(false);
     const [steps, setSteps] = useState<AnalysisStep[]>(
       ANALYSIS_STEPS.map((step) => ({ ...step, status: 'pending' as const }))
@@ -114,16 +117,37 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
         </Button>
 
         {/* Progress Modal */}
-        <Modal isOpen={isRunning} onClose={() => {}} title="AI Architecture Analysis">
-          <div className="space-y-6 p-6">
-            <p className="text-sm text-secondary-600 dark:text-secondary-300">
-              Analyzing your architecture diagram using AI agents...
-            </p>
+        <Modal isOpen={isRunning} onClose={() => setIsRunning(false)} title="AI Architecture Analysis" size="xl">
+          <div className="space-y-6">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <section className="rounded-xl border border-[#dde1e6] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Architecture Context</p>
+                <p className="mt-2 text-sm leading-6 text-secondary-600 dark:text-secondary-300">
+                  CoArchitect AI is running the architecture through intake, diagram understanding, framework selection, Foundry IQ context retrieval, specialist review, trade-off balancing, scoring, critic validation, and recommendation composition.
+                </p>
+              </section>
+              <section className="rounded-xl border border-[#dde1e6] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Framework Selection</p>
+                <p className="mt-2 text-sm leading-6 text-secondary-600 dark:text-secondary-300">
+                  Auto-detect uses architecture cues and grounded knowledge from Azure, AWS, ISO/IEC 25010, OWASP ASVS, trade-off principles, and ADR templates.
+                </p>
+              </section>
+            </div>
 
             {/* Progress Steps */}
-            <div className="space-y-3">
+            <section className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Run Status</p>
+                  <h3 className="mt-1 text-base font-semibold text-secondary-950 dark:text-white">Agent workflow</h3>
+                </div>
+                <p className="text-xs font-medium text-primary-600">
+                  {Math.round((steps.filter((s) => s.status === 'completed').length / ANALYSIS_STEPS.length) * 100)}%
+                </p>
+              </div>
+            <div className="grid gap-3 lg:grid-cols-2">
               {steps.map((step, index) => (
-                <div key={step.id} className="space-y-1">
+                <div key={step.id} className="rounded-lg border border-[#eef1f4] p-3 dark:border-white/10">
                   <div className="flex items-center gap-3">
                     {/* Status Indicator */}
                     <div className="flex-shrink-0">
@@ -161,9 +185,10 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
                 </div>
               ))}
             </div>
+            </section>
 
             {/* Overall Progress Bar */}
-            <div className="mt-6">
+            <div>
               <div className="flex justify-between mb-2">
                 <p className="text-xs font-medium text-secondary-600 dark:text-secondary-300">Overall Progress</p>
                 <p className="text-xs font-medium text-primary-600">
@@ -199,8 +224,8 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
         </Modal>
 
         {/* Results Modal */}
-        <Modal isOpen={showResults && !isRunning} onClose={handleCloseResults} title="Analysis Complete ✓">
-          <div className="space-y-6 p-6">
+        <Modal isOpen={showResults && !isRunning} onClose={handleCloseResults} title="Analysis Complete" size="lg">
+          <div className="space-y-6">
             {analysisResult && (
               <>
                 <div className="grid grid-cols-2 gap-4">
@@ -219,7 +244,7 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
                 {analysisResult.scoreBand && (
                   <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                     <p className="text-xs font-medium text-secondary-700 dark:text-secondary-300 mb-2">Maturity Band</p>
-                    <p className="text-sm font-semibold text-secondary-950 dark:text-white">{analysisResult.scoreBand}</p>
+                    <p className="text-sm font-semibold text-secondary-950 dark:text-white">{formatScoreBandLabel(analysisResult.scoreBand)}</p>
                   </div>
                 )}
 
@@ -267,8 +292,17 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
               <Button variant="secondary" onClick={handleCloseResults} className="flex-1">
                 Close
               </Button>
-              <Button variant="primary" onClick={handleCloseResults} className="flex-1">
-                View Full Analysis
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (analysisResult?.id) {
+                    navigate(`/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs/${analysisResult.id}`);
+                  }
+                  handleCloseResults();
+                }}
+                className="flex-1"
+              >
+                Open Workbench
               </Button>
             </div>
           </div>

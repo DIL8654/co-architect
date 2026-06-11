@@ -7,15 +7,23 @@ export interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) return null;
+
+  const sizeClass = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-3xl',
+    xl: 'max-w-5xl',
+  }[size];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-secondary-950/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-50 mx-4 w-full max-w-md rounded-2xl border border-secondary-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0B1220]">
+      <div className={`relative z-50 mx-4 flex max-h-[92vh] w-full flex-col rounded-2xl border border-secondary-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0B1220] ${sizeClass}`}>
         <div className="flex items-center justify-between border-b border-secondary-200 px-6 py-4 dark:border-white/10">
           <h2 className="text-lg font-semibold text-secondary-950 dark:text-white">{title}</h2>
           <button
@@ -26,7 +34,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-6 py-4 text-secondary-700 dark:text-secondary-200">{children}</div>
+        <div className="min-h-0 overflow-y-auto px-6 py-4 text-secondary-700 dark:text-secondary-200">{children}</div>
         {footer && <div className="border-t border-secondary-200 bg-secondary-50 px-6 py-4 dark:border-white/10 dark:bg-white/[0.03]">{footer}</div>}
       </div>
     </div>

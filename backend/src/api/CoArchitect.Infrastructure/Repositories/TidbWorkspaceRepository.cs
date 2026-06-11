@@ -134,7 +134,7 @@ public sealed class TidbWorkspaceRepository : IWorkspaceRepository
         return new Workspace
         {
             Id = ParseGuid(reader.GetValue(0)),
-            OrganizationId = ParseGuid(reader.GetValue(1)),
+            TenantId = ParseGuid(reader.GetValue(1)),
             Name = reader.GetString(2),
             CreatedAt = reader.GetDateTime(3),
             UpdatedAt = reader.GetDateTime(4),

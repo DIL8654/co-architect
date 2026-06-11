@@ -2,9 +2,12 @@ import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { analysisApi, type AgentExecutionTrace, type ArchitectureAnalysisResult, type FoundryIqContextBundle, type GroundingReferenceSet } from '../api/analysis';
+import { adrApi } from '../api/adrs';
 import { diagramApi } from '../api/diagrams';
+import { workspaceApi } from '../api/workspaces';
 import { AdrPreview, ArchitectureScoreCard, Breadcrumbs, Button, CodePanel, EmptyPanel, ErrorState, LoadingState, MetaPanel, ReviewSetupSummary, SegmentedTabs } from '../components';
 import { buildAdrDraft } from '../lib/adrDraft';
+import { formatScoreBandLabel } from '../lib/scoreBands';
 
 type ResultTab = 'findings' | 'tradeoffs' | 'context' | 'agents' | 'adr';
 type AdrTab = 'preview' | 'markdown' | 'html' | 'history';
@@ -40,6 +43,18 @@ export function AnalysisResultPage() {
     enabled: !!diagramId,
   });
 
+  const { data: workspace } = useQuery({
+    queryKey: ['analysis-run-workspace', workspaceId],
+    queryFn: () => workspaceApi.getWorkspace(workspaceId!),
+    enabled: !!workspaceId,
+  });
+
+  const { data: relatedAdrs = [] } = useQuery({
+    queryKey: ['analysis-run-adrs', workspaceId, diagramId],
+    queryFn: () => adrApi.list(workspaceId!, diagramId!),
+    enabled: !!workspaceId && !!diagramId,
+  });
+
   if (!workspaceId || !diagramId || !runId) {
     return <ErrorState title="Analysis not found" message="The analysis route is missing required IDs." />;
   }
@@ -60,6 +75,7 @@ export function AnalysisResultPage() {
 
   const findings = buildFindingRows(analysis);
   const adrDraft = diagram ? buildAdrDraft({ diagram, analysis, comments: [] }) : null;
+  const criticalFindings = findings.filter((finding) => finding.severity === 'Critical' || finding.severity === 'High').length;
 
   return (
     <div className="page-shell">
@@ -73,9 +89,9 @@ export function AnalysisResultPage() {
         />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="page-title">Analysis Result</h1>
+            <h1 className="page-title">{diagram?.name ?? 'Analysis Result'}</h1>
             <p className="page-description">
-              Structured architecture findings, trade-offs, agent evidence, and ADR draft output for this completed review.
+              {workspace?.name ?? 'Workspace'} • {analysis.status} • {new Date(analysis.createdAt).toLocaleString()} • {analysis.reviewSetup.frameworkSelection.selectedFrameworks.join(', ')}.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -84,6 +100,13 @@ export function AnalysisResultPage() {
             </Button>
           </div>
         </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <ResultMetric label="Architecture Intelligence Score" value={analysis.finalScore === null || analysis.finalScore === undefined ? 'Pending' : analysis.finalScore.toFixed(1)} />
+        <ResultMetric label="Score Band" value={formatScoreBandLabel(analysis.scoreBand) || 'Not scored'} />
+        <ResultMetric label="Critical Findings" value={criticalFindings} />
+        <ResultMetric label="ADRs Generated" value={relatedAdrs.length} />
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
@@ -126,6 +149,23 @@ export function AnalysisResultPage() {
                   <li key={item}>{item}</li>
                 ))}
               </ul>
+            </MetaPanel>
+          ) : null}
+          {relatedAdrs.length > 0 ? (
+            <MetaPanel title="Related ADRs">
+              <div className="space-y-2">
+                {relatedAdrs.map((adr) => (
+                  <button
+                    key={adr.id}
+                    type="button"
+                    onClick={() => navigate(`/workspaces/${workspaceId}/diagrams/${diagramId}?tab=adr&adrId=${adr.id}`)}
+                    className="block w-full rounded-lg border border-[#e5e7eb] bg-[#fafafa] px-3 py-2 text-left text-sm font-medium text-secondary-950 hover:bg-[#f4f6f8] dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:bg-white/[0.06]"
+                  >
+                    {adr.title}
+                    <span className="mt-1 block text-xs font-normal text-secondary-500 dark:text-secondary-400">Latest v{adr.latestVersionNumber}</span>
+                  </button>
+                ))}
+              </div>
             </MetaPanel>
           ) : null}
         </aside>
@@ -364,7 +404,12 @@ function AgentTraceTable({ items }: { items: AgentExecutionTrace[] }) {
           {items.map((item) => (
             <Fragment key={`${item.agentName}-${item.startedAt}`}>
               <tr className="border-b border-[#eef1f4] align-top dark:border-white/10">
-                <td className="px-4 py-4 text-sm font-medium text-secondary-900 dark:text-white">{item.agentName}</td>
+                <td className="px-4 py-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-secondary-900 dark:text-white">{item.agentName}</span>
+                    <AgentStageBadge item={item} />
+                  </div>
+                </td>
                 <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.role}</td>
                 <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.framework ?? 'General'}</td>
                 <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.summary}</td>
@@ -383,6 +428,7 @@ function AgentTraceTable({ items }: { items: AgentExecutionTrace[] }) {
 }
 
 function FoundryIqContextPanel({ context }: { context: FoundryIqContextBundle }) {
+  const groundedSources = getGroundedSources(context);
   return (
     <div className="space-y-4">
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -393,11 +439,7 @@ function FoundryIqContextPanel({ context }: { context: FoundryIqContextBundle })
       </section>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <MetaPanel title="Context Sources">
-          <div className="space-y-3">
-            <ContextList title="Framework cues" items={context.frameworkGuidanceItems.map((item) => item.title)} />
-            <ContextList title="Trade-off cues" items={context.tradeoffItems.map((item) => item.title)} />
-            <ContextList title="Citations" items={context.citationRefs} />
-          </div>
+          <GroundedSourceList items={groundedSources} />
         </MetaPanel>
         <MetaPanel title="Workspace Memory">
           <div className="space-y-3">
@@ -420,8 +462,43 @@ function ContextMetric({ title, count }: { title: string; count: number }) {
   );
 }
 
+function ResultMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-[#08101d]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{label}</p>
+      <p className="mt-2 truncate text-2xl font-semibold text-secondary-950 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
 function ContextCountBadge({ label, count }: { label: string; count: number }) {
   return <span className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-xs font-semibold text-secondary-700 dark:bg-white/10 dark:text-secondary-300">{label} {count}</span>;
+}
+
+function AgentStageBadge({ item }: { item: AgentExecutionTrace }) {
+  const label = getAgentStageLabel(item);
+  const tone = item.usedFoundry ? 'foundry' : label === 'Critic' ? 'critic' : label === 'Specialist' ? 'specialist' : 'default';
+  const className = tone === 'foundry'
+    ? 'bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-100'
+    : tone === 'critic'
+      ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300'
+      : tone === 'specialist'
+        ? 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300'
+        : 'bg-[#f4f6f8] text-secondary-700 dark:bg-white/10 dark:text-secondary-300';
+
+  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
+}
+
+function getAgentStageLabel(item: AgentExecutionTrace) {
+  const name = item.agentName.toLowerCase();
+  if (item.usedFoundry || name.includes('foundry') || name.includes('retrieval')) return 'Foundry IQ';
+  if (name.includes('critic') || name.includes('verifier')) return 'Critic';
+  if (name.includes('composer')) return 'Composer';
+  if (name.includes('scoring')) return 'Scoring';
+  if (name.includes('adr')) return 'ADR';
+  if (name.includes('well-architected') || name.includes('iso') || name.includes('owasp')) return 'Specialist';
+  if (name.includes('context')) return 'Context';
+  return 'Agent';
 }
 
 function ContextList({ title, items }: { title: string; items: string[] }) {
@@ -439,6 +516,43 @@ function ContextList({ title, items }: { title: string; items: string[] }) {
       )}
     </div>
   );
+}
+
+function GroundedSourceList({ items }: { items: Array<{ id: string; title: string; type: string; reason: string }> }) {
+  if (items.length === 0) {
+    return <p className="text-sm text-secondary-500 dark:text-secondary-400">No context captured.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <div key={item.id} className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-3 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.title}</p>
+            <span className="rounded-full bg-[#f4f6f8] px-2 py-0.5 text-[11px] font-semibold text-secondary-700 dark:bg-white/10 dark:text-secondary-300">{item.type}</span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">{item.reason}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function getGroundedSources(context: FoundryIqContextBundle) {
+  return [
+    ...context.frameworkGuidanceItems,
+    ...context.principleItems,
+    ...context.tradeoffItems,
+    ...context.adrTemplateItems,
+    ...context.workspaceMemoryItems,
+  ]
+    .slice(0, 8)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.sourceType,
+      reason: item.summary,
+    }));
 }
 
 function GroundingDetails({ grounding, compact = false }: { grounding: GroundingReferenceSet; compact?: boolean }) {

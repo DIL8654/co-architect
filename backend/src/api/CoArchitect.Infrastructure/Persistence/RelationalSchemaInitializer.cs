@@ -59,7 +59,7 @@ public sealed class RelationalSchemaInitializer
         """
         create table if not exists coarchitect_workspaces (
             id char(36) not null primary key,
-            organization_id char(36) not null,
+            organization_id char(36) null,
             tenant_id char(36) null,
             name varchar(255) not null,
             created_at datetime(6) not null,
@@ -70,6 +70,9 @@ public sealed class RelationalSchemaInitializer
         """,
         """
         alter table coarchitect_workspaces add column if not exists tenant_id char(36) null;
+        """,
+        """
+        alter table coarchitect_workspaces modify column organization_id char(36) null;
         """,
         """
         update coarchitect_workspaces set tenant_id = organization_id where tenant_id is null and organization_id is not null;

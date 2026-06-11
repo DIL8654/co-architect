@@ -5,6 +5,7 @@ using CoArchitect.Application.Interfaces;
 using CoArchitect.Application.Services;
 using CoArchitect.Domain.Models;
 using CoArchitect.Infrastructure.Repositories;
+using CoArchitect.Infrastructure.Seeding;
 using CoArchitect.Infrastructure.Services;
 using CoArchitect.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
@@ -150,6 +151,10 @@ public class UnauthenticatedMvpEndpointTests
         Assert.NotEqual(Guid.Empty, analysis.Id);
         Assert.True(analysis.FinalScore > 0);
         Assert.NotEmpty(analysis.AgentTrace);
+        Assert.Contains(analysis.AgentTrace, item => item.AgentName == "Context Enrichment Agent");
+        Assert.Contains(analysis.AgentTrace, item => item.AgentName == "Critic / Verifier Agent");
+        Assert.NotEmpty(analysis.FoundryIqContext.CitationRefs);
+        Assert.True(analysis.FoundryIqContext.FrameworkGuidanceItems.Count > 0);
 
         var loadedAnalysis = AssertOk<ArchitectureAnalysisResponse>(
             await analysisController.GetAnalysisRun(workspace.Id, diagram.Id, analysis.Id, CancellationToken.None));
@@ -168,6 +173,57 @@ public class UnauthenticatedMvpEndpointTests
             await adrsController.Regenerate(workspace.Id, diagram.Id, adrResponse.Id, CancellationToken.None));
         Assert.Equal(2, regenerated.LatestVersionNumber);
         Assert.Equal(2, regenerated.Versions.Count);
+    }
+
+    [Fact]
+    public async Task HackathonDemoSeeder_CreatesCompleteIdempotentSyntheticJourneys()
+    {
+        var workspaceRepository = new MockWorkspaceRepository();
+        var diagramRepository = new MockDiagramRepository();
+        var analysisRepository = new MockAgentAnalysisRunRepository();
+        var adrRepository = new MockAdrRepository();
+        var seeder = new HackathonDemoSeeder(workspaceRepository, diagramRepository, analysisRepository, adrRepository);
+
+        await seeder.EnsureSeededAsync(CancellationToken.None);
+        await seeder.EnsureSeededAsync(CancellationToken.None);
+
+        var workspaces = (await workspaceRepository.GetAllAsync(CancellationToken.None)).ToList();
+        var demoWorkspaces = workspaces.Where(item => item.Name.StartsWith(HackathonDemoSeeder.DemoDataPrefix, StringComparison.Ordinal)).ToList();
+
+        Assert.Equal(3, demoWorkspaces.Count);
+
+        foreach (var workspace in demoWorkspaces)
+        {
+            var diagrams = (await diagramRepository.GetByWorkspaceIdAsync(workspace.Id, CancellationToken.None)).ToList();
+            Assert.Single(diagrams);
+
+            var diagram = diagrams[0];
+            var latestAnalysis = await analysisRepository.GetLatestByDiagramIdAsync(diagram.Id, CancellationToken.None);
+            Assert.NotNull(latestAnalysis);
+            Assert.NotNull(latestAnalysis.Result);
+            Assert.NotEmpty(latestAnalysis.Result.AgentTrace);
+            Assert.Contains(latestAnalysis.Result.AgentTrace, item => item.AgentName == "Foundry IQ Retrieval");
+            Assert.Contains(latestAnalysis.Result.AgentTrace, item => item.AgentName == "Recommendation Composer Agent");
+            Assert.NotEmpty(latestAnalysis.Result.FoundryIqContext.CitationRefs);
+            Assert.NotEmpty(latestAnalysis.Result.FoundryIqContext.FrameworkGuidanceItems);
+            Assert.NotEmpty(latestAnalysis.Result.MissingControls);
+            Assert.NotEmpty(latestAnalysis.Result.Tradeoffs);
+
+            var adrs = (await adrRepository.GetByDiagramIdAsync(diagram.Id, CancellationToken.None)).ToList();
+            Assert.NotEmpty(adrs);
+
+            foreach (var adr in adrs)
+            {
+                var versions = (await adrRepository.GetVersionsAsync(adr.Id, CancellationToken.None)).ToList();
+                Assert.True(versions.Count >= 3);
+                Assert.Equal(versions.Count, adr.LatestVersionNumber);
+                Assert.All(versions, version =>
+                {
+                    Assert.False(string.IsNullOrWhiteSpace(version.Markdown));
+                    Assert.False(string.IsNullOrWhiteSpace(version.Html));
+                });
+            }
+        }
     }
 
     [Fact]

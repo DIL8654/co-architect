@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from './Card';
 import { Badge } from './Badge';
 import type { ArchitectureAnalysisResult, DimensionBreakdown } from '../api/analysis';
+import { formatScoreBandLabel, getScoreBandMeta } from '../lib/scoreBands';
 
 interface ArchitectureScoreCardProps {
   currentAnalysis: ArchitectureAnalysisResult;
@@ -25,29 +26,7 @@ const DIMENSIONS: DimensionConfig[] = [
   { key: 'tenantisolation', label: 'Tenant Isolation' },
 ];
 
-const SCORE_BANDS: Array<{ min: number; max: number; label: string; variant: 'success' | 'primary' | 'warning' | 'error' }> = [
-  { min: 0, max: 30, label: 'High Risk', variant: 'error' },
-  { min: 31, max: 50, label: 'Early MVP', variant: 'warning' },
-  { min: 51, max: 70, label: 'Production Candidate', variant: 'primary' },
-  { min: 71, max: 85, label: 'Production Ready', variant: 'success' },
-  { min: 86, max: 100, label: 'Enterprise Ready', variant: 'success' },
-];
-
 const normalizeDimension = (dimension: string) => dimension.toLowerCase().replace(/[^a-z]/g, '');
-
-const getBandMeta = (score?: number, band?: string) => {
-  if (band) {
-    const normalizedBand = band.toLowerCase().replace(/[^a-z]/g, '');
-    if (normalizedBand.includes('enterprise')) return { label: 'Enterprise Ready', variant: 'success' as const };
-    if (normalizedBand.includes('productionready')) return { label: 'Production Ready', variant: 'success' as const };
-    if (normalizedBand.includes('productioncandidate')) return { label: 'Production Candidate', variant: 'primary' as const };
-    if (normalizedBand.includes('earlymvp')) return { label: 'Early MVP', variant: 'warning' as const };
-    if (normalizedBand.includes('highrisk')) return { label: 'High Risk', variant: 'error' as const };
-  }
-
-  const matchedBand = SCORE_BANDS.find((item) => (score ?? 0) >= item.min && (score ?? 0) <= item.max);
-  return matchedBand ?? { label: 'Unknown', variant: 'primary' as const };
-};
 
 const getTrendMeta = (delta: number) => {
   if (delta > 0) {
@@ -75,7 +54,7 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
   ({ currentAnalysis, previousAnalysis, showDimensions = true }, ref) => {
     const currentScore = currentAnalysis.finalScore ?? null;
     const previousScore = previousAnalysis?.finalScore ?? null;
-    const bandMeta = getBandMeta(currentScore ?? undefined, currentAnalysis.scoreBand);
+    const bandMeta = getScoreBandMeta(currentScore ?? undefined, currentAnalysis.scoreBand);
     const scoreDelta = currentScore !== null && previousScore !== null ? currentScore - previousScore : null;
     const trendMeta = scoreDelta !== null ? getTrendMeta(scoreDelta) : null;
     const maxContribution = Math.max(...(currentAnalysis.dimensionBreakdowns?.map((item) => item.contribution) ?? [0]), 1);
@@ -91,6 +70,9 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
                 <span className="pb-1 text-sm font-medium text-secondary-500 dark:text-secondary-400">/ 100</span>
               </div>
               <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">Architecture Intelligence Score</p>
+              <p className="mt-2 text-[11px] font-medium text-secondary-500 dark:text-secondary-400">
+                Calculated by application scoring code from AI-suggested maturity evidence.
+              </p>
             </div>
 
             <div className="rounded-xl border border-secondary-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
@@ -129,7 +111,7 @@ export const ArchitectureScoreCard = React.forwardRef<HTMLDivElement, Architectu
                 <span className="pb-1 text-sm font-medium text-secondary-500 dark:text-secondary-400">/ 100</span>
               </div>
               <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">
-                {previousScore === null ? 'No previous completed score is available yet.' : previousAnalysis?.scoreBand ?? 'Previous completed analysis'}
+                {previousScore === null ? 'No previous completed score is available yet.' : formatScoreBandLabel(previousAnalysis?.scoreBand) || 'Previous completed analysis'}
               </p>
             </div>
 

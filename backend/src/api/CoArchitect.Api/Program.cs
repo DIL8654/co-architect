@@ -5,6 +5,7 @@ using CoArchitect.Infrastructure.Services;
 using CoArchitect.Infrastructure.Settings;
 using CoArchitect.Infrastructure.Repositories;
 using CoArchitect.Infrastructure.Persistence;
+using CoArchitect.Infrastructure.Seeding;
 using CoArchitect.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -82,6 +83,7 @@ builder.Services.AddScoped<IFoundryIqProvider, CompositeFoundryIqProvider>();
 builder.Services.AddScoped<IContextEnrichmentAgent, ContextEnrichmentAgent>();
 builder.Services.AddScoped<IMultiAgentArchitectureAnalysisService, MultiAgentArchitectureAnalysisService>();
 builder.Services.AddScoped<IAdrGenerationService, AdrGenerationService>();
+builder.Services.AddScoped<HackathonDemoSeeder>();
 
 if (dataStoreOptions.UseTiDb)
 {
@@ -139,6 +141,13 @@ else
 builder.Services.AddScoped<IArchitectureAnalyzer, MockArchitectureAgentService>();
 
 var app = builder.Build();
+
+if (configuration.GetValue("DemoData:Enabled", true))
+{
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<HackathonDemoSeeder>();
+    await seeder.EnsureSeededAsync(CancellationToken.None);
+}
 
 app.UseExceptionHandler(errorApp =>
 {

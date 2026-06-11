@@ -2,8 +2,11 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumbs, Button, LoadingState, WorkspaceIcon } from '../components';
+import { adrApi } from '../api/adrs';
+import { analysisApi } from '../api/analysis';
 import { diagramApi } from '../api/diagrams';
 import { workspaceApi } from '../api/workspaces';
+import { DEMO_WORKSPACE_ORDER, isDemoWorkspace, sortWorkspacesForDisplay } from '../lib/demoJourneys';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -49,6 +52,50 @@ export function DashboardPage() {
           </div>
         ))}
       </section>
+
+      {(data?.demoJourneys.length ?? 0) > 0 ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-secondary-950 dark:text-white">Demo Architecture Journeys</h2>
+            <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">
+              Start with complete, synthetic architecture reviews that include diagrams, analysis runs, agent workflow, Foundry IQ grounding, and ADR history.
+            </p>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-3">
+            {data!.demoJourneys.map((journey) => (
+              <article key={journey.diagramId} className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
+                {journey.thumbnailUrl ? (
+                  <button type="button" className="block h-40 w-full bg-[#f8f9fb] dark:bg-white/[0.03]" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}`)}>
+                    <img src={journey.thumbnailUrl} alt={journey.diagramName} className="h-full w-full object-contain p-3" />
+                  </button>
+                ) : null}
+                <div className="space-y-4 p-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{journey.workspaceName.replace('[Demo] ', '')}</p>
+                    <h3 className="mt-1 text-base font-semibold text-secondary-950 dark:text-white">{journey.diagramName}</h3>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-secondary-600 dark:text-secondary-300">{journey.description}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <Metric label="Score" value={journey.score === null ? '—' : journey.score.toFixed(1)} />
+                    <Metric label="Status" value={journey.analysisStatus} />
+                    <Metric label="ADRs" value={journey.adrCount} />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}`)}>
+                      Open Diagram
+                    </Button>
+                    {journey.latestRunId ? (
+                      <Button size="sm" variant="secondary" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}/analysis-runs/${journey.latestRunId}`)}>
+                        Open Analysis
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_360px]">
         <div className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
@@ -115,19 +162,42 @@ export function DashboardPage() {
   );
 }
 
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">{label}</p>
+      <p className="mt-1 truncate font-semibold text-secondary-950 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
 async function loadDashboardSummary() {
-  const workspaces = await workspaceApi.listWorkspaces();
+  const workspaces = sortWorkspacesForDisplay(await workspaceApi.listWorkspaces());
   const workspaceSummaries = await Promise.all(
     workspaces.map(async (workspace) => {
-      const diagrams = await diagramApi.listDiagrams(workspace.id);
-      const scoredDiagrams = diagrams.filter((diagram) => diagram.architectureScore !== null && diagram.architectureScore !== undefined);
+      const shouldEnrich = isDemoWorkspace(workspace.name);
+      const diagrams = shouldEnrich ? await safeLoad(() => diagramApi.listDiagrams(workspace.id), []) : [];
+      const enrichedDiagrams = await Promise.all(
+        diagrams.map(async (diagram) => {
+          const [latestAnalysis, analysisRuns, adrs] = await Promise.all([
+            safeLoad(() => analysisApi.getDiagramAnalysis(diagram.id), null),
+            safeLoad(() => analysisApi.listAnalysisRuns(workspace.id, diagram.id), []),
+            safeLoad(() => adrApi.list(workspace.id, diagram.id), []),
+          ]);
+          return { diagram, latestAnalysis, analysisRuns, adrs };
+        }),
+      );
+      const scoredDiagrams = enrichedDiagrams.filter((item) => item.latestAnalysis?.finalScore !== null && item.latestAnalysis?.finalScore !== undefined);
       return {
         id: workspace.id,
         name: workspace.name,
         workspaceCount: 1,
-        diagramCount: diagrams.length,
+        diagramCount: shouldEnrich ? diagrams.length : workspace.diagramCount,
         scoredDiagramCount: scoredDiagrams.length,
-        needsReviewCount: diagrams.filter((diagram) => !diagram.architectureScore).length,
+        needsReviewCount: shouldEnrich
+          ? enrichedDiagrams.filter((item) => !item.latestAnalysis?.finalScore).length
+          : workspace.diagramCount,
+        diagrams: enrichedDiagrams,
       };
     })
   );
@@ -148,5 +218,35 @@ async function loadDashboardSummary() {
     scoredDiagramCount: totals.scoredDiagramCount,
     needsReviewCount: totals.needsReviewCount,
     workspaceSummaries,
+    demoJourneys: workspaceSummaries
+      .flatMap((workspace) =>
+        workspace.diagrams
+          .filter(() => isDemoWorkspace(workspace.name))
+          .map((item) => ({
+            workspaceId: workspace.id,
+            workspaceName: workspace.name,
+            diagramId: item.diagram.id,
+            diagramName: item.diagram.name,
+            description: item.diagram.description ?? '',
+            thumbnailUrl: item.diagram.fileUrl,
+            score: item.latestAnalysis?.finalScore ?? null,
+            analysisStatus: item.latestAnalysis?.status ?? 'Not run',
+            latestRunId: item.analysisRuns[0]?.id,
+            adrCount: item.adrs.length,
+          })),
+      )
+      .sort((left, right) => DEMO_WORKSPACE_ORDER.indexOf(left.workspaceName as (typeof DEMO_WORKSPACE_ORDER)[number]) - DEMO_WORKSPACE_ORDER.indexOf(right.workspaceName as (typeof DEMO_WORKSPACE_ORDER)[number]))
+      .slice(0, 3),
   };
+}
+
+async function safeLoad<T>(loader: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await Promise.race([
+      loader(),
+      new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), 4500)),
+    ]);
+  } catch {
+    return fallback;
+  }
 }

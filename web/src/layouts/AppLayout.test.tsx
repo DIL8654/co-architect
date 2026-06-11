@@ -78,6 +78,9 @@ describe('AppLayout', () => {
     expect(screen.getByText('Knowledge Base')).toBeTruthy();
     expect(screen.getByText('Health')).toBeTruthy();
     expect(screen.getAllByText('Settings').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Findings')).toBeNull();
+    expect(screen.queryByText('Trade-offs')).toBeNull();
+    expect(screen.queryByText('ADRs')).toBeNull();
   });
 
   it('defaults to dark mode and can switch to light mode', async () => {

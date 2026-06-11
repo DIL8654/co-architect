@@ -86,6 +86,21 @@ export function InfraHealthPage() {
         </div>
       </div>
 
+      <section className="panel p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Demo Readiness</p>
+            <h2 className="mt-1 text-lg font-semibold text-secondary-950 dark:text-white">{getDemoReadinessTitle(data.status)}</h2>
+            <p className="mt-2 text-sm leading-6 text-secondary-600 dark:text-secondary-300">
+              Mock-backed demos can run with degraded Azure Foundry status. Azure-backed demos should show healthy database, storage, and Foundry checks before presenting.
+            </p>
+          </div>
+          <Badge variant={data.status === 'unhealthy' ? 'error' : data.status === 'degraded' ? 'warning' : 'success'}>
+            {data.status === 'unhealthy' ? 'Needs attention' : data.status === 'degraded' ? 'Mock demo ready' : 'Azure demo ready'}
+          </Badge>
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
         <table className="w-full">
           <thead className="border-b border-[#dde1e6] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
@@ -110,4 +125,16 @@ export function InfraHealthPage() {
       </section>
     </div>
   );
+}
+
+function getDemoReadinessTitle(status: string) {
+  if (status === 'healthy') {
+    return 'Ready for the full Azure-backed demo';
+  }
+
+  if (status === 'degraded') {
+    return 'Ready for a zero-config mock demo';
+  }
+
+  return 'Resolve unhealthy checks before presenting';
 }

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
   Breadcrumbs,
@@ -17,6 +17,7 @@ import {
   type ReviewFramework,
 } from '../api/diagrams';
 import { useUploadDiagram } from '../hooks/useDiagrams';
+import { SAMPLE_ARCHITECTURE_DESCRIPTION, SAMPLE_DIAGRAM_NAME, SAMPLE_REVIEW_CONTEXT } from '../lib/sampleArchitecture';
 
 const SUPPORTED_FORMATS = ['png', 'jpg', 'jpeg', 'svg'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -53,6 +54,8 @@ const INITIAL_PREVIEW: DiagramReviewSetup = {
 export function UploadDiagramPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sampleAppliedRef = useRef(false);
 
   const [diagramName, setDiagramName] = useState('');
   const [description, setDescription] = useState('');
@@ -74,9 +77,25 @@ export function UploadDiagramPage() {
 
   const uploadMutation = useUploadDiagram();
 
-  if (!workspaceId) {
-    return <ErrorState title="Invalid workspace" message="Please select a valid workspace." />;
-  }
+  useEffect(() => {
+    if (sampleAppliedRef.current || searchParams.get('sample') !== '1') {
+      return;
+    }
+
+    sampleAppliedRef.current = true;
+    setDiagramName(SAMPLE_DIAGRAM_NAME);
+    setDescription(SAMPLE_ARCHITECTURE_DESCRIPTION);
+    setBusinessDomain(SAMPLE_REVIEW_CONTEXT.businessDomain);
+    setTargetUsers(SAMPLE_REVIEW_CONTEXT.targetUsers);
+    setExpectedTraffic(SAMPLE_REVIEW_CONTEXT.expectedTraffic);
+    setDataSensitivity(SAMPLE_REVIEW_CONTEXT.dataSensitivity);
+    setCloudProviderPreference(SAMPLE_REVIEW_CONTEXT.cloudProviderPreference);
+    setComplianceNeeds(SAMPLE_REVIEW_CONTEXT.complianceNeeds);
+    setCurrentPainPoints(SAMPLE_REVIEW_CONTEXT.currentPainPoints);
+    setFrameworkSelectionMode('AutoDetect');
+    setRequestedFrameworks([]);
+    setQualityAttributeWeights(DEFAULT_WEIGHTS);
+  }, [searchParams]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(async () => {
@@ -127,6 +146,10 @@ export function UploadDiagramPage() {
     requestedFrameworks,
     qualityAttributeWeights,
   ]);
+
+  if (!workspaceId) {
+    return <ErrorState title="Invalid workspace" message="Please select a valid workspace." />;
+  }
 
   function buildReviewSetup(): DiagramReviewSetupInput {
     return {

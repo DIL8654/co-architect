@@ -20,6 +20,7 @@ CoArchitect AI reviews architecture diagrams and descriptions through multi-stag
 - analysis result page
 - agent reasoning trace
 - Architecture Intelligence Score
+- seeded Demo Architecture Journeys on the dashboard
 
 ### Supporting Docs
 
@@ -43,6 +44,7 @@ Planner-like intake -> understanding -> framework selection -> context enrichmen
 - agent trace view
 - Foundry IQ context panels
 - grounded finding details
+- completed seeded analysis snapshots with no live cloud dependency
 
 ### Supporting Docs
 
@@ -65,6 +67,7 @@ CoArchitect AI is positioned as an AI architecture partner, not a generic chat w
 - Architecture Intelligence Score
 - ADR generation
 - Foundry IQ-style grounding
+- ADR version history for video analysis, document processing, and SaaS baseline demo scenarios
 
 ### Supporting Docs
 
@@ -87,6 +90,7 @@ The product is workspace-centric, minimal, and demoable.
 - focused diagram workspace
 - table-first analysis surfaces
 - dashboard context filtering
+- real demo diagram thumbnails and direct dashboard entry points
 
 ### Supporting Docs
 
@@ -110,6 +114,7 @@ The current MVP keeps scoring deterministic, uses synthetic data, and exposes gr
 - critic notes
 - mock fallback
 - Foundry IQ context
+- seeded snapshots that persist score, grounding, agent traces, and ADR versions without requiring Azure credentials
 
 ### Supporting Docs
 
@@ -127,7 +132,7 @@ Identity, RBAC, and enterprise connector governance.
 
 The demo is easy to explain:
 
-open app -> create workspace -> add architecture -> run analysis -> inspect reasoning -> generate ADR
+open app -> choose a seeded demo journey -> inspect architecture diagram -> open analysis -> inspect reasoning and grounding -> open ADR history
 
 ### Where It Is Visible
 

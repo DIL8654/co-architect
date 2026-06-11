@@ -20,6 +20,7 @@ import { useLocalIdentity } from '../hooks/useLocalIdentity';
 import { useTheme, type ThemeMode } from '../hooks/useTheme';
 import { useWorkspaces } from '../hooks/useWorkspaces';
 import type { Workspace } from '../api/workspaces';
+import { sortWorkspacesForDisplay } from '../lib/demoJourneys';
 import { useSidebarTreeStore } from '../stores/useSidebarTreeStore';
 
 type RouteContext = {
@@ -53,11 +54,12 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
-  const { displayName, organizationLabel } = useLocalIdentity();
+  const { displayName } = useLocalIdentity();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('coarchitect.sidebarCollapsed') === 'true');
   const routeContext = useMemo(() => getRouteContext(location.pathname), [location.pathname]);
   const { data: workspaces = [] } = useWorkspaces();
-  const currentWorkspace = workspaces.find((workspace) => workspace.id === routeContext.workspaceId) ?? null;
+  const orderedWorkspaces = useMemo(() => sortWorkspacesForDisplay(workspaces), [workspaces]);
+  const currentWorkspace = orderedWorkspaces.find((workspace) => workspace.id === routeContext.workspaceId) ?? null;
   const { expandedWorkspaceIds, ensureWorkspaceExpanded } = useSidebarTreeStore();
 
   useEffect(() => {
@@ -92,12 +94,6 @@ export function AppLayout() {
         </div>
 
         <div className="header-context">
-          {organizationLabel ? (
-            <div className="context-chip">
-              <span className="context-chip-label">Profile</span>
-              <span className="context-chip-value">{organizationLabel}</span>
-            </div>
-          ) : null}
           <div className="context-chip">
             <span className="context-chip-label">Workspace</span>
             <span className="context-chip-value">{currentWorkspace?.name ?? 'Select a workspace'}</span>
@@ -154,7 +150,7 @@ export function AppLayout() {
           <nav className="side-nav-section">
             <NavSectionLabel collapsed={isSidebarCollapsed}>Architecture</NavSectionLabel>
             <div className="tree-list">
-              {workspaces.map((workspace) => (
+              {orderedWorkspaces.map((workspace) => (
                 <WorkspaceTreeNode
                   key={workspace.id}
                   workspace={workspace}
@@ -231,19 +227,47 @@ function WorkspaceTreeNode({
       {isExpanded && !collapsed ? (
         <div className="tree-children">
           {diagrams.map((diagram) => (
-            <button
+            <DiagramTreeNode
               key={diagram.id}
-              type="button"
-              className={`tree-link nested ${diagram.id === activeDiagramId ? 'active' : ''}`}
-              onClick={() => onNavigate(`/workspaces/${workspace.id}/diagrams/${diagram.id}`)}
-              title={diagram.name}
-            >
-              <DiagramIcon className="h-4 w-4 shrink-0" />
-              <span className="truncate">{diagram.name}</span>
-            </button>
+              workspaceId={workspace.id}
+              diagramId={diagram.id}
+              diagramName={diagram.name}
+              activeDiagramId={activeDiagramId}
+              onNavigate={onNavigate}
+            />
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function DiagramTreeNode({
+  workspaceId,
+  diagramId,
+  diagramName,
+  activeDiagramId,
+  onNavigate,
+}: {
+  workspaceId: string;
+  diagramId: string;
+  diagramName: string;
+  activeDiagramId?: string;
+  onNavigate: ReturnType<typeof useNavigate>;
+}) {
+  const isActive = diagramId === activeDiagramId;
+
+  return (
+    <div className="tree-diagram-group">
+      <button
+        type="button"
+        className={`tree-link nested ${isActive ? 'active' : ''}`}
+        onClick={() => onNavigate(`/workspaces/${workspaceId}/diagrams/${diagramId}`)}
+        title={diagramName}
+      >
+        <DiagramIcon className="h-4 w-4 shrink-0" />
+        <span className="truncate">{diagramName}</span>
+      </button>
     </div>
   );
 }

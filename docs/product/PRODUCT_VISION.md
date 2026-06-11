@@ -54,6 +54,10 @@ CoArchitect AI acts as an AI architecture partner. It helps teams review archite
 
 CoArchitect AI helps teams move from architecture description to grounded review, prioritized findings, explicit trade-offs, and ADR-ready decisions in one coherent workflow.
 
+## Demo Experience
+
+The hackathon build includes seeded synthetic demo journeys for video analysis, document processing, and enterprise SaaS architecture. Each journey includes a workspace, diagram or description, completed analysis snapshot, Foundry IQ grounding, agent workflow, findings, trade-offs, recommendations, and ADR version history. This lets evaluators experience the full product value loop immediately while preserving the user-created workspace flow.
+
 ## Future Enhancements
 
 - real identity and RBAC

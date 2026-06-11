@@ -25,7 +25,7 @@ public sealed class MockWorkspaceRepository : IWorkspaceRepository
 
         lock (_lock)
         {
-            var workspaces = _workspaces.Values.Where(w => w.OrganizationId == organizationId).ToList();
+            var workspaces = _workspaces.Values.Where(w => w.TenantId == organizationId).ToList();
             return Task.FromResult(workspaces.AsEnumerable());
         }
     }

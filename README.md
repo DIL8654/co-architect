@@ -34,6 +34,8 @@ The current runtime uses application-led orchestration with one cost-aware Azure
 
 ## Local Quick Start
 
+The quickest evaluator path uses mock storage and the mock AI provider. No Azure or TiDB credentials are required.
+
 Backend:
 
 ```bash
@@ -56,24 +58,58 @@ Default URLs:
 - Swagger: `http://localhost:5010/swagger`
 - Frontend: `http://localhost:5173`
 
+Smoke test after the backend is running:
+
+```bash
+node scripts/smoke-hackathon-flow.mjs
+```
+
+## Seeded Demo Experience
+
+The API seeds synthetic hackathon demo journeys by default. These include real diagram assets, completed analysis snapshots, Foundry IQ grounding, agent traces, findings, trade-offs, recommendations, ADRs, ADR versions, and ADR history.
+
+Seeded scenarios:
+
+- Automated Video Analysis Platform
+- Custom Document Processing Platform
+- Enterprise SaaS Platform Baseline
+
+Disable seeding only when needed:
+
+```bash
+DemoData__Enabled=false
+```
+
 ## Demo Flow
 
 1. open the app
-2. create a workspace
-3. add a synthetic architecture description or diagram
-4. run analysis
-5. inspect score, findings, trade-offs, and grounding
-6. generate an ADR
+2. choose a Demo Architecture Journey from the dashboard
+3. inspect the real diagram image or architecture description
+4. open the latest analysis result
+5. inspect score, findings, trade-offs, agent workflow, and Foundry IQ grounding
+6. open ADRs and version history
+7. optionally create a new workspace and run a fresh mock or Azure-backed analysis
 
 ## Documentation
 
 Start with [docs/README.md](docs/README.md).
+
+Demo-specific docs:
+
+- [Demo Data Plan](docs/demo/DEMO_DATA_PLAN.md)
+- [Demo Journeys](docs/demo/DEMO_JOURNEYS.md)
+- [Demo Script](docs/demo/DEMO_SCRIPT.md)
+- [Demo Assets](docs/demo/DEMO_ASSETS.md)
 
 ## Current Limitations
 
 - unauthenticated local runtime
 - current reasoning mostly application-led
 - Azure AI Search is not yet integrated
+
+## Azure-Backed Local Run
+
+For presenter or production-style testing, set `DATASTORE_PROVIDER=TiDB`, `DATABASE_CONNECTION_STRING`, `ARCHITECTURE_STORAGE_PROVIDER=AzureBlobSas`, `ARCHITECTURE_STORAGE_CONTAINER_SAS_URL`, and the Azure AI Foundry values in `backend/.env`.
 
 ## Future Roadmap
 

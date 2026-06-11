@@ -8,6 +8,8 @@ Describe the current and future reasoning flow.
 
 The MVP uses application-led orchestration with specialist reasoning stages and one cost-aware Azure AI Foundry expert call.
 
+The diagram workbench exposes this flow directly through a dedicated `Agent Workflow` view so users can inspect the pipeline for the selected analysis run.
+
 ## Current Flow
 
 ```text
@@ -47,6 +49,13 @@ The current MVP does not pretend that every stage is a separate Azure-hosted age
 ## Implementation Notes
 
 See [AGENT_CATALOG.md](AGENT_CATALOG.md) and [AGENT_ORCHESTRATION_FLOW.md](AGENT_ORCHESTRATION_FLOW.md).
+
+The current UI presents:
+
+- a score-first summary in `Architecture Intelligence`
+- a dedicated `Agent Workflow` tab for the selected run
+- run history alongside workflow switching
+- grounded context and citations next to findings and recommendations
 
 ## Future Enhancements
 

@@ -11,6 +11,10 @@ public sealed class FoundryIqContextItem
     public string SourceLabel { get; init; } = string.Empty;
     public string? SourceUri { get; init; }
     public bool WorkspaceScoped { get; init; }
+    public string? StandardKey { get; init; }
+    public IList<string> UseCaseTags { get; init; } = new List<string>();
+    public string? WhyItMatters { get; init; }
+    public string? WhenToApply { get; init; }
     public string? Framework { get; init; }
     public string? Principle { get; init; }
     public string? TradeoffTag { get; init; }

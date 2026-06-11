@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Breadcrumbs, Button, EmptyState, ErrorState, LoadingState, Modal, PlusIcon, WorkspaceIcon } from '../components';
+import { Breadcrumbs, Button, EmptyState, ErrorState, IconButton, LoadingState, Modal, PlusIcon, TrashIcon, WorkspaceIcon } from '../components';
 import { useCreateWorkspace, useDeleteWorkspace, useWorkspaces } from '../hooks/useWorkspaces';
 import { getErrorMessage, getFieldError } from '../api/axios';
 
@@ -114,9 +114,13 @@ export function WorkspaceListPage() {
                     {workspace.diagramCount > 0 ? 'Active' : 'Empty'}
                   </td>
                   <td className="px-4 py-4 text-right">
-                    <Button size="sm" variant="danger" onClick={() => setWorkspaceToDelete({ id: workspace.id, name: workspace.name })}>
-                      Delete
-                    </Button>
+                    <IconButton
+                      label={`Delete ${workspace.name}`}
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setWorkspaceToDelete({ id: workspace.id, name: workspace.name })}
+                      icon={<TrashIcon className="h-4 w-4" />}
+                    />
                   </td>
                 </tr>
               ))}

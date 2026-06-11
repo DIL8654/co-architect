@@ -1,4 +1,5 @@
 export { Button, type ButtonProps } from './Button';
+export { IconButton, type IconButtonProps } from './IconButton';
 export { Card, type CardProps } from './Card';
 export { Badge, type BadgeProps } from './Badge';
 export { Modal, type ModalProps } from './Modal';

@@ -84,6 +84,22 @@ export function UploadIcon(props: IconProps) {
   return <svg {...base} {...props}><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>;
 }
 
+export function DownloadIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M12 4v12M7 11l5 5 5-5" /><path d="M4 20h16" /></svg>;
+}
+
+export function TrashIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M7 7l1 13h8l1-13" /><path d="M10 11v5M14 11v5" /></svg>;
+}
+
+export function RefreshIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M20 5v5h-5" /><path d="M4 19v-5h5" /><path d="M18 10a7 7 0 0 0-11.95-3.95L4 10M6 14a7 7 0 0 0 11.95 3.95L20 14" /></svg>;
+}
+
+export function FileIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5" /></svg>;
+}
+
 export function ArrowLeftIcon(props: IconProps) {
   return <svg {...base} {...props}><path d="M19 12H5M12 19l-7-7 7-7" /></svg>;
 }

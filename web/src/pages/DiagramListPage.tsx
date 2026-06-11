@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Breadcrumbs, Button, DiagramIcon, EmptyState, ErrorState, LoadingState, Modal, UploadIcon } from '../components';
+import { Breadcrumbs, Button, DiagramIcon, EmptyState, ErrorState, IconButton, LoadingState, Modal, TrashIcon, UploadIcon } from '../components';
 import { useDeleteDiagram, useDiagrams } from '../hooks/useDiagrams';
 
 export function DiagramListPage() {
@@ -99,9 +99,13 @@ export function DiagramListPage() {
                   </td>
                   <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{diagram.originalFileName || 'Description'}</td>
                   <td className="px-4 py-4 text-right">
-                    <Button size="sm" variant="danger" onClick={() => setDiagramToDelete({ id: diagram.id, name: diagram.name })}>
-                      Delete
-                    </Button>
+                    <IconButton
+                      label={`Delete ${diagram.name}`}
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setDiagramToDelete({ id: diagram.id, name: diagram.name })}
+                      icon={<TrashIcon className="h-4 w-4" />}
+                    />
                   </td>
                 </tr>
               ))}
@@ -130,5 +134,5 @@ export function DiagramListPage() {
 }
 
 function scoreLabel(score?: number) {
-  return score !== null && score !== undefined ? `${score.toFixed(1)}/100` : 'Not scored';
+  return score !== null && score !== undefined ? `${score.toFixed(1)}/100` : '—';
 }

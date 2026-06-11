@@ -39,6 +39,10 @@ export interface FoundryIqContextItem {
   sourceLabel: string;
   sourceUri?: string;
   workspaceScoped: boolean;
+  standardKey?: string;
+  useCaseTags?: string[];
+  whyItMatters?: string;
+  whenToApply?: string;
   framework?: string;
   principle?: string;
   tradeoffTag?: string;
@@ -59,6 +63,7 @@ export interface FoundryIqContextBundle {
   frameworkGuidanceItems: FoundryIqContextItem[];
   principleItems: FoundryIqContextItem[];
   tradeoffItems: FoundryIqContextItem[];
+  complianceItems: FoundryIqContextItem[];
   adrTemplateItems: FoundryIqContextItem[];
   workspaceMemoryItems: FoundryIqContextItem[];
   relatedFindingItems: FoundryIqContextItem[];
@@ -137,6 +142,7 @@ const EMPTY_CONTEXT: FoundryIqContextBundle = {
   frameworkGuidanceItems: [],
   principleItems: [],
   tradeoffItems: [],
+  complianceItems: [],
   adrTemplateItems: [],
   workspaceMemoryItems: [],
   relatedFindingItems: [],

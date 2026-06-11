@@ -151,6 +151,7 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
             FrameworkGuidanceItems = bundle.FrameworkGuidanceItems,
             PrincipleItems = bundle.PrincipleItems,
             TradeoffItems = bundle.TradeoffItems,
+            ComplianceItems = bundle.ComplianceItems,
             AdrTemplateItems = bundle.AdrTemplateItems,
             WorkspaceMemoryItems = workspaceMemoryItems,
             RelatedFindingItems = relatedFindingItems,

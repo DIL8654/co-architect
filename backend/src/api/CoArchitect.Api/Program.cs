@@ -78,6 +78,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddScoped<ICurrentUserService, LocalCurrentUserService>();
 builder.Services.AddScoped<IArchitectureIntelligenceScoreService, ArchitectureIntelligenceScoreService>();
 builder.Services.AddScoped<IFrameworkSelectionService, FrameworkSelectionService>();
+builder.Services.AddSingleton<KnowledgeBaseCatalogLoader>();
 builder.Services.AddScoped<FileSystemFoundryIqProvider>();
 builder.Services.AddScoped<IFoundryIqProvider, CompositeFoundryIqProvider>();
 builder.Services.AddScoped<IContextEnrichmentAgent, ContextEnrichmentAgent>();

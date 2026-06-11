@@ -5,6 +5,7 @@ public sealed class FoundryIqContextBundle
     public IList<FoundryIqContextItem> FrameworkGuidanceItems { get; init; } = new List<FoundryIqContextItem>();
     public IList<FoundryIqContextItem> PrincipleItems { get; init; } = new List<FoundryIqContextItem>();
     public IList<FoundryIqContextItem> TradeoffItems { get; init; } = new List<FoundryIqContextItem>();
+    public IList<FoundryIqContextItem> ComplianceItems { get; init; } = new List<FoundryIqContextItem>();
     public IList<FoundryIqContextItem> AdrTemplateItems { get; init; } = new List<FoundryIqContextItem>();
     public IList<FoundryIqContextItem> WorkspaceMemoryItems { get; init; } = new List<FoundryIqContextItem>();
     public IList<FoundryIqContextItem> RelatedFindingItems { get; init; } = new List<FoundryIqContextItem>();

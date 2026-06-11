@@ -187,6 +187,7 @@ describe('DiagramDetailPage', () => {
     expect(screen.getByRole('button', { name: /Recommendations/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Trade-offs/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Analysis Runs/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Agent Workflow/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /ADRs/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Detailed Result' })).toBeNull();
     expect(screen.getAllByText('Production Candidate').length).toBeGreaterThan(0);

@@ -56,6 +56,7 @@ public class UnauthenticatedMvpEndpointTests
             currentUserService,
             new NoopArchitectureFileStorage(),
             frameworkSelectionService,
+            new ArchitectureIntelligenceScoreService(),
             NullLogger<DiagramsController>.Instance);
         var commentsController = new DiagramCommentsController(
             commentRepository,
@@ -125,6 +126,7 @@ public class UnauthenticatedMvpEndpointTests
             CancellationToken.None);
         var diagram = AssertCreated<ArchitectureDiagramResponse>(createdDiagram);
         Assert.Equal(LocalCurrentUserService.UserId, diagram.UploadedByUserId);
+        Assert.Null(diagram.ArchitectureScore);
 
         var diagrams = AssertOk<IEnumerable<ArchitectureDiagramResponse>>(
             await diagramsController.ListDiagrams(workspace.Id, null, CancellationToken.None));
@@ -163,6 +165,15 @@ public class UnauthenticatedMvpEndpointTests
         var history = AssertOk<IEnumerable<AnalysisRunTimelineItemResponse>>(
             await analysisController.ListAnalysisRuns(workspace.Id, diagram.Id, CancellationToken.None));
         Assert.Contains(history, item => item.Id == analysis.Id);
+
+        diagrams = AssertOk<IEnumerable<ArchitectureDiagramResponse>>(
+            await diagramsController.ListDiagrams(workspace.Id, null, CancellationToken.None));
+        var rescoredDiagram = Assert.Single(diagrams.Where(item => item.Id == diagram.Id));
+        Assert.NotNull(rescoredDiagram.ArchitectureScore);
+
+        loadedDiagram = AssertOk<ArchitectureDiagramResponse>(
+            await diagramsController.GetDiagram(diagram.Id, CancellationToken.None));
+        Assert.NotNull(loadedDiagram.ArchitectureScore);
 
         var adrResponse = AssertCreated<AdrResponse>(
             await adrsController.Generate(workspace.Id, diagram.Id, CancellationToken.None));
@@ -283,6 +294,7 @@ public class UnauthenticatedMvpEndpointTests
             new LocalCurrentUserService(),
             new NoopArchitectureFileStorage(),
             new FrameworkSelectionService(),
+            new ArchitectureIntelligenceScoreService(),
             NullLogger<DiagramsController>.Instance);
 
         var result = await controller.GetDiagram(Guid.NewGuid(), CancellationToken.None);

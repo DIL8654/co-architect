@@ -113,6 +113,7 @@ public sealed class FoundryIqContextBundleResponse
     public List<FoundryIqContextItemResponse> FrameworkGuidanceItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> PrincipleItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> TradeoffItems { get; init; } = new();
+    public List<FoundryIqContextItemResponse> ComplianceItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> AdrTemplateItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> WorkspaceMemoryItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> RelatedFindingItems { get; init; } = new();
@@ -132,6 +133,10 @@ public sealed class FoundryIqContextItemResponse
     public string SourceLabel { get; init; } = string.Empty;
     public string? SourceUri { get; init; }
     public bool WorkspaceScoped { get; init; }
+    public string? StandardKey { get; init; }
+    public List<string> UseCaseTags { get; init; } = new();
+    public string? WhyItMatters { get; init; }
+    public string? WhenToApply { get; init; }
     public string? Framework { get; init; }
     public string? Principle { get; init; }
     public string? TradeoffTag { get; init; }

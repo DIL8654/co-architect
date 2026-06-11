@@ -18,6 +18,7 @@ public class DiagramsController : ControllerBase
     private readonly ICurrentUserService _currentUserService;
     private readonly IArchitectureFileStorage _fileStorage;
     private readonly IFrameworkSelectionService _frameworkSelectionService;
+    private readonly IArchitectureIntelligenceScoreService _scoreService;
     private readonly ILogger<DiagramsController> _logger;
 
     private static readonly string[] AllowedExtensions = { ".png", ".jpg", ".jpeg", ".svg" };
@@ -32,6 +33,7 @@ public class DiagramsController : ControllerBase
         ICurrentUserService currentUserService,
         IArchitectureFileStorage fileStorage,
         IFrameworkSelectionService frameworkSelectionService,
+        IArchitectureIntelligenceScoreService scoreService,
         ILogger<DiagramsController> logger)
     {
         _diagramRepository = diagramRepository;
@@ -42,6 +44,7 @@ public class DiagramsController : ControllerBase
         _currentUserService = currentUserService;
         _fileStorage = fileStorage;
         _frameworkSelectionService = frameworkSelectionService;
+        _scoreService = scoreService;
         _logger = logger;
     }
 
@@ -125,18 +128,7 @@ public class DiagramsController : ControllerBase
         await _diagramRepository.AddAsync(diagram, cancellationToken);
         await _diagramRepository.SaveChangesAsync(cancellationToken);
 
-        var response = new ArchitectureDiagramResponse
-        {
-            Id = diagram.Id,
-            WorkspaceId = diagram.WorkspaceId,
-            UploadedByUserId = diagram.UploadedByUserId,
-            Name = diagram.Name,
-            OriginalFileName = diagram.OriginalFileName,
-            FileUrl = diagram.FileUrl,
-            Description = diagram.Description,
-            UploadedAt = diagram.UploadedAt,
-            ReviewSetup = DiagramReviewSetupMapper.ToResponse(diagram),
-        };
+        var response = await MapDiagramResponseAsync(diagram, cancellationToken);
 
         return CreatedAtAction(nameof(GetDiagram), new { diagramId = diagram.Id }, response);
     }
@@ -172,18 +164,11 @@ public class DiagramsController : ControllerBase
             diagrams = allDiagrams;
         }
 
-        var responses = diagrams.Select(d => new ArchitectureDiagramResponse
+        var responses = new List<ArchitectureDiagramResponse>();
+        foreach (var diagram in diagrams)
         {
-            Id = d.Id,
-            WorkspaceId = d.WorkspaceId,
-            UploadedByUserId = d.UploadedByUserId,
-            Name = d.Name,
-            OriginalFileName = d.OriginalFileName,
-            FileUrl = d.FileUrl,
-            Description = d.Description,
-            UploadedAt = d.UploadedAt,
-            ReviewSetup = DiagramReviewSetupMapper.ToResponse(d),
-        });
+            responses.Add(await MapDiagramResponseAsync(diagram, cancellationToken));
+        }
 
         return Ok(responses);
     }
@@ -205,18 +190,7 @@ public class DiagramsController : ControllerBase
         if (workspace.TenantId != currentUser.TenantId)
             return this.NotFoundProblem("Diagram not found.");
 
-        var response = new ArchitectureDiagramResponse
-        {
-            Id = diagram.Id,
-            WorkspaceId = diagram.WorkspaceId,
-            UploadedByUserId = diagram.UploadedByUserId,
-            Name = diagram.Name,
-            OriginalFileName = diagram.OriginalFileName,
-            FileUrl = diagram.FileUrl,
-            Description = diagram.Description,
-            UploadedAt = diagram.UploadedAt,
-            ReviewSetup = DiagramReviewSetupMapper.ToResponse(diagram),
-        };
+        var response = await MapDiagramResponseAsync(diagram, cancellationToken);
 
         return Ok(response);
     }
@@ -251,5 +225,49 @@ public class DiagramsController : ControllerBase
         // TODO: Delete file from blob storage
 
         return NoContent();
+    }
+
+    private async Task<ArchitectureDiagramResponse> MapDiagramResponseAsync(
+        ArchitectureDiagram diagram,
+        CancellationToken cancellationToken)
+    {
+        var latestAnalysis = await _analysisRunRepository.GetLatestByDiagramIdAsync(diagram.Id, cancellationToken);
+        decimal? architectureScore = null;
+
+        if (latestAnalysis?.Result is not null)
+        {
+            var score = await CalculateScoreAsync(latestAnalysis.Result, cancellationToken);
+            architectureScore = Convert.ToDecimal(score.FinalScore);
+        }
+
+        return new ArchitectureDiagramResponse
+        {
+            Id = diagram.Id,
+            WorkspaceId = diagram.WorkspaceId,
+            UploadedByUserId = diagram.UploadedByUserId,
+            Name = diagram.Name,
+            OriginalFileName = diagram.OriginalFileName,
+            FileUrl = diagram.FileUrl,
+            Description = diagram.Description,
+            UploadedAt = diagram.UploadedAt,
+            ArchitectureScore = architectureScore,
+            ReviewSetup = DiagramReviewSetupMapper.ToResponse(diagram),
+        };
+    }
+
+    private async Task<CoArchitect.Domain.Models.ArchitectureScoreResult> CalculateScoreAsync(
+        CoArchitect.Domain.Models.AgentAnalysisResult agentResult,
+        CancellationToken cancellationToken)
+    {
+        var maturityByDimension = agentResult.DimensionMaturitySuggestions.ToDictionary(
+            suggestion => suggestion.Dimension,
+            suggestion => suggestion.SuggestedMaturity);
+
+        foreach (var dimension in Enum.GetValues<CoArchitect.Domain.Enums.ArchitectureDimension>())
+        {
+            maturityByDimension.TryAdd(dimension, 2);
+        }
+
+        return await _scoreService.CalculateAsync(maturityByDimension, cancellationToken);
     }
 }

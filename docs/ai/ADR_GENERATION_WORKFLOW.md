@@ -25,12 +25,14 @@ The MVP supports ADR generation from architecture review output and stores ADR v
 
 ## Implementation Notes
 
-The current UI exposes preview, markdown, HTML, and history views. PDF export is part of the roadmap.
+The current UI exposes preview, markdown, HTML, and history views.
+
+Current export behavior uses a browser-print layout so teams can use Save as PDF without a backend export service. This keeps local and demo flows lightweight while still giving reviewers a clean handoff artifact.
 
 Related trade-off reasoning is documented in [TRADEOFF_BALANCING.md](TRADEOFF_BALANCING.md).
 
 ## Future Enhancements
 
-- stronger PDF export flow
+- persisted server-side PDF export flow
 - approval workflow
 - richer ADR editing experience

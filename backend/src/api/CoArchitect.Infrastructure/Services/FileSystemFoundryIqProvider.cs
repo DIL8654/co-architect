@@ -5,176 +5,491 @@ namespace CoArchitect.Infrastructure.Services;
 
 public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 {
-    private readonly string _knowledgeBasePath;
+    private static readonly string[] CloudNeutralBaselineFrameworks = ["Iso25010", "OwaspAsvs"];
+    private static readonly string[] DefaultTradeoffIds =
+    [
+        "tradeoff-cost-reliability",
+        "tradeoff-simplicity-scalability",
+        "tradeoff-security-usability",
+        "tradeoff-speed-governance",
+    ];
 
-    public FileSystemFoundryIqProvider()
+    private readonly KnowledgeBaseCatalogLoader _catalogLoader;
+
+    public FileSystemFoundryIqProvider(KnowledgeBaseCatalogLoader catalogLoader)
     {
-        _knowledgeBasePath = ResolveKnowledgeBasePath();
+        _catalogLoader = catalogLoader;
     }
 
     public Task<FoundryIqContextBundle> RetrieveContextAsync(FoundryIqQuery query, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var frameworkItems = query.SuggestedFrameworks
-            .SelectMany(MapFrameworkFile)
+        var items = _catalogLoader.GetItems();
+        var normalizedText = BuildNormalizedText(query);
+        var selectedFrameworks = query.SuggestedFrameworks
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (selectedFrameworks.Count == 0)
+        {
+            foreach (var framework in CloudNeutralBaselineFrameworks)
+            {
+                selectedFrameworks.Add(framework);
+            }
+        }
+
+        var principleCategories = ResolvePrincipleCategories(query.QualityAttributeWeights.ToList());
+        var architectureTags = ResolveArchitectureTags(normalizedText, query);
+
+        var frameworkItems = SelectFrameworkItems(items, selectedFrameworks, architectureTags);
+        var principleItems = SelectPrincipleItems(items, principleCategories, architectureTags);
+        var tradeoffItems = SelectTradeoffItems(items, principleCategories, architectureTags);
+        var complianceItems = SelectComplianceItems(items, architectureTags, normalizedText, query);
+        var adrTemplateItems = items
+            .Where(item => string.Equals(item.Kind, "adr-template", StringComparison.OrdinalIgnoreCase))
+            .Select(MapItem)
             .ToList();
 
-        var principleItems = LoadListItems(
-            "architecture-tradeoff-principles.md",
-            "principle",
-            "Architecture Principles",
-            sourceUri: "/docs/knowledge-base/architecture-tradeoff-principles.md");
-
-        var tradeoffItems = LoadListItems(
-            "architecture-tradeoff-principles.md",
-            "tradeoff",
-            "Trade-off Catalog",
-            sourceUri: "/docs/knowledge-base/architecture-tradeoff-principles.md",
-            lineFilter: line => line.Contains(" versus ", StringComparison.OrdinalIgnoreCase));
-
-        var adrTemplateItems = LoadHeadingItems(
-            "adr-template.md",
-            "adr-template",
-            "ADR Template",
-            sourceUri: "/docs/knowledge-base/adr-template.md");
+        var citationRefs = frameworkItems
+            .Concat(principleItems)
+            .Concat(tradeoffItems)
+            .Concat(complianceItems)
+            .Concat(adrTemplateItems)
+            .Select(BuildCitation)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
         return Task.FromResult(new FoundryIqContextBundle
         {
             FrameworkGuidanceItems = frameworkItems,
             PrincipleItems = principleItems,
             TradeoffItems = tradeoffItems,
+            ComplianceItems = complianceItems,
             AdrTemplateItems = adrTemplateItems,
-            CitationRefs = frameworkItems
-                .Concat(principleItems)
-                .Concat(tradeoffItems)
-                .Concat(adrTemplateItems)
-                .Select(item => BuildCitation(item))
-                .Distinct(StringComparer.Ordinal)
-                .ToList(),
+            CitationRefs = citationRefs,
         });
     }
 
-    private IEnumerable<FoundryIqContextItem> MapFrameworkFile(string framework) => framework switch
+    private static List<FoundryIqContextItem> SelectFrameworkItems(
+        IReadOnlyList<KnowledgeBaseCatalogItem> items,
+        HashSet<string> selectedFrameworks,
+        HashSet<string> architectureTags)
     {
-        "AzureWellArchitected" => LoadListItems(
-            "azure-well-architected-summary.md",
-            "framework",
-            "Azure Well-Architected Framework",
-            framework,
-            "https://learn.microsoft.com/azure/well-architected/"),
-        "AwsWellArchitected" => LoadListItems(
-            "aws-well-architected-summary.md",
-            "framework",
-            "AWS Well-Architected Framework",
-            framework,
-            "https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html"),
-        "Iso25010" => LoadListItems(
-            "iso-25010-summary.md",
-            "framework",
-            "ISO/IEC 25010",
-            framework,
-            "https://iso25000.com/index.php/en/iso-25000-standards/iso-25010"),
-        "OwaspAsvs" => LoadListItems(
-            "owasp-asvs-summary.md",
-            "framework",
-            "OWASP ASVS",
-            framework,
-            "https://owasp.org/www-project-application-security-verification-standard/"),
-        _ => Array.Empty<FoundryIqContextItem>(),
-    };
-
-    private List<FoundryIqContextItem> LoadListItems(
-        string fileName,
-        string category,
-        string sourceLabel,
-        string? framework = null,
-        string? sourceUri = null,
-        Func<string, bool>? lineFilter = null)
-    {
-        var content = ReadFile(fileName);
-        var lines = content
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(line => line.StartsWith("- ", StringComparison.Ordinal))
-            .Select(line => line[2..].Trim())
-            .Where(line => !string.IsNullOrWhiteSpace(line))
-            .Where(line => lineFilter is null || lineFilter(line))
+        var directFrameworks = items
+            .Where(item => string.Equals(item.Kind, "framework-guidance", StringComparison.OrdinalIgnoreCase))
+            .Where(item => selectedFrameworks.Contains(item.StandardKey))
+            .Select(MapItem)
             .ToList();
 
-        return lines
-            .Select((line, index) => new FoundryIqContextItem
+        var governanceSignals = items
+            .Where(item => string.Equals(item.Kind, "framework-guidance", StringComparison.OrdinalIgnoreCase))
+            .Where(item =>
+                string.Equals(item.StandardKey, "TOGAF", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.StandardKey, "SAFe", StringComparison.OrdinalIgnoreCase))
+            .Where(item => HasTagOverlap(item.UseCaseTags, architectureTags))
+            .Select(MapItem)
+            .ToList();
+
+        return directFrameworks
+            .Concat(governanceSignals)
+            .GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+    }
+
+    private static List<FoundryIqContextItem> SelectPrincipleItems(
+        IReadOnlyList<KnowledgeBaseCatalogItem> items,
+        HashSet<string> principleCategories,
+        HashSet<string> architectureTags)
+    {
+        var matches = items
+            .Where(item => string.Equals(item.Kind, "architecture-principle", StringComparison.OrdinalIgnoreCase))
+            .Select(item => new
             {
-                Id = $"{fileName}:{category}:{index}",
-                Category = category,
-                Title = line,
-                Summary = line,
-                Content = line,
-                SourceType = "knowledge-base-file",
-                SourceLabel = sourceLabel,
-                SourceUri = sourceUri,
-                Framework = framework,
-                Principle = category == "principle" ? line : null,
-                TradeoffTag = category == "tradeoff" ? line : null,
+                Item = item,
+                Score = ScorePrincipleItem(item, principleCategories, architectureTags),
             })
-            .ToList();
-    }
-
-    private List<FoundryIqContextItem> LoadHeadingItems(
-        string fileName,
-        string category,
-        string sourceLabel,
-        string? sourceUri = null)
-    {
-        var content = ReadFile(fileName);
-        var lines = content
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(line => line.StartsWith("## ", StringComparison.Ordinal))
-            .Select(line => line[3..].Trim())
-            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Item.Title, StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .Select(item => MapItem(item.Item))
             .ToList();
 
-        return lines
-            .Select((line, index) => new FoundryIqContextItem
-            {
-                Id = $"{fileName}:{category}:{index}",
-                Category = category,
-                Title = line,
-                Summary = $"ADR section: {line}",
-                Content = line,
-                SourceType = "knowledge-base-file",
-                SourceLabel = sourceLabel,
-                SourceUri = sourceUri,
-            })
-            .ToList();
-    }
-
-    private string ReadFile(string fileName)
-    {
-        var path = Path.Combine(_knowledgeBasePath, fileName);
-        return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
-    }
-
-    private static string ResolveKnowledgeBasePath()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null)
+        if (matches.Count > 0)
         {
-            var candidate = Path.Combine(current.FullName, "docs", "knowledge-base");
-            if (Directory.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            current = current.Parent;
+            return matches;
         }
 
-        return Path.Combine(Directory.GetCurrentDirectory(), "docs", "knowledge-base");
+        return items
+            .Where(item => string.Equals(item.Kind, "architecture-principle", StringComparison.OrdinalIgnoreCase))
+            .Where(item =>
+                string.Equals(item.Category, "security", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.Category, "reliability", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.Category, "operations", StringComparison.OrdinalIgnoreCase))
+            .Take(6)
+            .Select(MapItem)
+            .ToList();
+    }
+
+    private static List<FoundryIqContextItem> SelectTradeoffItems(
+        IReadOnlyList<KnowledgeBaseCatalogItem> items,
+        HashSet<string> principleCategories,
+        HashSet<string> architectureTags)
+    {
+        var matches = items
+            .Where(item => string.Equals(item.Kind, "tradeoff-guidance", StringComparison.OrdinalIgnoreCase))
+            .Select(item => new
+            {
+                Item = item,
+                Score = ScoreTradeoffItem(item, principleCategories, architectureTags),
+            })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Item.Title, StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .Select(item => MapItem(item.Item))
+            .ToList();
+
+        if (matches.Count > 0)
+        {
+            return matches;
+        }
+
+        return items
+            .Where(item => DefaultTradeoffIds.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
+            .Select(MapItem)
+            .ToList();
+    }
+
+    private static List<FoundryIqContextItem> SelectComplianceItems(
+        IReadOnlyList<KnowledgeBaseCatalogItem> items,
+        HashSet<string> architectureTags,
+        string normalizedText,
+        FoundryIqQuery query)
+    {
+        var hasComplianceContext =
+            !string.IsNullOrWhiteSpace(query.ReviewContext.ComplianceNeeds) ||
+            !string.IsNullOrWhiteSpace(query.ReviewContext.DataSensitivity) ||
+            architectureTags.Contains("pii") ||
+            architectureTags.Contains("privacy") ||
+            architectureTags.Contains("audit") ||
+            architectureTags.Contains("compliance");
+
+        var matches = items
+            .Where(item => string.Equals(item.Kind, "compliance-guidance", StringComparison.OrdinalIgnoreCase))
+            .Select(item => new
+            {
+                Item = item,
+                Score = ScoreComplianceItem(item, architectureTags, normalizedText),
+            })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Item.StandardKey, StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .Select(item => MapItem(item.Item))
+            .ToList();
+
+        if (matches.Count > 0)
+        {
+            return matches;
+        }
+
+        if (!hasComplianceContext)
+        {
+            return [];
+        }
+
+        return items
+            .Where(item => string.Equals(item.Kind, "compliance-guidance", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(item => item.StandardKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(3)
+            .Select(MapItem)
+            .ToList();
+    }
+
+    private static int ScorePrincipleItem(
+        KnowledgeBaseCatalogItem item,
+        HashSet<string> principleCategories,
+        HashSet<string> architectureTags)
+    {
+        var score = 0;
+        if (principleCategories.Contains(item.Category))
+        {
+            score += 4;
+        }
+
+        score += item.UseCaseTags.Count(tag => architectureTags.Contains(tag));
+        return score;
+    }
+
+    private static int ScoreTradeoffItem(
+        KnowledgeBaseCatalogItem item,
+        HashSet<string> principleCategories,
+        HashSet<string> architectureTags)
+    {
+        var score = item.UseCaseTags.Count(tag => architectureTags.Contains(tag));
+
+        if (principleCategories.Contains(item.Category))
+        {
+            score += 2;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.DecisionContext) && architectureTags.Any(tag => item.DecisionContext.Contains(tag, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 1;
+        }
+
+        return score;
+    }
+
+    private static int ScoreComplianceItem(
+        KnowledgeBaseCatalogItem item,
+        HashSet<string> architectureTags,
+        string normalizedText)
+    {
+        var score = item.UseCaseTags.Count(tag => architectureTags.Contains(tag));
+
+        if (normalizedText.Contains(item.StandardKey, StringComparison.OrdinalIgnoreCase))
+        {
+            score += 2;
+        }
+
+        return score;
+    }
+
+    private static HashSet<string> ResolvePrincipleCategories(IReadOnlyCollection<QualityAttributeWeight> weights)
+    {
+        var categories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var weight in weights.OrderByDescending(item => item.Weight).Take(4))
+        {
+            switch (weight.Key.ToLowerInvariant())
+            {
+                case "security":
+                    categories.Add("security");
+                    categories.Add("compliance");
+                    break;
+                case "availability":
+                    categories.Add("reliability");
+                    categories.Add("operations");
+                    break;
+                case "scalability":
+                    categories.Add("scalability");
+                    break;
+                case "cost":
+                    categories.Add("cost");
+                    break;
+                case "maintainability":
+                    categories.Add("maintainability");
+                    break;
+                case "compliance":
+                    categories.Add("compliance");
+                    categories.Add("security");
+                    break;
+                case "deliveryspeed":
+                    categories.Add("operations");
+                    categories.Add("governance");
+                    break;
+            }
+        }
+
+        if (categories.Count == 0)
+        {
+            categories.UnionWith(["security", "reliability", "operations"]);
+        }
+
+        return categories;
+    }
+
+    private static HashSet<string> ResolveArchitectureTags(string normalizedText, FoundryIqQuery query)
+    {
+        var tags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var knownTags =
+            new[]
+            {
+                "api", "external-user", "pii", "eu-data", "retention", "deletion", "privacy",
+                "audit", "governance", "enterprise-change", "roadmap", "capability-planning",
+                "value-stream", "platform-team", "release-alignment", "high-scale", "queue",
+                "async", "blob-storage", "video", "document-processing", "tenant-isolation",
+                "secrets", "availability", "cost", "performance", "self-hosted", "managed-service",
+                "compliance", "incident-response", "observability", "operations"
+            };
+
+        foreach (var tag in knownTags)
+        {
+            if (normalizedText.Contains(tag.Replace('-', ' '), StringComparison.OrdinalIgnoreCase) ||
+                normalizedText.Contains(tag, StringComparison.OrdinalIgnoreCase))
+            {
+                tags.Add(tag);
+            }
+        }
+
+        if (ContainsAny(normalizedText, "api", "rest", "graphql", "partner"))
+        {
+            tags.Add("api");
+        }
+
+        if (ContainsAny(normalizedText, "pii", "personal data", "customer data", "sensitive"))
+        {
+            tags.Add("pii");
+            tags.Add("privacy");
+        }
+
+        if (ContainsAny(normalizedText, "gdpr", "europe", "european", "eu"))
+        {
+            tags.Add("eu-data");
+            tags.Add("privacy");
+            tags.Add("compliance");
+        }
+
+        if (ContainsAny(normalizedText, "audit", "audit logging", "traceability", "evidence"))
+        {
+            tags.Add("audit");
+            tags.Add("compliance");
+        }
+
+        if (ContainsAny(normalizedText, "retention", "delete", "deletion", "right to be forgotten"))
+        {
+            tags.Add("retention");
+            tags.Add("deletion");
+            tags.Add("privacy");
+        }
+
+        if (ContainsAny(normalizedText, "governance", "architecture board", "enterprise architecture", "roadmap", "capability"))
+        {
+            tags.Add("governance");
+            tags.Add("enterprise-change");
+            tags.Add("roadmap");
+            tags.Add("capability-planning");
+        }
+
+        if (ContainsAny(normalizedText, "value stream", "release train", "platform team", "release coordination", "system team"))
+        {
+            tags.Add("value-stream");
+            tags.Add("platform-team");
+            tags.Add("release-alignment");
+        }
+
+        if (ContainsAny(normalizedText, "queue", "message", "event", "async", "background worker"))
+        {
+            tags.Add("queue");
+            tags.Add("async");
+        }
+
+        if (ContainsAny(normalizedText, "tenant", "multi-tenant", "tenant isolation"))
+        {
+            tags.Add("tenant-isolation");
+        }
+
+        if (ContainsAny(normalizedText, "key vault", "secret", "credential"))
+        {
+            tags.Add("secrets");
+        }
+
+        if (ContainsAny(normalizedText, "monitoring", "observability", "tracing", "logs"))
+        {
+            tags.Add("observability");
+            tags.Add("operations");
+        }
+
+        if (ContainsAny(normalizedText, "dr", "disaster recovery", "backup", "restore", "recovery"))
+        {
+            tags.Add("availability");
+        }
+
+        if (ContainsAny(normalizedText, "blob", "object storage", "s3", "video"))
+        {
+            tags.Add("blob-storage");
+        }
+
+        if (ContainsAny(normalizedText, "video", "media"))
+        {
+            tags.Add("video");
+        }
+
+        if (ContainsAny(normalizedText, "document", "ocr", "extraction", "classification"))
+        {
+            tags.Add("document-processing");
+        }
+
+        if (ContainsAny(normalizedText, "managed service", "serverless", "saas"))
+        {
+            tags.Add("managed-service");
+        }
+
+        if (ContainsAny(normalizedText, "self-hosted", "self managed", "kubernetes"))
+        {
+            tags.Add("self-hosted");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ReviewContext.ComplianceNeeds))
+        {
+            tags.Add("compliance");
+        }
+
+        return tags;
+    }
+
+    private static string BuildNormalizedText(FoundryIqQuery query)
+    {
+        return string.Join(
+                ' ',
+                query.ArchitectureDescription,
+                query.DiagramName,
+                query.AnalysisPurpose,
+                query.ReviewContext.BusinessDomain,
+                query.ReviewContext.TargetUsers,
+                query.ReviewContext.ExpectedTraffic,
+                query.ReviewContext.DataSensitivity,
+                query.ReviewContext.CloudProviderPreference,
+                query.ReviewContext.ComplianceNeeds,
+                query.ReviewContext.CurrentPainPoints)
+            .ToLowerInvariant();
+    }
+
+    private static bool ContainsAny(string text, params string[] phrases)
+    {
+        return phrases.Any(phrase => text.Contains(phrase, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasTagOverlap(IEnumerable<string> itemTags, HashSet<string> architectureTags)
+    {
+        return itemTags.Any(architectureTags.Contains);
+    }
+
+    private static FoundryIqContextItem MapItem(KnowledgeBaseCatalogItem item)
+    {
+        return new FoundryIqContextItem
+        {
+            Id = item.Id,
+            Category = item.Category,
+            Title = item.Title,
+            Summary = item.Summary,
+            Content = item.Guidance,
+            SourceType = "knowledge-base-catalog",
+            SourceLabel = string.IsNullOrWhiteSpace(item.SourceLabel) ? item.Title : item.SourceLabel,
+            SourceUri = string.IsNullOrWhiteSpace(item.SourceUri) ? null : item.SourceUri,
+            StandardKey = item.StandardKey,
+            UseCaseTags = item.UseCaseTags.ToList(),
+            WhyItMatters = item.WhyItMatters,
+            WhenToApply = item.WhenToApply,
+            Framework = string.Equals(item.Kind, "framework-guidance", StringComparison.OrdinalIgnoreCase)
+                && item.StandardKey is "AzureWellArchitected" or "AwsWellArchitected" or "Iso25010" or "OwaspAsvs"
+                ? item.StandardKey
+                : null,
+            Principle = string.Equals(item.Kind, "architecture-principle", StringComparison.OrdinalIgnoreCase) ? item.Title : null,
+            TradeoffTag = string.Equals(item.Kind, "tradeoff-guidance", StringComparison.OrdinalIgnoreCase) ? item.Title : null,
+        };
     }
 
     private static string BuildCitation(FoundryIqContextItem item)
     {
+        var label = string.IsNullOrWhiteSpace(item.SourceLabel) ? item.Title : item.SourceLabel;
         return string.IsNullOrWhiteSpace(item.SourceUri)
-            ? item.SourceLabel
-            : $"{item.SourceLabel} ({item.SourceUri})";
+            ? label
+            : $"{label} ({item.SourceUri})";
     }
 }

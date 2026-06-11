@@ -8,6 +8,7 @@ public sealed class AgentExecutionTrace
     public string Status { get; init; } = "Completed";
     public string Summary { get; init; } = string.Empty;
     public IList<string> Highlights { get; init; } = new List<string>();
+    public GroundingReferenceSet Grounding { get; init; } = new();
     public bool UsedFoundry { get; init; }
     public DateTime StartedAt { get; init; } = DateTime.UtcNow;
     public DateTime CompletedAt { get; init; } = DateTime.UtcNow;

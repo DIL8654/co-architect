@@ -65,7 +65,10 @@ public class UnauthenticatedMvpEndpointTests
         var analysisController = new DiagramAnalysisController(
             analysisRepository,
             diagramRepository,
-            new MultiAgentArchitectureAnalysisService(new MockArchitectureAgentService(), frameworkSelectionService),
+            new MultiAgentArchitectureAnalysisService(
+                new MockArchitectureAgentService(),
+                frameworkSelectionService,
+                new ContextEnrichmentAgent(new TestFoundryIqProvider())),
             new ArchitectureIntelligenceScoreService(),
             workspaceRepository,
             currentUserService,
@@ -253,5 +256,58 @@ public class UnauthenticatedMvpEndpointTests
     {
         Assert.IsNotType<UnauthorizedResult>(result);
         Assert.IsNotType<ForbidResult>(result);
+    }
+}
+
+internal sealed class TestFoundryIqProvider : IFoundryIqProvider
+{
+    public Task<FoundryIqContextBundle> RetrieveContextAsync(FoundryIqQuery query, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new FoundryIqContextBundle
+        {
+            FrameworkGuidanceItems =
+            {
+                new FoundryIqContextItem
+                {
+                    Id = "framework:seed",
+                    Category = "framework",
+                    Title = "Seed framework guidance",
+                    Summary = "Seed framework guidance",
+                    Content = "Seed framework guidance",
+                    SourceType = "test",
+                    SourceLabel = "Seed framework guidance",
+                    Framework = query.SuggestedFrameworks.FirstOrDefault(),
+                },
+            },
+            PrincipleItems =
+            {
+                new FoundryIqContextItem
+                {
+                    Id = "principle:security",
+                    Category = "principle",
+                    Title = "Security",
+                    Summary = "Security",
+                    Content = "Security",
+                    SourceType = "test",
+                    SourceLabel = "Seed principle guidance",
+                    Principle = "Security",
+                },
+            },
+            TradeoffItems =
+            {
+                new FoundryIqContextItem
+                {
+                    Id = "tradeoff:speed-governance",
+                    Category = "tradeoff",
+                    Title = "Speed of delivery vs governance",
+                    Summary = "Speed of delivery vs governance",
+                    Content = "Speed of delivery vs governance",
+                    SourceType = "test",
+                    SourceLabel = "Seed tradeoff guidance",
+                    TradeoffTag = "Speed of delivery vs governance",
+                },
+            },
+            CitationRefs = { "Seed framework guidance" },
+        });
     }
 }

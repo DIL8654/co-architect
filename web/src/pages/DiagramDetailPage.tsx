@@ -27,7 +27,7 @@ import { useCreateComment, useDiagramComments } from '../hooks/useComments';
 import { useDiagram } from '../hooks/useDiagrams';
 import { buildAdrDraft } from '../lib/adrDraft';
 import { buildAnalysisComparison, getReviewFreshness, type ReviewFreshness } from '../lib/analysisComparison';
-import type { AgentExecutionTrace, AnalysisRunTimelineItem, ArchitectureAnalysisResult, DimensionBreakdown } from '../api/analysis';
+import type { AgentExecutionTrace, AnalysisRunTimelineItem, ArchitectureAnalysisResult, DimensionBreakdown, FoundryIqContextBundle, GroundingReferenceSet } from '../api/analysis';
 import type { AdrRecord } from '../api/adrs';
 
 type WorkspaceTab = 'summary' | 'findings' | 'comments' | 'adr';
@@ -231,6 +231,7 @@ export function DiagramDetailPage() {
                 )}
                 <AnalysisComparisonPanel comparison={latestComparison} freshness={reviewFreshness} compact />
                 {analysis ? <ArchitectureScoreCard currentAnalysis={analysis} previousAnalysis={previousAnalysis} showDimensions={false} /> : null}
+                {analysis ? <FoundryIqSummaryPanel context={analysis.foundryIqContext} /> : null}
                 <ReviewSetupSummary reviewSetup={diagram.reviewSetup} compact />
               </div>
             ) : null}
@@ -278,6 +279,7 @@ export function DiagramDetailPage() {
                 {activeFindingsTab === 'agents' ? (
                   analysis?.agentTrace.length ? (
                     <div className="space-y-4">
+                      <FoundryIqContextDrawer context={analysis.foundryIqContext} />
                       <AgentTraceTable items={analysis.agentTrace} />
                       {(analysis.openQuestions.length > 0 || analysis.criticNotes.length > 0) && (
                         <div className="grid gap-4">
@@ -445,6 +447,9 @@ function AgentTraceTable({ items }: { items: AgentExecutionTrace[] }) {
               <td className="px-4 py-4">
                 <p className="font-medium text-secondary-950 dark:text-white">{item.agentName}</p>
                 <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">{item.summary}</p>
+                <p className="mt-2 text-[11px] leading-5 text-secondary-500 dark:text-secondary-400">
+                  {buildGroundingSummary(item.grounding)}
+                </p>
               </td>
               <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{item.role}</td>
               <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{item.framework ?? 'General'}</td>
@@ -577,4 +582,60 @@ function mapAdrRecordToDraft(adr: AdrRecord) {
     html: latest.html,
     history: latest.history,
   };
+}
+
+function FoundryIqSummaryPanel({ context }: { context: FoundryIqContextBundle }) {
+  return (
+    <InfoPanel title="Foundry IQ Context">
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-secondary-700 dark:text-secondary-200">{context.workspaceMemory.architectureEvolutionSummary}</p>
+        <div className="flex flex-wrap gap-2">
+          <ContextBadge label="Framework" count={context.frameworkGuidanceItems.length} />
+          <ContextBadge label="Principle" count={context.principleItems.length} />
+          <ContextBadge label="Trade-off" count={context.tradeoffItems.length} />
+          <ContextBadge label="History" count={context.workspaceMemoryItems.length} />
+        </div>
+      </div>
+    </InfoPanel>
+  );
+}
+
+function FoundryIqContextDrawer({ context }: { context: FoundryIqContextBundle }) {
+  return (
+    <section className="rounded-xl border border-[#e5e7eb] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Context Sources</p>
+          <ul className="mt-2 space-y-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
+            {context.citationRefs.slice(0, 4).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Workspace Memory</p>
+          <ul className="mt-2 space-y-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
+            {context.workspaceMemory.recurringFindings.slice(0, 4).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+            {context.workspaceMemory.recurringFindings.length === 0 ? <li>No recurring findings captured yet.</li> : null}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContextBadge({ label, count }: { label: string; count: number }) {
+  return <span className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-xs font-semibold text-secondary-700 dark:bg-white/10 dark:text-secondary-300">{label} {count}</span>;
+}
+
+function buildGroundingSummary(grounding: GroundingReferenceSet) {
+  const parts = [
+    grounding.frameworkRefs.length ? `Frameworks: ${grounding.frameworkRefs.join(', ')}` : null,
+    grounding.principleRefs.length ? `Principles: ${grounding.principleRefs.join(', ')}` : null,
+    grounding.tradeoffRefs.length ? `Trade-offs: ${grounding.tradeoffRefs.join(', ')}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' | ') : 'Grounding references will appear after analysis completes.';
 }

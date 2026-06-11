@@ -13,6 +13,7 @@ public sealed class AgentAnalysisResult
     public IList<QualityAttributeWeight> ResolvedQualityAttributeWeights { get; init; } = new List<QualityAttributeWeight>();
     public IList<string> OpenQuestions { get; init; } = new List<string>();
     public IList<string> CriticNotes { get; init; } = new List<string>();
+    public FoundryIqContextBundle FoundryIqContext { get; init; } = new();
     public IList<AgentExecutionTrace> AgentTrace { get; init; } = new List<AgentExecutionTrace>();
     public IList<EvidenceItem> Evidence { get; init; } = new List<EvidenceItem>();
     public IList<MissingControl> MissingControls { get; init; } = new List<MissingControl>();

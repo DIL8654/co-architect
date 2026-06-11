@@ -2,17 +2,18 @@
 
 Always read:
 
-- PRODUCT_MEMORY.md
-- ARCHITECTURE.md
-- AUTH_DECISION.md
-- AZURE_LOCAL_RESOURCES_GUIDE.md
-- SCORING_MODEL.md
-- AGENTS.md
-- REASONING_AGENTS_PLAN.md
-- FRAMEWORK_SELECTION.md
-- TRADEOFF_BALANCING.md
-- ADR_WORKFLOW.md
-- KNOWLEDGE_BASE_PLAN.md
+- docs/README.md
+- docs/product/PRODUCT_VISION.md
+- docs/product/HACKATHON_SCOPE.md
+- docs/architecture/SYSTEM_ARCHITECTURE.md
+- docs/architecture/AUTH_DECISION.md
+- docs/architecture/SCORING_MODEL.md
+- docs/ai/MULTI_AGENT_REASONING.md
+- docs/ai/FOUNDRY_IQ_INTELLIGENCE_LAYER.md
+- docs/ai/FRAMEWORK_SELECTION.md
+- docs/ai/TRADEOFF_BALANCING.md
+- docs/ai/ADR_GENERATION_WORKFLOW.md
+- docs/implementation/AZURE_LOCAL_RESOURCES.md
 
 Rules:
 
@@ -39,7 +40,7 @@ Rules:
 
 ## Shared Memory For Copilot/Codex
 
-- Always read `docs/AUTH_DECISION.md` before modifying authentication, authorization, onboarding, routing, workspace creation, tenant handling, or API client behavior.
+- Always read `docs/architecture/AUTH_DECISION.md` before modifying authentication, authorization, onboarding, routing, workspace creation, tenant handling, or API client behavior.
 - The current app is intentionally unauthenticated for the hackathon MVP.
 - Do not add fake auth, demo auth, role selectors, or header-based role overrides.
 - Do not add token or bearer-header injection to the frontend API client.
@@ -49,10 +50,10 @@ Rules:
 - Use the fixed local tenant and user placeholder context for local runtime seams until real auth returns.
 - Keep `User`, `OrganizationUser`, `OrganizationRole`, and role enums as future domain concepts if they are useful, but do not enforce them at runtime now.
 - Future production work should add external IdP integration and tenant-aware RBAC.
-- Read `docs/AZURE_LOCAL_RESOURCES_GUIDE.md` before changing database, blob storage, Key Vault, Azure AI Foundry, Docker, or cloud deployment behavior.
+- Read `docs/implementation/AZURE_LOCAL_RESOURCES.md` before changing database, blob storage, Key Vault, Azure AI Foundry, Docker, or cloud deployment behavior.
 - Keep Azure integration simple for the hackathon: manual resources, secrets exported locally, mock AI fallback, and no fake auth.
-- Future agents must read `docs/REASONING_AGENTS_PLAN.md` before modifying agent orchestration, planner logic, specialist roles, critic behavior, or evaluation flow.
-- Future agents must read `docs/FRAMEWORK_SELECTION.md` before changing framework selection behavior, auto-detection, or framework explanation UX.
-- Future agents must read `docs/TRADEOFF_BALANCING.md` before changing weighting, trade-off recommendation logic, or option comparison behavior.
-- Future agents must read `docs/ADR_WORKFLOW.md` before changing ADR creation, regeneration, HTML preview, or PDF export behavior.
-- Future agents must read `docs/KNOWLEDGE_BASE_PLAN.md` before changing grounded knowledge files, knowledge retrieval behavior, or attribution policy.
+- Future agents must read `docs/ai/MULTI_AGENT_REASONING.md` before modifying agent orchestration, planner logic, specialist roles, critic behavior, or evaluation flow.
+- Future agents must read `docs/ai/FRAMEWORK_SELECTION.md` before changing framework selection behavior, auto-detection, or framework explanation UX.
+- Future agents must read `docs/ai/TRADEOFF_BALANCING.md` before changing weighting, trade-off recommendation logic, or option comparison behavior.
+- Future agents must read `docs/ai/ADR_GENERATION_WORKFLOW.md` before changing ADR creation, regeneration, HTML preview, or PDF export behavior.
+- Future agents must read `docs/ai/FOUNDRY_IQ_INTELLIGENCE_LAYER.md` before changing retrieval, grounding references, context enrichment, workspace memory, or Foundry IQ-aligned orchestration.

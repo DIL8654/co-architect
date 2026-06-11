@@ -186,6 +186,8 @@ public class DiagramAnalysisController : ControllerBase
     {
         var score = await CalculateScoreAsync(agentResult, cancellationToken);
 
+        var normalizedContext = agentResult.FoundryIqContext ?? new CoArchitect.Domain.Models.FoundryIqContextBundle();
+
         return new ArchitectureAnalysisResponse
         {
             Id = analysis.Id,
@@ -194,6 +196,7 @@ public class DiagramAnalysisController : ControllerBase
             ExecutiveSummary = agentResult.ExecutiveSummary,
             OpenQuestions = agentResult.OpenQuestions.ToList(),
             CriticNotes = agentResult.CriticNotes.ToList(),
+            FoundryIqContext = MapFoundryIqContext(normalizedContext),
             AgentTrace = agentResult.AgentTrace
                 .Select(trace => new AgentExecutionTraceResponse
                 {
@@ -203,6 +206,7 @@ public class DiagramAnalysisController : ControllerBase
                     Status = trace.Status,
                     Summary = trace.Summary,
                     Highlights = trace.Highlights.ToList(),
+                    Grounding = MapGrounding(trace.Grounding),
                     UsedFoundry = trace.UsedFoundry,
                     StartedAt = trace.StartedAt,
                     CompletedAt = trace.CompletedAt,
@@ -214,6 +218,7 @@ public class DiagramAnalysisController : ControllerBase
                     Summary = evidence.Summary,
                     Detail = evidence.Details ?? string.Empty,
                     Severity = index == 0 ? "High" : index == 1 ? "Medium" : "Low",
+                    Grounding = MapGrounding(evidence.Grounding),
                 })
                 .ToList(),
             MissingControls = agentResult.MissingControls
@@ -222,6 +227,7 @@ public class DiagramAnalysisController : ControllerBase
                     Name = control.Name,
                     Impact = control.Description,
                     Recommendation = GetRecommendationText(control.Dimension, control.Name),
+                    Grounding = MapGrounding(control.Grounding),
                 })
                 .ToList(),
             Recommendations = agentResult.Recommendations
@@ -231,6 +237,7 @@ public class DiagramAnalysisController : ControllerBase
                     Description = recommendation.Description,
                     Priority = recommendation.Severity.ToString(),
                     EstimatedEffort = GetEstimatedEffort(recommendation.Severity),
+                    Grounding = MapGrounding(recommendation.Grounding),
                 })
                 .ToList(),
             Tradeoffs = agentResult.Tradeoffs
@@ -239,6 +246,7 @@ public class DiagramAnalysisController : ControllerBase
                     Scenario = tradeoff.Summary,
                     Pros = tradeoff.Pros,
                     Cons = tradeoff.Cons,
+                    Grounding = MapGrounding(tradeoff.Grounding),
                 })
                 .ToList(),
             DimensionMaturitySuggestions = agentResult.DimensionMaturitySuggestions
@@ -264,6 +272,65 @@ public class DiagramAnalysisController : ControllerBase
             ReviewSetup = DiagramReviewSetupMapper.ToResponse(diagram),
             CreatedAt = analysis.RequestedAt,
             CompletedAt = analysis.CompletedAt,
+        };
+    }
+
+    private static FoundryIqContextBundleResponse MapFoundryIqContext(CoArchitect.Domain.Models.FoundryIqContextBundle bundle)
+    {
+        return new FoundryIqContextBundleResponse
+        {
+            FrameworkGuidanceItems = bundle.FrameworkGuidanceItems.Select(MapContextItem).ToList(),
+            PrincipleItems = bundle.PrincipleItems.Select(MapContextItem).ToList(),
+            TradeoffItems = bundle.TradeoffItems.Select(MapContextItem).ToList(),
+            AdrTemplateItems = bundle.AdrTemplateItems.Select(MapContextItem).ToList(),
+            WorkspaceMemoryItems = bundle.WorkspaceMemoryItems.Select(MapContextItem).ToList(),
+            RelatedFindingItems = bundle.RelatedFindingItems.Select(MapContextItem).ToList(),
+            RelatedAdrHistoryItems = bundle.RelatedAdrHistoryItems.Select(MapContextItem).ToList(),
+            CitationRefs = bundle.CitationRefs.ToList(),
+            WorkspaceMemory = new WorkspaceMemorySnapshotResponse
+            {
+                PreviousReviewSummaries = bundle.WorkspaceMemory.PreviousReviewSummaries.ToList(),
+                RecurringFindings = bundle.WorkspaceMemory.RecurringFindings.ToList(),
+                PriorRecommendations = bundle.WorkspaceMemory.PriorRecommendations.ToList(),
+                RecentComments = bundle.WorkspaceMemory.RecentComments.ToList(),
+                AdrHistory = bundle.WorkspaceMemory.AdrHistory.ToList(),
+                ArchitectureEvolutionSummary = bundle.WorkspaceMemory.ArchitectureEvolutionSummary,
+            },
+        };
+    }
+
+    private static FoundryIqContextItemResponse MapContextItem(CoArchitect.Domain.Models.FoundryIqContextItem item)
+    {
+        return new FoundryIqContextItemResponse
+        {
+            Id = item.Id,
+            Category = item.Category,
+            Title = item.Title,
+            Summary = item.Summary,
+            Content = item.Content,
+            SourceType = item.SourceType,
+            SourceLabel = item.SourceLabel,
+            SourceUri = item.SourceUri,
+            WorkspaceScoped = item.WorkspaceScoped,
+            Framework = item.Framework,
+            Principle = item.Principle,
+            TradeoffTag = item.TradeoffTag,
+            AdrId = item.AdrId,
+            AnalysisRunId = item.AnalysisRunId,
+        };
+    }
+
+    private static GroundingReferenceSetResponse MapGrounding(CoArchitect.Domain.Models.GroundingReferenceSet? grounding)
+    {
+        grounding ??= new CoArchitect.Domain.Models.GroundingReferenceSet();
+
+        return new GroundingReferenceSetResponse
+        {
+            FrameworkRefs = grounding.FrameworkRefs.ToList(),
+            PrincipleRefs = grounding.PrincipleRefs.ToList(),
+            TradeoffRefs = grounding.TradeoffRefs.ToList(),
+            HistoryRefs = grounding.HistoryRefs.ToList(),
+            CitationRefs = grounding.CitationRefs.ToList(),
         };
     }
 

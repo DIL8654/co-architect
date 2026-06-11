@@ -7,4 +7,5 @@ public sealed class Recommendation
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Description { get; init; } = string.Empty;
     public SuggestionSeverity Severity { get; init; } = SuggestionSeverity.Medium;
+    public GroundingReferenceSet Grounding { get; init; } = new();
 }

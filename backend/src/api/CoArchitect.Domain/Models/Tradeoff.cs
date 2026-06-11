@@ -6,4 +6,5 @@ public sealed class Tradeoff
     public string Summary { get; init; } = string.Empty;
     public IList<string> Pros { get; init; } = new List<string>();
     public IList<string> Cons { get; init; } = new List<string>();
+    public GroundingReferenceSet Grounding { get; init; } = new();
 }

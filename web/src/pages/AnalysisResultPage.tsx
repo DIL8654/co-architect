@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { analysisApi, type AgentExecutionTrace, type ArchitectureAnalysisResult } from '../api/analysis';
+import { analysisApi, type AgentExecutionTrace, type ArchitectureAnalysisResult, type FoundryIqContextBundle, type GroundingReferenceSet } from '../api/analysis';
 import { diagramApi } from '../api/diagrams';
 import { AdrPreview, ArchitectureScoreCard, Breadcrumbs, Button, CodePanel, EmptyPanel, ErrorState, LoadingState, MetaPanel, ReviewSetupSummary, SegmentedTabs } from '../components';
 import { buildAdrDraft } from '../lib/adrDraft';
 
-type ResultTab = 'findings' | 'tradeoffs' | 'agents' | 'adr';
+type ResultTab = 'findings' | 'tradeoffs' | 'context' | 'agents' | 'adr';
 type AdrTab = 'preview' | 'markdown' | 'html' | 'history';
 
 interface FindingRow {
@@ -18,6 +18,7 @@ interface FindingRow {
   evidence: string;
   tradeoff: string;
   frameworkReferences: string[];
+  grounding: GroundingReferenceSet;
 }
 
 export function AnalysisResultPage() {
@@ -98,6 +99,17 @@ export function AnalysisResultPage() {
               ))}
             </div>
           </MetaPanel>
+          <MetaPanel title="Foundry IQ">
+            <div className="space-y-3 text-sm text-secondary-700 dark:text-secondary-200">
+              <p>{analysis.foundryIqContext.workspaceMemory.architectureEvolutionSummary}</p>
+              <div className="flex flex-wrap gap-2">
+                <ContextCountBadge label="Framework" count={analysis.foundryIqContext.frameworkGuidanceItems.length} />
+                <ContextCountBadge label="Principle" count={analysis.foundryIqContext.principleItems.length} />
+                <ContextCountBadge label="Trade-off" count={analysis.foundryIqContext.tradeoffItems.length} />
+                <ContextCountBadge label="Memory" count={analysis.foundryIqContext.workspaceMemoryItems.length} />
+              </div>
+            </div>
+          </MetaPanel>
           {analysis.openQuestions.length > 0 ? (
             <MetaPanel title="Open Questions">
               <ul className="space-y-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
@@ -130,6 +142,7 @@ export function AnalysisResultPage() {
                 items={[
                   { value: 'findings', label: `Findings (${findings.length})` },
                   { value: 'tradeoffs', label: `Trade-offs (${analysis.tradeoffs.length})` },
+                  { value: 'context', label: 'Context' },
                   { value: 'agents', label: `Agents (${analysis.agentTrace.length})` },
                   { value: 'adr', label: 'ADR' },
                 ]}
@@ -153,6 +166,10 @@ export function AnalysisResultPage() {
                 ) : (
                   <EmptyPanel title="No trade-offs generated" description="Trade-off balancing output will appear here when the analysis includes competing options." />
                 )
+              ) : null}
+
+              {activeTab === 'context' ? (
+                <FoundryIqContextPanel context={analysis.foundryIqContext} />
               ) : null}
 
               {activeTab === 'agents' ? (
@@ -218,6 +235,7 @@ function buildFindingRows(analysis: ArchitectureAnalysisResult): FindingRow[] {
       evidence,
       tradeoff,
       frameworkReferences,
+      grounding: control.grounding,
     };
   });
 }
@@ -263,9 +281,8 @@ function FindingsTable({
           {rows.map((row) => {
             const expanded = expandedRowId === row.id;
             return (
-              <>
+              <Fragment key={row.id}>
                 <tr
-                  key={row.id}
                   className="cursor-pointer border-b border-[#eef1f4] align-top dark:border-white/10"
                   onClick={() => onToggleRow(expanded ? null : row.id)}
                 >
@@ -282,10 +299,13 @@ function FindingsTable({
                         <DetailBlock title="Trade-off Link" value={row.tradeoff} />
                         <DetailBlock title="Framework References" value={row.frameworkReferences.join(', ') || 'No framework reference'} />
                       </div>
+                      <div className="mt-4">
+                        <GroundingDetails grounding={row.grounding} />
+                      </div>
                     </td>
                   </tr>
                 ) : null}
-              </>
+              </Fragment>
             );
           })}
         </tbody>
@@ -342,15 +362,118 @@ function AgentTraceTable({ items }: { items: AgentExecutionTrace[] }) {
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={`${item.agentName}-${item.startedAt}`} className="border-b border-[#eef1f4] align-top last:border-0 dark:border-white/10">
-              <td className="px-4 py-4 text-sm font-medium text-secondary-900 dark:text-white">{item.agentName}</td>
-              <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.role}</td>
-              <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.framework ?? 'General'}</td>
-              <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.summary}</td>
-            </tr>
+            <Fragment key={`${item.agentName}-${item.startedAt}`}>
+              <tr className="border-b border-[#eef1f4] align-top dark:border-white/10">
+                <td className="px-4 py-4 text-sm font-medium text-secondary-900 dark:text-white">{item.agentName}</td>
+                <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.role}</td>
+                <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.framework ?? 'General'}</td>
+                <td className="px-4 py-4 text-sm text-secondary-700 dark:text-secondary-200">{item.summary}</td>
+              </tr>
+              <tr className="border-b border-[#eef1f4] bg-[#fafafa] align-top last:border-0 dark:border-white/10 dark:bg-white/[0.03]">
+                <td colSpan={4} className="px-4 py-3">
+                  <GroundingDetails grounding={item.grounding} compact />
+                </td>
+              </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function FoundryIqContextPanel({ context }: { context: FoundryIqContextBundle }) {
+  return (
+    <div className="space-y-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <ContextMetric title="Framework guidance" count={context.frameworkGuidanceItems.length} />
+        <ContextMetric title="Principles" count={context.principleItems.length} />
+        <ContextMetric title="Trade-offs" count={context.tradeoffItems.length} />
+        <ContextMetric title="Workspace memory" count={context.workspaceMemoryItems.length} />
+      </section>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <MetaPanel title="Context Sources">
+          <div className="space-y-3">
+            <ContextList title="Framework cues" items={context.frameworkGuidanceItems.map((item) => item.title)} />
+            <ContextList title="Trade-off cues" items={context.tradeoffItems.map((item) => item.title)} />
+            <ContextList title="Citations" items={context.citationRefs} />
+          </div>
+        </MetaPanel>
+        <MetaPanel title="Workspace Memory">
+          <div className="space-y-3">
+            <ContextList title="Recurring findings" items={context.workspaceMemory.recurringFindings} />
+            <ContextList title="Prior recommendations" items={context.workspaceMemory.priorRecommendations} />
+            <ContextList title="ADR history" items={context.workspaceMemory.adrHistory} />
+          </div>
+        </MetaPanel>
+      </div>
+    </div>
+  );
+}
+
+function ContextMetric({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{title}</p>
+      <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{count}</p>
+    </div>
+  );
+}
+
+function ContextCountBadge({ label, count }: { label: string; count: number }) {
+  return <span className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-xs font-semibold text-secondary-700 dark:bg-white/10 dark:text-secondary-300">{label} {count}</span>;
+}
+
+function ContextList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{title}</p>
+      {items.length > 0 ? (
+        <ul className="mt-2 space-y-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
+          {items.slice(0, 4).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-secondary-500 dark:text-secondary-400">No context captured.</p>
+      )}
+    </div>
+  );
+}
+
+function GroundingDetails({ grounding, compact = false }: { grounding: GroundingReferenceSet; compact?: boolean }) {
+  const [showCitations, setShowCitations] = useState(false);
+  const sections = [
+    { label: 'Frameworks', values: grounding.frameworkRefs },
+    { label: 'Principles', values: grounding.principleRefs },
+    { label: 'Trade-offs', values: grounding.tradeoffRefs },
+    { label: 'History', values: grounding.historyRefs },
+    { label: 'Citations', values: showCitations ? grounding.citationRefs : grounding.citationRefs.slice(0, compact ? 1 : 2) },
+  ].filter((section) => section.values.length > 0);
+
+  if (sections.length === 0) {
+    return <p className="text-xs text-secondary-500 dark:text-secondary-400">No grounding references captured.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className={`grid gap-3 ${compact ? 'md:grid-cols-2' : 'lg:grid-cols-3'}`}>
+        {sections.map((section) => (
+          <div key={section.label} className="rounded-lg border border-[#e5e7eb] bg-white p-3 dark:border-white/10 dark:bg-[#060B16]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{section.label}</p>
+            <p className="mt-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">{section.values.join(', ')}</p>
+          </div>
+        ))}
+      </div>
+      {grounding.citationRefs.length > (compact ? 1 : 2) ? (
+        <button
+          type="button"
+          onClick={() => setShowCitations((value) => !value)}
+          className="rounded-full bg-[#f4f6f8] px-3 py-1.5 text-xs font-semibold text-secondary-700 hover:bg-[#e8ebef] dark:bg-white/10 dark:text-secondary-300 dark:hover:bg-white/15"
+        >
+          {showCitations ? 'Show fewer citations' : `Show all citations (${grounding.citationRefs.length})`}
+        </button>
+      ) : null}
     </div>
   );
 }

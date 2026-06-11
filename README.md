@@ -1,53 +1,48 @@
 # CoArchitect AI
 
-Architecture Intelligence Platform for multi-agent architecture reasoning, scoring, recommendations, trade-off insights, and ADR generation.
+CoArchitect AI is an AI architecture partner for grounded multi-agent architecture review.
 
-## Quick Start
+## Hackathon Track
 
-### Prerequisites
+Microsoft Agents League — Reasoning Agents
 
-- .NET 10 SDK
-- Node.js 20+
-- Docker Desktop
+## Product Overview
 
-### Backend with Docker
+The current MVP is a workspace-centric architecture reasoning platform. Users create a workspace, add a diagram or architecture description, run analysis, inspect agent reasoning traces, review the Architecture Intelligence Score, study findings and trade-offs, and generate ADRs.
+
+## Key Features
+
+- workspace-centric architecture review flow
+- standards-backed findings
+- visible agent reasoning trace
+- Architecture Intelligence Score
+- trade-off analysis
+- ADR generation and versioning
+- Foundry IQ-style grounding
+
+## Architecture Summary
+
+- backend: .NET 10 Clean Architecture
+- frontend: React, TypeScript, Vite
+- database: TiDB Cloud
+- file storage: Azure Blob Storage via SAS for the MVP
+- AI integration path: Azure AI Foundry Agent Service
+
+## AI, Foundry, And Foundry IQ
+
+The current runtime uses application-led orchestration with one cost-aware Azure AI Foundry expert call and local specialist reasoning around a Foundry IQ-style intelligence layer. That intelligence layer grounds recommendations with framework summaries, ADR templates, architecture principles, trade-off guidance, and workspace memory.
+
+## Local Quick Start
+
+Backend:
 
 ```bash
 cd backend
 cp .env.example .env
-# set DATABASE_CONNECTION_STRING in backend/.env before starting
 docker compose up --build
 ```
 
-The API is available at:
-
-- http://localhost:5010
-- http://localhost:5010/swagger
-- http://localhost:5010/health
-
-The local API runs without authentication for the hackathon MVP. It uses `ArchitectureAgent__Provider=Mock` by default so analysis works without Azure credentials.
-The local runtime starts empty. No workspaces, diagrams, or seeded analysis runs are preloaded.
-
-### Backend with `dotnet run`
-
-```bash
-dotnet run --project backend/src/api/CoArchitect.Api/CoArchitect.Api.csproj --urls http://0.0.0.0:5010
-```
-
-For local development, the API now auto-loads `backend/.env` when present, so direct runs and Docker-backed runs use the same local configuration source.
-
-### Local App With Cloud Resources
-
-The app can also run locally while using manually created Azure resources:
-
-- TiDB via `DataStore__Provider=TiDB` for the current cost-optimized setup
-- Azure Blob Storage via `ArchitectureStorage__Provider=AzureBlobSas`
-- Azure Key Vault as the manual source for local secret values
-- Azure AI Foundry, with mock AI as the default fallback when config is incomplete
-
-See [Azure Local Resources Guide](docs/AZURE_LOCAL_RESOURCES_GUIDE.md).
-
-### Frontend with Vite
+Frontend:
 
 ```bash
 cd web
@@ -55,106 +50,31 @@ npm install
 npm run dev
 ```
 
-Frontend runtime values are loaded from `backend/.env` so local values live in one place.
+Default URLs:
 
-Use this setting in `backend/.env`:
+- API: `http://localhost:5010`
+- Swagger: `http://localhost:5010/swagger`
+- Frontend: `http://localhost:5173`
 
-```bash
-VITE_API_BASE_URL=http://localhost:5010
-```
+## Demo Flow
 
-Open http://localhost:5173 and click **Start**.
-
-Use http://localhost:5173/health to check database, blob storage, and Azure AI Foundry connectivity.
-
-## Current Auth Decision
-
-The current hackathon MVP is an unauthenticated application:
-
-- No login
-- No JWT or bearer token
-- No demo headers
-- No demo role selector
-- No auth-based 401/403 responses
-- All MVP product features are accessible
-- Workspace is the top-level user-facing container
-- Tenant scoping is simulated internally with a fixed local placeholder context
-
-The API uses an internal audit placeholder user only when records need a user id:
-
-- Tenant id: `00000000-0000-0000-0000-000000000101`
-- User id: `00000000-0000-0000-0000-000000000001`
-- Email: `local-admin@coarchitect.ai`
-- Display name: `CoArchitect Local Admin`
-
-Future production work will add external IdP integration and tenant-aware RBAC. See [Auth Decision](docs/AUTH_DECISION.md).
-
-## Architecture
-
-- **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **Backend**: .NET 10 Clean Architecture (Domain -> Application -> Infrastructure -> Api)
-- **AI**: Azure AI Foundry agent with application-led multi-agent orchestration and mock local provider fallback
-- **Storage**: Azure Blob Storage via container SAS, with no-op local default
-- **Database**: TiDB, with relational product tables for workspaces, diagrams, comments, analysis runs, and ADRs
-
-## Reasoning Agents Direction
-
-CoArchitect AI is being planned as a multi-agent architecture reasoning platform aligned to the Microsoft Agents League Reasoning Agents track.
-
-Current Phase 4 implementation:
-
-- the app captures architecture review setup before analysis
-- the backend persists workspaces, diagrams, comments, analysis runs, and ADR versions in relational tables
-- a planner creates the review plan and selected specialist steps
-- legacy diagrams with older or empty review metadata can still activate specialists from Azure, AWS, API, security, and multi-tenant cues in their description
-- after the first new analysis, those inferred framework decisions are persisted back onto the legacy diagram as an explicit upgraded review setup
-- framework specialists generate grounded findings
-- a trade-off balancer synthesizes recommendation tensions
-- a critic validates the final response
-- the application uses one cost-aware Foundry call per analysis run
-- the application scoring engine still calculates the final score
-
-Planned capabilities:
-
-- planner-led multi-agent orchestration
-- grounded framework reasoning across Azure Well-Architected, AWS Well-Architected, ISO/IEC 25010, and OWASP ASVS
-- explainable framework selection
-- weighted trade-off balancing
-- ADR generation in HTML and PDF
-- Foundry IQ-style grounded knowledge
-- synthetic demo data only
-
-Current Azure Foundry guidance:
-
-- use one Foundry agent for the current implementation
-- keep orchestration in the application for now
-- add multiple specialist Foundry agents only when starting Phase 4 orchestration work
+1. open the app
+2. create a workspace
+3. add a synthetic architecture description or diagram
+4. run analysis
+5. inspect score, findings, trade-offs, and grounding
+6. generate an ADR
 
 ## Documentation
 
-- [Auth Decision](docs/AUTH_DECISION.md)
-- [Azure Local Resources Guide](docs/AZURE_LOCAL_RESOURCES_GUIDE.md)
-- [Local Development Guide](docs/LOCAL_DEVELOPMENT_GUIDE.md)
-- [Cloud Deployment Guide](docs/CLOUD_DEPLOYMENT_GUIDE.md)
-- [Environment Variables](docs/ENVIRONMENT_VARIABLES.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Scoring Model](docs/SCORING_MODEL.md)
-- [Reasoning Agents Plan](docs/REASONING_AGENTS_PLAN.md)
-- [Framework Selection](docs/FRAMEWORK_SELECTION.md)
-- [Tradeoff Balancing](docs/TRADEOFF_BALANCING.md)
-- [ADR Workflow](docs/ADR_WORKFLOW.md)
-- [Knowledge Base Plan](docs/KNOWLEDGE_BASE_PLAN.md)
-- [Roadmap](docs/ROADMAP.md)
+Start with [docs/README.md](docs/README.md).
 
-## Running Tests
+## Current Limitations
 
-```bash
-cd backend
-dotnet test
-```
+- unauthenticated local runtime
+- current reasoning mostly application-led
+- Azure AI Search is not yet integrated
 
-```bash
-cd web
-npm test
-```
+## Future Roadmap
+
+See [docs/product/ROADMAP.md](docs/product/ROADMAP.md).

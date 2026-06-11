@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { EmptyState, LoadingState, Button, DiagramIcon } from '../components';
@@ -18,6 +18,7 @@ interface ArchitectureOverview {
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const [contextFilter, setContextFilter] = useState<ContextFilter>('all');
   const { data: overview, isLoading } = useQuery({
     queryKey: ['architecture-overview'],
     queryFn: loadArchitectureOverview,
@@ -29,8 +30,10 @@ export function LandingPage() {
   const averageScore = scoredDiagrams.length
     ? scoredDiagrams.reduce((total, diagram) => total + (diagram.latestAnalysis?.finalScore ?? 0), 0) / scoredDiagrams.length
     : null;
-  const latestDiagrams = [...diagrams].sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()).slice(0, 8);
+  const filteredDiagrams = diagrams.filter((diagram) => matchesContextFilter(diagram.latestAnalysis, contextFilter));
+  const latestDiagrams = [...filteredDiagrams].sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()).slice(0, 8);
   const highestRiskDiagrams = [...scoredDiagrams]
+    .filter((diagram) => matchesContextFilter(diagram.latestAnalysis, contextFilter))
     .sort((a, b) => (a.latestAnalysis?.finalScore ?? 0) - (b.latestAnalysis?.finalScore ?? 0))
     .slice(0, 5);
   const firstWorkspaceId = useMemo(() => diagrams[0]?.workspaceId ?? null, [diagrams]);
@@ -79,7 +82,28 @@ export function LandingPage() {
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_320px]">
         <div className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
-          <div className="panel-header">Recent Diagrams</div>
+          <div className="flex flex-col gap-3 border-b border-[#dde1e6] px-4 py-3 dark:border-white/10">
+            <div className="flex items-center justify-between gap-3">
+              <div className="panel-header !border-0 !px-0 !py-0">Recent Diagrams</div>
+              <span className="text-xs text-secondary-500 dark:text-secondary-400">{filteredDiagrams.length} matching diagrams</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {CONTEXT_FILTERS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setContextFilter(item.value)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    contextFilter === item.value
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-[#f4f6f8] text-secondary-700 hover:bg-[#e8ebef] dark:bg-white/10 dark:text-secondary-300 dark:hover:bg-white/15'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <table className="w-full">
             <thead className="border-b border-[#dde1e6] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
               <tr>
@@ -95,33 +119,12 @@ export function LandingPage() {
                 const comparison = buildAnalysisComparison(diagram.analysisRuns);
                 const freshness = getReviewFreshness(diagram.uploadedAt, comparison?.latest);
                 return (
-                  <tr
+                  <DiagramTableRow
                     key={diagram.id}
-                    onClick={() => navigate(`/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
-                    className="cursor-pointer border-b border-[#eef1f4] transition last:border-0 hover:bg-[#f8f9fb] dark:border-white/10 dark:hover:bg-white/[0.03]"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="glow-icon h-8 w-8">
-                          <DiagramIcon className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="font-medium text-secondary-950 dark:text-white">{diagram.name}</p>
-                          {diagram.latestAnalysis?.executiveSummary ? (
-                            <p className="mt-0.5 line-clamp-1 text-xs text-secondary-500 dark:text-secondary-400">{diagram.latestAnalysis.executiveSummary}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{diagram.workspaceName}</td>
-                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">
-                      {diagram.latestAnalysis?.finalScore !== null && diagram.latestAnalysis?.finalScore !== undefined
-                        ? diagram.latestAnalysis.finalScore.toFixed(1)
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{freshness}</td>
-                    <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{new Date(diagram.uploadedAt).toLocaleDateString()}</td>
-                  </tr>
+                    diagram={diagram}
+                    freshness={freshness}
+                    onOpen={() => navigate(`/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
+                  />
                 );
               })}
             </tbody>
@@ -177,6 +180,16 @@ export function LandingPage() {
   );
 }
 
+type ContextFilter = 'all' | 'framework' | 'principle' | 'tradeoff' | 'history';
+
+const CONTEXT_FILTERS: Array<{ value: ContextFilter; label: string }> = [
+  { value: 'all', label: 'All context' },
+  { value: 'framework', label: 'Framework' },
+  { value: 'principle', label: 'Principle' },
+  { value: 'tradeoff', label: 'Trade-off' },
+  { value: 'history', label: 'History' },
+];
+
 function KpiTile({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="kpi-tile">
@@ -199,6 +212,132 @@ function MaturityBar({ label, value }: { label: string; value: number }) {
       </div>
     </div>
   );
+}
+
+function DiagramTableRow({
+  diagram,
+  freshness,
+  onOpen,
+}: {
+  diagram: ArchitectureOverview['diagrams'][number];
+  freshness: string;
+  onOpen: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const citations = diagram.latestAnalysis?.foundryIqContext?.citationRefs ?? [];
+  const contextSummary = summarizeContext(diagram.latestAnalysis);
+
+  return (
+    <Fragment>
+      <tr
+        onClick={onOpen}
+        className="cursor-pointer border-b border-[#eef1f4] transition hover:bg-[#f8f9fb] dark:border-white/10 dark:hover:bg-white/[0.03]"
+      >
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="glow-icon h-8 w-8">
+              <DiagramIcon className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-medium text-secondary-950 dark:text-white">{diagram.name}</p>
+              {diagram.latestAnalysis?.executiveSummary ? (
+                <p className="mt-0.5 line-clamp-1 text-xs text-secondary-500 dark:text-secondary-400">{diagram.latestAnalysis.executiveSummary}</p>
+              ) : null}
+              {contextSummary ? (
+                <p className="mt-1 text-[11px] text-secondary-500 dark:text-secondary-400">{contextSummary}</p>
+              ) : null}
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{diagram.workspaceName}</td>
+        <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">
+          {diagram.latestAnalysis?.finalScore !== null && diagram.latestAnalysis?.finalScore !== undefined
+            ? diagram.latestAnalysis.finalScore.toFixed(1)
+            : '—'}
+        </td>
+        <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">{freshness}</td>
+        <td className="px-4 py-3 text-sm text-secondary-600 dark:text-secondary-300">
+          <div className="flex items-center justify-between gap-3">
+            <span>{new Date(diagram.uploadedAt).toLocaleDateString()}</span>
+            {citations.length > 0 ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setExpanded((value) => !value);
+                }}
+                className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-[11px] font-semibold text-secondary-700 hover:bg-[#e8ebef] dark:bg-white/10 dark:text-secondary-300 dark:hover:bg-white/15"
+              >
+                {expanded ? 'Hide citations' : `Citations ${citations.length}`}
+              </button>
+            ) : null}
+          </div>
+        </td>
+      </tr>
+      {expanded ? (
+        <tr className="border-b border-[#eef1f4] bg-[#fafafa] dark:border-white/10 dark:bg-white/[0.03]">
+          <td colSpan={5} className="px-4 py-3">
+            <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Foundry IQ context used</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(diagram.latestAnalysis?.foundryIqContext?.frameworkGuidanceItems?.length ?? 0) > 0 ? <ContextPill label="Framework" /> : null}
+                  {(diagram.latestAnalysis?.foundryIqContext?.principleItems?.length ?? 0) > 0 ? <ContextPill label="Principle" /> : null}
+                  {(diagram.latestAnalysis?.foundryIqContext?.tradeoffItems?.length ?? 0) > 0 ? <ContextPill label="Trade-off" /> : null}
+                  {(diagram.latestAnalysis?.foundryIqContext?.workspaceMemoryItems?.length ?? 0) > 0 ? <ContextPill label="History" /> : null}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Citations</p>
+                <ul className="mt-2 space-y-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
+                  {citations.map((citation) => (
+                    <li key={citation}>{citation}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </Fragment>
+  );
+}
+
+function ContextPill({ label }: { label: string }) {
+  return <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-semibold text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-100">{label}</span>;
+}
+
+function matchesContextFilter(analysis: ArchitectureAnalysisResult | null, filter: ContextFilter) {
+  if (filter === 'all') {
+    return true;
+  }
+
+  const context = analysis?.foundryIqContext;
+  if (!context) {
+    return false;
+  }
+
+  return (
+    (filter === 'framework' && context.frameworkGuidanceItems.length > 0) ||
+    (filter === 'principle' && context.principleItems.length > 0) ||
+    (filter === 'tradeoff' && context.tradeoffItems.length > 0) ||
+    (filter === 'history' && context.workspaceMemoryItems.length > 0)
+  );
+}
+
+function summarizeContext(analysis: ArchitectureAnalysisResult | null) {
+  if (!analysis) {
+    return '';
+  }
+
+  const labels = [
+    analysis.foundryIqContext.frameworkGuidanceItems.length > 0 ? 'Framework' : null,
+    analysis.foundryIqContext.principleItems.length > 0 ? 'Principle' : null,
+    analysis.foundryIqContext.tradeoffItems.length > 0 ? 'Trade-off' : null,
+    analysis.foundryIqContext.workspaceMemoryItems.length > 0 ? 'History' : null,
+  ].filter(Boolean);
+
+  return labels.length ? `Foundry IQ context: ${labels.join(', ')}` : '';
 }
 
 async function loadArchitectureOverview(): Promise<ArchitectureOverview> {

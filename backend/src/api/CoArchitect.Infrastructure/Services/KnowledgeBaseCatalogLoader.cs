@@ -6,15 +6,18 @@ public sealed class KnowledgeBaseCatalogLoader
 {
     private readonly Lazy<KnowledgeBaseCatalogDocument> _catalog;
     private readonly string _knowledgeBasePath;
+    private readonly string _catalogPath;
 
     public KnowledgeBaseCatalogLoader()
     {
         _knowledgeBasePath = ResolveKnowledgeBasePath(Environment.GetEnvironmentVariable("FoundryIq__KnowledgeBasePath"));
+        _catalogPath = Path.Combine(_knowledgeBasePath, "catalog", "foundry-iq-catalog.json");
         _catalog = new Lazy<KnowledgeBaseCatalogDocument>(LoadCatalog, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public string KnowledgeBasePath => _knowledgeBasePath;
-    public bool CatalogExists => File.Exists(Path.Combine(_knowledgeBasePath, "catalog", "foundry-iq-catalog.json"));
+    public string CatalogPath => _catalogPath;
+    public bool CatalogExists => File.Exists(_catalogPath);
 
     public IReadOnlyList<KnowledgeBaseCatalogItem> GetItems() => _catalog.Value.Items.ToList();
 
@@ -25,13 +28,12 @@ public sealed class KnowledgeBaseCatalogLoader
 
     private KnowledgeBaseCatalogDocument LoadCatalog()
     {
-        var path = Path.Combine(_knowledgeBasePath, "catalog", "foundry-iq-catalog.json");
-        if (!File.Exists(path))
+        if (!File.Exists(_catalogPath))
         {
             return new KnowledgeBaseCatalogDocument();
         }
 
-        var content = File.ReadAllText(path);
+        var content = File.ReadAllText(_catalogPath);
         return JsonSerializer.Deserialize<KnowledgeBaseCatalogDocument>(content, JsonOptions) ?? new KnowledgeBaseCatalogDocument();
     }
 
@@ -40,9 +42,10 @@ public sealed class KnowledgeBaseCatalogLoader
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
             var expanded = Environment.ExpandEnvironmentVariables(configuredPath);
-            if (Directory.Exists(expanded))
+            var normalized = NormalizeConfiguredPath(expanded);
+            if (normalized is not null)
             {
-                return expanded;
+                return normalized;
             }
         }
 
@@ -71,6 +74,29 @@ public sealed class KnowledgeBaseCatalogLoader
         }
 
         return Path.Combine(AppContext.BaseDirectory, "docs", "knowledge-base");
+    }
+
+    private static string? NormalizeConfiguredPath(string expanded)
+    {
+        if (Directory.Exists(Path.Combine(expanded, "catalog")) &&
+            File.Exists(Path.Combine(expanded, "catalog", "foundry-iq-catalog.json")))
+        {
+            return expanded;
+        }
+
+        var nested = Path.Combine(expanded, "knowledge-base");
+        if (Directory.Exists(Path.Combine(nested, "catalog")) &&
+            File.Exists(Path.Combine(nested, "catalog", "foundry-iq-catalog.json")))
+        {
+            return nested;
+        }
+
+        if (Directory.Exists(expanded))
+        {
+            return expanded;
+        }
+
+        return null;
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

@@ -601,6 +601,17 @@
     transform: translateX(-50%);
   }
 
+  .public-preview-canvas-node.quaternary {
+    top: 132px;
+    left: 42%;
+    transform: translateX(-50%);
+  }
+
+  .public-preview-canvas-node.quinary {
+    bottom: 34px;
+    right: 24px;
+  }
+
   .public-preview-sidebar {
     @apply space-y-3 rounded-2xl border border-[#e5e9ef] bg-white p-4;
   }

@@ -202,10 +202,13 @@ function PreviewMock({ section }: { section: string }) {
             <div className="public-preview-canvas-node primary">API</div>
             <div className="public-preview-canvas-node secondary">Blob Storage</div>
             <div className="public-preview-canvas-node tertiary">AI Pipeline</div>
+            <div className="public-preview-canvas-node quaternary">Queue</div>
+            <div className="public-preview-canvas-node quinary">Metadata DB</div>
           </div>
           <div className="public-preview-sidebar">
             <div className="public-preview-chip">Score 78.2</div>
             <p className="public-preview-title">Production Candidate</p>
+            <p className="public-preview-meta">Last reviewed 12 minutes ago · 4 critical findings</p>
             <div className="public-preview-chip-row">
               <span className="public-preview-chip">Azure WAF</span>
               <span className="public-preview-chip">OWASP ASVS</span>
@@ -215,6 +218,20 @@ function PreviewMock({ section }: { section: string }) {
               <span className="public-preview-chip">GDPR</span>
             </div>
             <p className="public-preview-copy">Queue isolation, retry handling, observability, and lifecycle controls are the highest-priority improvements.</p>
+            <div className="public-preview-stat-stack">
+              <div className="public-preview-stat-row">
+                <span className="public-preview-stat-label">Top finding</span>
+                <span className="public-preview-stat-value">No dead-letter path</span>
+              </div>
+              <div className="public-preview-stat-row">
+                <span className="public-preview-stat-label">Trade-off</span>
+                <span className="public-preview-stat-value">Cost vs reliability</span>
+              </div>
+            </div>
+            <div className="public-preview-panel">
+              <p className="public-preview-section-label">Recommendation</p>
+              <p className="public-preview-copy">Add queue-based workload isolation, dead-letter handling, and lifecycle policies before scaling ingestion further.</p>
+            </div>
           </div>
         </div>
       </div>

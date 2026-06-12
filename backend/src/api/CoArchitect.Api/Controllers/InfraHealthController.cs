@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
 using CoArchitect.Infrastructure.Persistence;
+using CoArchitect.Infrastructure.Services;
 using CoArchitect.Infrastructure.Settings;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,6 +19,7 @@ public sealed class InfraHealthController : ControllerBase
     private readonly ArchitectureStorageOptions _storageOptions;
     private readonly AzureFoundryArchitectureAgentOptions _foundryOptions;
     private readonly IAiFoundrySettingsRepository _foundrySettingsRepository;
+    private readonly KnowledgeBaseCatalogLoader _knowledgeBaseCatalogLoader;
 
     public InfraHealthController(
         IServiceProvider services,
@@ -25,7 +27,8 @@ public sealed class InfraHealthController : ControllerBase
         IConfiguration configuration,
         ArchitectureStorageOptions storageOptions,
         AzureFoundryArchitectureAgentOptions foundryOptions,
-        IAiFoundrySettingsRepository foundrySettingsRepository)
+        IAiFoundrySettingsRepository foundrySettingsRepository,
+        KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader)
     {
         _services = services;
         _httpClientFactory = httpClientFactory;
@@ -33,6 +36,7 @@ public sealed class InfraHealthController : ControllerBase
         _storageOptions = storageOptions;
         _foundryOptions = foundryOptions;
         _foundrySettingsRepository = foundrySettingsRepository;
+        _knowledgeBaseCatalogLoader = knowledgeBaseCatalogLoader;
     }
 
     [HttpGet]
@@ -43,6 +47,7 @@ public sealed class InfraHealthController : ControllerBase
             await CheckDatabaseAsync(cancellationToken),
             await CheckBlobStorageAsync(cancellationToken),
             await CheckFoundryAsync(cancellationToken),
+            CheckFoundryIqCatalog(),
         };
 
         var status = checks.Any(check => check.Status == "unhealthy")
@@ -164,6 +169,22 @@ public sealed class InfraHealthController : ControllerBase
         {
             return InfraHealthCheck.Unhealthy("azureFoundry", "AzureFoundry", Trim(ex.Message));
         }
+    }
+
+    private InfraHealthCheck CheckFoundryIqCatalog()
+    {
+        if (_knowledgeBaseCatalogLoader.CatalogExists)
+        {
+            return InfraHealthCheck.Healthy(
+                "foundryIqCatalog",
+                "LocalKnowledgeBase",
+                $"Foundry IQ catalog loaded from {_knowledgeBaseCatalogLoader.CatalogPath}.");
+        }
+
+        return InfraHealthCheck.Degraded(
+            "foundryIqCatalog",
+            "LocalKnowledgeBase",
+            $"Foundry IQ catalog was not found at {_knowledgeBaseCatalogLoader.CatalogPath}. Live analysis will fall back to minimal baseline guidance.");
     }
 
     private static Uri BuildBlobUri(string containerSasUrl, string blobPath)

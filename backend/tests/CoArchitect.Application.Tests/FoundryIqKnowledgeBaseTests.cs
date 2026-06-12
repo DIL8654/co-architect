@@ -10,6 +10,37 @@ namespace CoArchitect.Application.Tests;
 public class FoundryIqKnowledgeBaseTests
 {
     [Fact]
+    public void Loader_accepts_a_parent_docs_path_and_normalizes_to_knowledge_base()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"coarchitect-kb-{Guid.NewGuid():N}");
+        var docsRoot = Path.Combine(tempRoot, "docs");
+        var knowledgeBaseRoot = Path.Combine(docsRoot, "knowledge-base");
+        var catalogRoot = Path.Combine(knowledgeBaseRoot, "catalog");
+
+        Directory.CreateDirectory(catalogRoot);
+        File.WriteAllText(Path.Combine(catalogRoot, "foundry-iq-catalog.json"), "{\"items\":[]}");
+
+        var previous = Environment.GetEnvironmentVariable("FoundryIq__KnowledgeBasePath");
+        Environment.SetEnvironmentVariable("FoundryIq__KnowledgeBasePath", docsRoot);
+
+        try
+        {
+            var loader = new KnowledgeBaseCatalogLoader();
+            Assert.True(loader.CatalogExists);
+            Assert.EndsWith(Path.Combine("docs", "knowledge-base"), loader.KnowledgeBasePath);
+            Assert.EndsWith(Path.Combine("docs", "knowledge-base", "catalog", "foundry-iq-catalog.json"), loader.CatalogPath);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FoundryIq__KnowledgeBasePath", previous);
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Catalog_loads_all_expected_standards_and_markdown_files_exist()
     {
         var loader = new KnowledgeBaseCatalogLoader();

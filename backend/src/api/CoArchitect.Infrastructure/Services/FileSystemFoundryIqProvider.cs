@@ -108,7 +108,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             BuildFallbackItem("fallback-tradeoff-cost-reliability", "tradeoff-guidance", "CoreTradeoffs", "reliability", "Cost vs reliability", "Balance resilience investments against workload value and risk."),
         };
 
-        var citations = new List<string> { $"Foundry IQ catalog missing at {_catalogLoader.KnowledgeBasePath}" };
+        var citations = new List<string> { $"Foundry IQ catalog unavailable at {_catalogLoader.CatalogPath}" };
         return new FoundryIqContextBundle
         {
             FrameworkGuidanceItems = frameworkItems,

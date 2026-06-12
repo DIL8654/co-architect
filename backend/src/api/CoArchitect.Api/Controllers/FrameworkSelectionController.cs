@@ -27,6 +27,7 @@ public sealed class FrameworkSelectionController : ControllerBase
             reviewContext,
             DiagramReviewSetupMapper.ToMode(reviewSetup.FrameworkSelectionMode),
             DiagramReviewSetupMapper.ToRequestedFrameworks(reviewSetup.RequestedFrameworks),
+            DiagramReviewSetupMapper.ToRequestedStandards(reviewSetup.RequestedStandards),
             weights);
 
         return Ok(new DiagramReviewSetupResponse
@@ -48,6 +49,8 @@ public sealed class FrameworkSelectionController : ControllerBase
                 ConfidenceScore = selection.ConfidenceScore,
                 RequestedFrameworks = selection.RequestedFrameworks.Select(item => item.ToString()).ToList(),
                 SelectedFrameworks = selection.SelectedFrameworks.Select(item => item.ToString()).ToList(),
+                RequestedStandards = selection.RequestedStandards.Select(item => item.ToString()).ToList(),
+                SelectedStandards = selection.SelectedStandards.Select(item => item.ToString()).ToList(),
                 SelectionRationale = selection.SelectionRationale.ToList(),
             },
             QualityAttributeWeights = weights.Select(weight => new QualityAttributeWeightDto

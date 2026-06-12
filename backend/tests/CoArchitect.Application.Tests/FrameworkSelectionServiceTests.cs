@@ -22,10 +22,13 @@ public class FrameworkSelectionServiceTests
             },
             FrameworkSelectionMode.AutoDetect,
             [],
+            [],
             _service.GetDefaultWeights());
 
         Assert.Contains(ReviewFramework.AzureWellArchitected, result.SelectedFrameworks);
         Assert.Contains(ReviewFramework.OwaspAsvs, result.SelectedFrameworks);
+        Assert.Contains(ReviewStandard.Iso27001, result.SelectedStandards);
+        Assert.Contains(ReviewStandard.Gdpr, result.SelectedStandards);
         Assert.Equal("Azure", result.DetectedCloudProvider);
         Assert.NotEmpty(result.SelectionRationale);
     }
@@ -40,6 +43,7 @@ public class FrameworkSelectionServiceTests
                 CloudProviderPreference = "Azure",
             },
             FrameworkSelectionMode.AutoDetect,
+            [],
             [],
             _service.GetDefaultWeights());
 
@@ -56,11 +60,14 @@ public class FrameworkSelectionServiceTests
             new ArchitectureReviewContext(),
             FrameworkSelectionMode.Manual,
             [ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs],
+            [ReviewStandard.Iso27001, ReviewStandard.Soc2],
             _service.GetDefaultWeights());
 
         Assert.Equal(2, result.SelectedFrameworks.Count);
         Assert.Contains(ReviewFramework.Iso25010, result.SelectedFrameworks);
         Assert.Contains(ReviewFramework.OwaspAsvs, result.SelectedFrameworks);
+        Assert.Contains(ReviewStandard.Iso27001, result.SelectedStandards);
+        Assert.Contains(ReviewStandard.Soc2, result.SelectedStandards);
         Assert.Equal(0.99, result.ConfidenceScore);
     }
 }

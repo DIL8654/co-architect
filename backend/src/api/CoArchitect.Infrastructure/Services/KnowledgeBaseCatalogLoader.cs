@@ -9,11 +9,12 @@ public sealed class KnowledgeBaseCatalogLoader
 
     public KnowledgeBaseCatalogLoader()
     {
-        _knowledgeBasePath = ResolveKnowledgeBasePath();
+        _knowledgeBasePath = ResolveKnowledgeBasePath(Environment.GetEnvironmentVariable("FoundryIq__KnowledgeBasePath"));
         _catalog = new Lazy<KnowledgeBaseCatalogDocument>(LoadCatalog, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public string KnowledgeBasePath => _knowledgeBasePath;
+    public bool CatalogExists => File.Exists(Path.Combine(_knowledgeBasePath, "catalog", "foundry-iq-catalog.json"));
 
     public IReadOnlyList<KnowledgeBaseCatalogItem> GetItems() => _catalog.Value.Items.ToList();
 
@@ -34,8 +35,17 @@ public sealed class KnowledgeBaseCatalogLoader
         return JsonSerializer.Deserialize<KnowledgeBaseCatalogDocument>(content, JsonOptions) ?? new KnowledgeBaseCatalogDocument();
     }
 
-    private static string ResolveKnowledgeBasePath()
+    private static string ResolveKnowledgeBasePath(string? configuredPath)
     {
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+        {
+            var expanded = Environment.ExpandEnvironmentVariables(configuredPath);
+            if (Directory.Exists(expanded))
+            {
+                return expanded;
+            }
+        }
+
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null)
         {
@@ -48,7 +58,19 @@ public sealed class KnowledgeBaseCatalogLoader
             current = current.Parent;
         }
 
-        return Path.Combine(Directory.GetCurrentDirectory(), "docs", "knowledge-base");
+        current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (current is not null)
+        {
+            var candidate = Path.Combine(current.FullName, "docs", "knowledge-base");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "docs", "knowledge-base");
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

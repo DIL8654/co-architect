@@ -121,7 +121,7 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
         return $$"""
         You are CoArchitect AI, an architecture review agent.
 
-        Analyze this architecture for a hackathon MVP and return only valid JSON with this shape:
+        Analyze this architecture as an enterprise architecture review and return only valid JSON with this shape:
         {
           "evidence": [{"summary": "...", "details": "..."}],
           "missingControls": [{"name": "...", "description": "...", "dimension": "Security"}],
@@ -272,7 +272,7 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
                 new Tradeoff
                 {
                     Summary = "Managed Azure services reduce delivery risk but require explicit cost and access governance.",
-                    Pros = { "Fast MVP delivery", "Less infrastructure to operate", "Clear path to production hardening" },
+                    Pros = { "Faster delivery", "Less infrastructure to operate", "Clear path to production hardening" },
                     Cons = { "Cloud cost must be monitored", "SAS URLs should be replaced with identity-based access later" }
                 }
             },
@@ -282,7 +282,7 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
                 CreateMaturity(ArchitectureDimension.ReliabilityAvailability, lower.Contains("disaster recovery") ? 3 : 2, 4, "Define backup, restore, failover, and recovery objectives."),
                 CreateMaturity(ArchitectureDimension.OperationalExcellence, lower.Contains("monitor") ? 3 : 2, 4, "Add monitoring, alerting, and operational runbooks."),
                 CreateMaturity(ArchitectureDimension.DataTenantIsolation, lower.Contains("tenant isolation") ? 3 : 2, 4, "Make tenant boundaries explicit in data and authorization flows."),
-                CreateMaturity(ArchitectureDimension.CostOptimization, 3, 4, "Add budgets, alerts, and right-sized Azure resources for the MVP.")
+                CreateMaturity(ArchitectureDimension.CostOptimization, 3, 4, "Add budgets, alerts, and right-sized resources for the workload.")
             }
         };
     }

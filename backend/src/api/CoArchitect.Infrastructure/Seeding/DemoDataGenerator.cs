@@ -193,6 +193,7 @@ public static class DemoDataGenerator
                 DetectedCloudProvider = "Cloud-neutral",
                 ConfidenceScore = 0.76,
                 SelectedFrameworks = new List<ReviewFramework> { ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs },
+                SelectedStandards = new List<ReviewStandard> { ReviewStandard.Iso27001, ReviewStandard.Soc2 },
                 SelectionRationale = new List<string>
                 {
                     "ISO/IEC 25010 was chosen as the cloud-neutral quality baseline.",
@@ -230,6 +231,7 @@ public static class DemoDataGenerator
                 DetectedCloudProvider = "Azure",
                 ConfidenceScore = 0.91,
                 SelectedFrameworks = new List<ReviewFramework> { ReviewFramework.AzureWellArchitected, ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs },
+                SelectedStandards = new List<ReviewStandard> { ReviewStandard.Iso27001, ReviewStandard.Soc2 },
                 SelectionRationale = new List<string>
                 {
                     "Azure Well-Architected was selected because Azure platform services are implied in the description.",
@@ -268,6 +270,7 @@ public static class DemoDataGenerator
                 DetectedCloudProvider = "Azure",
                 ConfidenceScore = 0.93,
                 SelectedFrameworks = new List<ReviewFramework> { ReviewFramework.AzureWellArchitected, ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs },
+                SelectedStandards = new List<ReviewStandard> { ReviewStandard.Iso27001, ReviewStandard.Gdpr, ReviewStandard.Togaf, ReviewStandard.Safe },
                 SelectionRationale = new List<string>
                 {
                     "Azure Well-Architected was selected because the platform appears Azure-oriented and enterprise-scale.",

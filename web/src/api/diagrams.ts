@@ -6,6 +6,12 @@ export type ReviewFramework =
   | 'AwsWellArchitected'
   | 'Iso25010'
   | 'OwaspAsvs';
+export type ReviewStandard =
+  | 'Iso27001'
+  | 'Gdpr'
+  | 'Soc2'
+  | 'Togaf'
+  | 'Safe';
 
 export interface ReviewContext {
   businessDomain?: string;
@@ -29,6 +35,8 @@ export interface FrameworkSelectionSummary {
   confidenceScore: number;
   requestedFrameworks: ReviewFramework[];
   selectedFrameworks: ReviewFramework[];
+  requestedStandards: ReviewStandard[];
+  selectedStandards: ReviewStandard[];
   selectionRationale: string[];
 }
 
@@ -69,6 +77,7 @@ export interface DiagramReviewSetupInput {
   currentPainPoints?: string;
   frameworkSelectionMode: FrameworkSelectionMode;
   requestedFrameworks: ReviewFramework[];
+  requestedStandards: ReviewStandard[];
   qualityAttributeWeights: QualityAttributeWeight[];
 }
 

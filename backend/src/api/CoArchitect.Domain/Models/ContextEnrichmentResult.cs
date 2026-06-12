@@ -9,5 +9,6 @@ public sealed class ContextEnrichmentResult
     public IList<string> ApplicableTradeoffs { get; init; } = new List<string>();
     public IList<string> MissingContextNotes { get; init; } = new List<string>();
     public IList<ReviewFramework> ConfirmedFrameworks { get; init; } = new List<ReviewFramework>();
+    public IList<ReviewStandard> ConfirmedStandards { get; init; } = new List<ReviewStandard>();
     public string Summary { get; init; } = string.Empty;
 }

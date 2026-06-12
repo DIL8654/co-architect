@@ -74,6 +74,7 @@ public class UnauthenticatedMvpEndpointTests
             new ArchitectureIntelligenceScoreService(),
             workspaceRepository,
             currentUserService,
+            frameworkSelectionService,
             NullLogger<DiagramAnalysisController>.Instance);
         var adrsController = new AdrsController(
             adrRepository,
@@ -148,7 +149,7 @@ public class UnauthenticatedMvpEndpointTests
             await commentsController.GetDiagramComments(workspace.Id, diagram.Id, CancellationToken.None));
         Assert.Contains(comments, item => item.Id == comment.Id);
 
-        var runResult = await analysisController.RunAnalysis(workspace.Id, diagram.Id, CancellationToken.None);
+        var runResult = await analysisController.RunAnalysis(workspace.Id, diagram.Id, null, CancellationToken.None);
         var analysis = AssertOk<ArchitectureAnalysisResponse>(runResult);
         Assert.NotEqual(Guid.Empty, analysis.Id);
         Assert.True(analysis.FinalScore > 0);
@@ -217,6 +218,7 @@ public class UnauthenticatedMvpEndpointTests
             Assert.Contains(latestAnalysis.Result.AgentTrace, item => item.AgentName == "Recommendation Composer Agent");
             Assert.NotEmpty(latestAnalysis.Result.FoundryIqContext.CitationRefs);
             Assert.NotEmpty(latestAnalysis.Result.FoundryIqContext.FrameworkGuidanceItems);
+            Assert.True(latestAnalysis.Result.ResolvedFrameworkSelection.SelectedStandards.Count > 0);
             Assert.NotEmpty(latestAnalysis.Result.MissingControls);
             Assert.NotEmpty(latestAnalysis.Result.Tradeoffs);
 

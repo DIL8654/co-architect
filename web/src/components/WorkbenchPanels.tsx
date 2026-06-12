@@ -68,12 +68,18 @@ export function AdrPreview({ draft }: { draft: AdrDraft }) {
         <p className="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
           {draft.status} | {draft.date} | {draft.frameworks.join(', ') || 'No frameworks selected'}
         </p>
+        {draft.standards.length ? (
+          <p className="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+            Standards: {draft.standards.join(', ')}
+          </p>
+        ) : null}
       </div>
       <div className="mt-4 space-y-5">
         <AdrSection title="Context" items={draft.context} />
         <AdrSection title="Decision" items={draft.decision} />
         <AdrSection title="Alternatives Considered" items={draft.alternatives} />
         <AdrSection title="Trade-offs" items={draft.tradeoffs} />
+        <AdrSection title="Grounded Context Used" items={draft.groundedContext} />
         <AdrSection title="Consequences" items={draft.consequences} />
         <AdrSection title="Risks and Open Questions" items={draft.risks} />
       </div>

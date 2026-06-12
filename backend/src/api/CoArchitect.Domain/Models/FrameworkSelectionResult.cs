@@ -9,5 +9,7 @@ public sealed class FrameworkSelectionResult
     public double ConfidenceScore { get; init; }
     public IList<ReviewFramework> RequestedFrameworks { get; init; } = new List<ReviewFramework>();
     public IList<ReviewFramework> SelectedFrameworks { get; init; } = new List<ReviewFramework>();
+    public IList<ReviewStandard> RequestedStandards { get; init; } = new List<ReviewStandard>();
+    public IList<ReviewStandard> SelectedStandards { get; init; } = new List<ReviewStandard>();
     public IList<string> SelectionRationale { get; init; } = new List<string>();
 }

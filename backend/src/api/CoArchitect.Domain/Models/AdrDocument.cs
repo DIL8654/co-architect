@@ -12,5 +12,7 @@ public sealed class AdrDocument
     public IList<string> Consequences { get; init; } = new List<string>();
     public IList<string> Risks { get; init; } = new List<string>();
     public IList<string> Frameworks { get; init; } = new List<string>();
+    public IList<string> Standards { get; init; } = new List<string>();
+    public IList<string> GroundedContext { get; init; } = new List<string>();
     public IList<string> History { get; init; } = new List<string>();
 }

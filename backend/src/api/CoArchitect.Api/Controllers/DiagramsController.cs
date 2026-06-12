@@ -92,6 +92,7 @@ public class DiagramsController : ControllerBase
             reviewContext,
             DiagramReviewSetupMapper.ToMode(reviewSetup.FrameworkSelectionMode),
             DiagramReviewSetupMapper.ToRequestedFrameworks(reviewSetup.RequestedFrameworks),
+            DiagramReviewSetupMapper.ToRequestedStandards(reviewSetup.RequestedStandards),
             qualityAttributeWeights);
 
         var diagramId = Guid.NewGuid();

@@ -29,6 +29,7 @@ public sealed class AdrVersionResponse
     public string Title { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public List<string> Frameworks { get; init; } = new();
+    public List<string> Standards { get; init; } = new();
     public string Date { get; init; } = string.Empty;
     public List<string> Context { get; init; } = new();
     public List<string> Decision { get; init; } = new();
@@ -36,6 +37,7 @@ public sealed class AdrVersionResponse
     public List<string> Tradeoffs { get; init; } = new();
     public List<string> Consequences { get; init; } = new();
     public List<string> Risks { get; init; } = new();
+    public List<string> GroundedContext { get; init; } = new();
     public List<string> History { get; init; } = new();
     public string Markdown { get; init; } = string.Empty;
     public string Html { get; init; } = string.Empty;

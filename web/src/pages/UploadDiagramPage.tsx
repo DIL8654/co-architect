@@ -15,6 +15,7 @@ import {
   type FrameworkSelectionMode,
   type QualityAttributeWeight,
   type ReviewFramework,
+  type ReviewStandard,
 } from '../api/diagrams';
 import { useUploadDiagram } from '../hooks/useDiagrams';
 import { SAMPLE_ARCHITECTURE_DESCRIPTION, SAMPLE_DIAGRAM_NAME, SAMPLE_REVIEW_CONTEXT } from '../lib/sampleArchitecture';
@@ -28,6 +29,19 @@ const FRAMEWORK_OPTIONS: Array<{ value: ReviewFramework; label: string; summary:
   { value: 'Iso25010', label: 'ISO/IEC 25010', summary: 'System quality attributes such as maintainability, usability, compatibility, and reliability.' },
   { value: 'OwaspAsvs', label: 'OWASP ASVS', summary: 'Application and API security requirements for web-facing or sensitive systems.' },
 ];
+const STANDARD_OPTIONS: Array<{ value: ReviewStandard; label: string; summary: string }> = [
+  { value: 'Iso27001', label: 'ISO 27001', summary: 'Security governance, control design, risk treatment, access control, and operational security evidence.' },
+  { value: 'Gdpr', label: 'GDPR', summary: 'Privacy, retention, deletion, personal-data handling, and European data-protection responsibilities.' },
+  { value: 'Soc2', label: 'SOC 2', summary: 'Trust-service controls for security, availability, confidentiality, and audit-ready operations.' },
+  { value: 'Togaf', label: 'TOGAF', summary: 'Architecture governance, capability planning, roadmap thinking, and enterprise change coordination.' },
+  { value: 'Safe', label: 'SAFe', summary: 'Value streams, platform-team coordination, release alignment, and scaled delivery architecture guidance.' },
+];
+
+const BUSINESS_DOMAIN_OPTIONS = ['SaaS', 'FinTech', 'Healthcare', 'Media', 'E-commerce', 'Enterprise Platform'] as const;
+const TARGET_USER_OPTIONS = ['External customers', 'Enterprise tenants', 'Internal employees', 'Operations and admins', 'Partners and integrators'] as const;
+const EXPECTED_TRAFFIC_OPTIONS = ['Low / steady', 'Moderate', 'High', 'Bursty', 'Global / multi-region'] as const;
+const DATA_SENSITIVITY_OPTIONS = ['Public', 'Internal', 'Confidential', 'PII / regulated'] as const;
+const COMPLIANCE_OPTIONS = ['None', 'GDPR', 'SOC 2', 'ISO 27001', 'Audit logging / retention'] as const;
 
 const DEFAULT_WEIGHTS: QualityAttributeWeight[] = [
   { key: 'security', label: 'Security', weight: 25 },
@@ -46,6 +60,8 @@ const INITIAL_PREVIEW: DiagramReviewSetup = {
     confidenceScore: 0,
     requestedFrameworks: [],
     selectedFrameworks: [],
+    requestedStandards: [],
+    selectedStandards: [],
     selectionRationale: [],
   },
   qualityAttributeWeights: DEFAULT_WEIGHTS,
@@ -64,6 +80,7 @@ export function UploadDiagramPage() {
   const [filePreview, setFilePreview] = useState('');
   const [frameworkSelectionMode, setFrameworkSelectionMode] = useState<FrameworkSelectionMode>('AutoDetect');
   const [requestedFrameworks, setRequestedFrameworks] = useState<ReviewFramework[]>([]);
+  const [requestedStandards, setRequestedStandards] = useState<ReviewStandard[]>([]);
   const [businessDomain, setBusinessDomain] = useState('');
   const [targetUsers, setTargetUsers] = useState('');
   const [expectedTraffic, setExpectedTraffic] = useState('');
@@ -94,6 +111,7 @@ export function UploadDiagramPage() {
     setCurrentPainPoints(SAMPLE_REVIEW_CONTEXT.currentPainPoints);
     setFrameworkSelectionMode('AutoDetect');
     setRequestedFrameworks([]);
+    setRequestedStandards([]);
     setQualityAttributeWeights(DEFAULT_WEIGHTS);
   }, [searchParams]);
 
@@ -109,12 +127,12 @@ export function UploadDiagramPage() {
       } catch {
         setPreview({
           reviewContext: {
-            businessDomain: businessDomain.trim() || undefined,
-            targetUsers: targetUsers.trim() || undefined,
-            expectedTraffic: expectedTraffic.trim() || undefined,
-            dataSensitivity: dataSensitivity.trim() || undefined,
+            businessDomain: businessDomain || undefined,
+            targetUsers: targetUsers || undefined,
+            expectedTraffic: expectedTraffic || undefined,
+            dataSensitivity: dataSensitivity || undefined,
             cloudProviderPreference: cloudProviderPreference || undefined,
-            complianceNeeds: complianceNeeds.trim() || undefined,
+            complianceNeeds: complianceNeeds || undefined,
             currentPainPoints: currentPainPoints.trim() || undefined,
           },
           frameworkSelection: {
@@ -122,7 +140,9 @@ export function UploadDiagramPage() {
             detectedCloudProvider: cloudProviderPreference || undefined,
             confidenceScore: 0,
             requestedFrameworks,
+            requestedStandards,
             selectedFrameworks: frameworkSelectionMode === 'Manual' ? requestedFrameworks : [],
+            selectedStandards: frameworkSelectionMode === 'Manual' ? requestedStandards : [],
             selectionRationale: frameworkSelectionMode === 'Manual' ? ['Framework preview is unavailable, but your manual selection will be saved.'] : [],
           },
           qualityAttributeWeights,
@@ -144,6 +164,7 @@ export function UploadDiagramPage() {
     currentPainPoints,
     frameworkSelectionMode,
     requestedFrameworks,
+    requestedStandards,
     qualityAttributeWeights,
   ]);
 
@@ -153,15 +174,16 @@ export function UploadDiagramPage() {
 
   function buildReviewSetup(): DiagramReviewSetupInput {
     return {
-      businessDomain: businessDomain.trim() || undefined,
-      targetUsers: targetUsers.trim() || undefined,
-      expectedTraffic: expectedTraffic.trim() || undefined,
-      dataSensitivity: dataSensitivity.trim() || undefined,
+      businessDomain: businessDomain || undefined,
+      targetUsers: targetUsers || undefined,
+      expectedTraffic: expectedTraffic || undefined,
+      dataSensitivity: dataSensitivity || undefined,
       cloudProviderPreference: cloudProviderPreference || undefined,
-      complianceNeeds: complianceNeeds.trim() || undefined,
+      complianceNeeds: complianceNeeds || undefined,
       currentPainPoints: currentPainPoints.trim() || undefined,
       frameworkSelectionMode,
       requestedFrameworks,
+      requestedStandards,
       qualityAttributeWeights,
     };
   }
@@ -213,8 +235,8 @@ export function UploadDiagramPage() {
       nextErrors.file = 'Add a description or select a file';
     }
 
-    if (frameworkSelectionMode === 'Manual' && requestedFrameworks.length === 0) {
-      nextErrors.frameworks = 'Select at least one review framework in manual mode';
+    if (frameworkSelectionMode === 'Manual' && requestedFrameworks.length === 0 && requestedStandards.length === 0) {
+      nextErrors.frameworks = 'Select at least one review framework or standard in manual mode';
     }
 
     const totalWeight = qualityAttributeWeights.reduce((total, item) => total + item.weight, 0);
@@ -260,7 +282,23 @@ export function UploadDiagramPage() {
     );
   };
 
+  const toggleStandard = (standard: ReviewStandard) => {
+    setRequestedStandards((current) =>
+      current.includes(standard) ? current.filter((value) => value !== standard) : [...current, standard],
+    );
+  };
+
   const totalWeight = qualityAttributeWeights.reduce((total, item) => total + item.weight, 0);
+  const previewFrameworkSelection = preview.frameworkSelection ?? INITIAL_PREVIEW.frameworkSelection;
+  const suggestedFrameworks = previewFrameworkSelection.selectedFrameworks ?? [];
+  const suggestedStandards = previewFrameworkSelection.selectedStandards ?? [];
+  const weightStatus = totalWeight === 100 ? 'success' : totalWeight > 100 ? 'error' : 'warning';
+  const weightTone =
+    weightStatus === 'success'
+      ? 'border-success-200 bg-success-50 text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400'
+      : weightStatus === 'error'
+        ? 'border-error-200 bg-error-50 text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300'
+        : 'border-warning-200 bg-warning-50 text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300';
 
   return (
     <div className="page-shell">
@@ -275,126 +313,89 @@ export function UploadDiagramPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <h1 className="page-title">New Architecture Review</h1>
-            <p className="page-description">Upload a diagram, add business context, choose review frameworks, and set quality priorities before analysis.</p>
+            <p className="page-description">Define review criteria first, then add architecture evidence and save the diagram for analysis.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={totalWeight === 100 ? 'success' : 'warning'}>{totalWeight}% configured</Badge>
+            <Badge variant={weightStatus === 'success' ? 'success' : weightStatus === 'error' ? 'error' : 'warning'}>{totalWeight}% configured</Badge>
             {isPreviewLoading && <Badge variant="secondary">Updating framework preview</Badge>}
           </div>
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <section className="panel">
-            <div className="panel-header">Architecture Input</div>
-            <div className="panel-body space-y-5">
-              <div className="space-y-2">
-                <label className="form-label">Diagram Image</label>
-                <div
-                  className="rounded-xl border-2 border-dashed border-[#d7dce2] bg-[#fafafa] p-8 text-center transition hover:border-primary-500 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-cyan-300"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (e.dataTransfer.files?.[0]) {
-                      handleFileChange({ target: { files: e.dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
-                    }
-                  }}
-                >
-                  <input
-                    id="file-input"
-                    type="file"
-                    onChange={handleFileChange}
-                    accept={SUPPORTED_FORMATS.map((format) => `.${format}`).join(',')}
-                    className="hidden"
-                    disabled={uploadMutation.isPending}
-                  />
-                  <label htmlFor="file-input" className="cursor-pointer">
-                    <span className="glow-icon mx-auto mb-4">
-                      <UploadIcon className="h-5 w-5" />
-                    </span>
-                    <p className="font-semibold text-secondary-950 dark:text-white">
-                      {selectedFile ? selectedFile.name : 'Drag and drop a diagram or click to browse'}
-                    </p>
-                    <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">
-                      PNG, JPG, JPEG, or SVG. Text-only architecture reviews are also supported.
-                    </p>
-                  </label>
-                </div>
-                {errors.file && <p className="text-sm text-error-600">{errors.file}</p>}
-              </div>
-
-              {filePreview && (
-                <div className="space-y-2">
-                  <label className="form-label">Preview</label>
-                  <img src={filePreview} alt="Diagram preview" className="max-h-64 rounded-xl border border-[#d7dce2] dark:border-white/10" />
-                </div>
-              )}
-
-              <div className="grid gap-5 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="form-label">Diagram Name *</label>
-                  <input
-                    type="text"
-                    value={diagramName}
-                    onChange={(e) => setDiagramName(e.target.value)}
-                    placeholder="E.g., B2B SaaS Platform Architecture"
-                    className="form-input"
-                    disabled={uploadMutation.isPending}
-                  />
-                  {errors.name && <p className="text-sm text-error-600">{errors.name}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="form-label">Cloud Provider Preference</label>
-                  <select
-                    value={cloudProviderPreference}
-                    onChange={(e) => setCloudProviderPreference(e.target.value)}
-                    className="form-select"
-                    disabled={uploadMutation.isPending}
-                  >
-                    <option value="">No preference</option>
-                    <option value="Azure">Azure</option>
-                    <option value="AWS">AWS</option>
-                    <option value="Cloud-neutral">Cloud-neutral</option>
-                  </select>
-                </div>
+            <div className="panel-header">Review Criteria</div>
+            <div className="panel-body space-y-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <SelectField label="Business Domain" value={businessDomain} onChange={setBusinessDomain} options={BUSINESS_DOMAIN_OPTIONS} placeholder="Select domain" />
+                <SelectField label="Target Users" value={targetUsers} onChange={setTargetUsers} options={TARGET_USER_OPTIONS} placeholder="Select users" />
+                <SelectField label="Expected Traffic" value={expectedTraffic} onChange={setExpectedTraffic} options={EXPECTED_TRAFFIC_OPTIONS} placeholder="Select traffic" />
+                <SelectField label="Data Sensitivity" value={dataSensitivity} onChange={setDataSensitivity} options={DATA_SENSITIVITY_OPTIONS} placeholder="Select sensitivity" />
+                <SelectField label="Cloud Provider Preference" value={cloudProviderPreference} onChange={setCloudProviderPreference} options={['Azure', 'AWS', 'Cloud-neutral']} placeholder="No preference" />
+                <SelectField label="Compliance Needs" value={complianceNeeds} onChange={setComplianceNeeds} options={COMPLIANCE_OPTIONS} placeholder="Select compliance" />
               </div>
 
               <div className="space-y-2">
-                <label className="form-label">Architecture Description</label>
+                <label className="form-label">Current Pain Points</label>
                 <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the architecture, integrations, trust boundaries, constraints, and current gaps..."
-                  rows={6}
-                  className="form-textarea"
+                  value={currentPainPoints}
+                  onChange={(e) => setCurrentPainPoints(e.target.value)}
+                  placeholder="No monitoring, weak isolation, high cost, unclear secrets management..."
+                  rows={3}
+                  className="form-textarea min-h-[84px]"
                   disabled={uploadMutation.isPending}
                 />
               </div>
-            </div>
-          </section>
 
-          <section className="panel">
-            <div className="panel-header">Business And Operating Context</div>
-            <div className="panel-body grid gap-4 lg:grid-cols-2">
-              <TextField label="Business Domain" value={businessDomain} onChange={setBusinessDomain} placeholder="B2B SaaS, public sector, internal platform" />
-              <TextField label="Target Users" value={targetUsers} onChange={setTargetUsers} placeholder="External tenants, admins, operations teams" />
-              <TextField label="Expected Traffic" value={expectedTraffic} onChange={setExpectedTraffic} placeholder="Low, steady, bursty, global, seasonal" />
-              <TextField label="Data Sensitivity" value={dataSensitivity} onChange={setDataSensitivity} placeholder="PII, regulated, internal only, public" />
-              <TextField label="Compliance Needs" value={complianceNeeds} onChange={setComplianceNeeds} placeholder="SOC 2, GDPR, audit logging, retention" />
-              <TextField label="Current Pain Points" value={currentPainPoints} onChange={setCurrentPainPoints} placeholder="No monitoring, weak isolation, high cost" />
+              <div className="rounded-xl border border-[#dde1e6] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Quality Attribute Weights</p>
+                    <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">
+                      Keep the total at exactly 100% so the review priorities stay balanced and explainable.
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setQualityAttributeWeights(DEFAULT_WEIGHTS)}>
+                    Reset defaults
+                  </Button>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {qualityAttributeWeights.map((weight) => (
+                    <CompactWeightField
+                      key={weight.key}
+                      label={weight.label}
+                      value={weight.weight}
+                      onChange={(nextValue) => handleWeightChange(weight.key, nextValue)}
+                    />
+                  ))}
+                </div>
+
+                <div className={`mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm font-medium ${weightTone}`}>
+                  <span>Total configured</span>
+                  <span>{totalWeight}%</span>
+                </div>
+
+                {totalWeight > 100 ? (
+                  <p className="mt-2 text-sm text-error-600 dark:text-error-300">Weights exceed 100%. Reduce one or more values before saving.</p>
+                ) : null}
+                {totalWeight < 100 ? (
+                  <p className="mt-2 text-sm text-warning-700 dark:text-warning-300">Weights must total 100% before saving this review setup.</p>
+                ) : null}
+                {errors.weights && <p className="mt-2 text-sm text-error-600 dark:text-error-300">{errors.weights}</p>}
+              </div>
             </div>
           </section>
 
           <section className="panel">
             <div className="panel-header">Framework Selection</div>
-            <div className="panel-body space-y-5">
+            <div className="panel-body space-y-4">
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setFrameworkSelectionMode('AutoDetect')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
                     frameworkSelectionMode === 'AutoDetect'
                       ? 'bg-primary-600 text-white'
                       : 'border border-[#d7dce2] bg-white text-secondary-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-secondary-200'
@@ -405,7 +406,7 @@ export function UploadDiagramPage() {
                 <button
                   type="button"
                   onClick={() => setFrameworkSelectionMode('Manual')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
                     frameworkSelectionMode === 'Manual'
                       ? 'bg-primary-600 text-white'
                       : 'border border-[#d7dce2] bg-white text-secondary-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-secondary-200'
@@ -415,15 +416,19 @@ export function UploadDiagramPage() {
                 </button>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid gap-2">
+                <div className="mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Primary Review Frameworks</p>
+                  <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">These drive the main specialist review lenses in the analysis flow.</p>
+                </div>
                 {FRAMEWORK_OPTIONS.map((option) => {
                   const isChecked = requestedFrameworks.includes(option.value);
-                  const isSuggested = preview.frameworkSelection.selectedFrameworks.includes(option.value);
+                  const isSuggested = suggestedFrameworks.includes(option.value);
 
                   return (
                     <label
                       key={option.value}
-                      className={`rounded-xl border p-4 transition ${
+                      className={`rounded-lg border p-3 transition ${
                         isSuggested
                           ? 'border-primary-200 bg-primary-50/60 dark:border-cyan-300/30 dark:bg-cyan-400/10'
                           : 'border-[#dde1e6] bg-white dark:border-white/10 dark:bg-white/[0.04]'
@@ -440,7 +445,46 @@ export function UploadDiagramPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold text-secondary-950 dark:text-white">{option.label}</p>
-                            {isSuggested && <Badge variant="primary">Suggested</Badge>}
+                            {isSuggested ? <Badge variant="primary">Suggested</Badge> : null}
+                          </div>
+                          <p className="mt-1 text-sm leading-6 text-secondary-600 dark:text-secondary-300">{option.summary}</p>
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="grid gap-2">
+                <div className="mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Additional Standards and Governance Criteria</p>
+                  <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">These shape Foundry IQ grounding, compliance reasoning, and governance recommendations without creating extra specialist agents.</p>
+                </div>
+                {STANDARD_OPTIONS.map((option) => {
+                  const isChecked = requestedStandards.includes(option.value);
+                  const isSuggested = suggestedStandards.includes(option.value);
+
+                  return (
+                    <label
+                      key={option.value}
+                      className={`rounded-lg border p-3 transition ${
+                        isSuggested
+                          ? 'border-primary-200 bg-primary-50/60 dark:border-cyan-300/30 dark:bg-cyan-400/10'
+                          : 'border-[#dde1e6] bg-white dark:border-white/10 dark:bg-white/[0.04]'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleStandard(option.value)}
+                          disabled={frameworkSelectionMode !== 'Manual' || uploadMutation.isPending}
+                          className="mt-1"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-secondary-950 dark:text-white">{option.label}</p>
+                            {isSuggested ? <Badge variant="primary">Suggested</Badge> : null}
                           </div>
                           <p className="mt-1 text-sm leading-6 text-secondary-600 dark:text-secondary-300">{option.summary}</p>
                         </div>
@@ -454,41 +498,82 @@ export function UploadDiagramPage() {
           </section>
 
           <section className="panel">
-            <div className="panel-header">Quality Attribute Weights</div>
+            <div className="panel-header">Architecture Input</div>
             <div className="panel-body space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm leading-6 text-secondary-600 dark:text-secondary-300">
-                  Tune how the future reasoning agents should balance recommendations for this architecture review.
-                </p>
-                <Button type="button" size="sm" variant="secondary" onClick={() => setQualityAttributeWeights(DEFAULT_WEIGHTS)}>
-                  Reset defaults
-                </Button>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                {qualityAttributeWeights.map((weight) => (
-                  <div key={weight.key} className="panel-muted p-4">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <label className="font-semibold text-secondary-950 dark:text-white">{weight.label}</label>
-                      <span className="text-xs text-secondary-500 dark:text-secondary-400">{weight.weight}%</span>
-                    </div>
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="space-y-2">
+                  <label className="form-label">Diagram Image</label>
+                  <div
+                    className="rounded-xl border-2 border-dashed border-[#d7dce2] bg-[#fafafa] p-6 text-center transition hover:border-primary-500 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-cyan-300"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (e.dataTransfer.files?.[0]) {
+                        handleFileChange({ target: { files: e.dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
+                      }
+                    }}
+                  >
                     <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={weight.weight}
-                      onChange={(e) => handleWeightChange(weight.key, Number(e.target.value))}
-                      className="form-input"
+                      id="file-input"
+                      type="file"
+                      onChange={handleFileChange}
+                      accept={SUPPORTED_FORMATS.map((format) => `.${format}`).join(',')}
+                      className="hidden"
+                      disabled={uploadMutation.isPending}
                     />
+                    <label htmlFor="file-input" className="cursor-pointer">
+                      <span className="glow-icon mx-auto mb-3">
+                        <UploadIcon className="h-5 w-5" />
+                      </span>
+                      <p className="font-semibold text-secondary-950 dark:text-white">
+                        {selectedFile ? selectedFile.name : 'Drag and drop a diagram or click to browse'}
+                      </p>
+                      <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">
+                        PNG, JPG, JPEG, or SVG. Text-only reviews are also supported.
+                      </p>
+                    </label>
                   </div>
-                ))}
+                  {errors.file && <p className="text-sm text-error-600">{errors.file}</p>}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <label className="form-label">Diagram Name *</label>
+                    <input
+                      type="text"
+                      value={diagramName}
+                      onChange={(e) => setDiagramName(e.target.value)}
+                      placeholder="E.g., B2B SaaS Platform Architecture"
+                      className="form-input"
+                      disabled={uploadMutation.isPending}
+                    />
+                    {errors.name && <p className="text-sm text-error-600">{errors.name}</p>}
+                  </div>
+
+                  {filePreview ? (
+                    <div className="space-y-2">
+                      <label className="form-label">Preview</label>
+                      <img src={filePreview} alt="Diagram preview" className="max-h-56 rounded-xl border border-[#d7dce2] dark:border-white/10" />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-[#dde1e6] bg-[#fafafa] px-4 py-3 text-sm text-secondary-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-secondary-300">
+                      Add an image or use the description field below for a text-only architecture review.
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="panel-muted flex items-center justify-between gap-3 px-4 py-3">
-                <p className="text-sm font-semibold text-secondary-950 dark:text-white">Total</p>
-                <Badge variant={totalWeight === 100 ? 'success' : 'warning'}>{totalWeight}%</Badge>
+              <div className="space-y-2">
+                <label className="form-label">Architecture Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe the architecture, integrations, trust boundaries, constraints, and current gaps..."
+                  rows={5}
+                  className="form-textarea"
+                  disabled={uploadMutation.isPending}
+                />
               </div>
-              {errors.weights && <p className="text-sm text-error-600">{errors.weights}</p>}
             </div>
           </section>
 
@@ -509,11 +594,11 @@ export function UploadDiagramPage() {
           </div>
         </form>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <section className="panel p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Preview</p>
             <p className="mt-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
-              Framework selection, rationale, and quality priorities update live as you add architecture context.
+              Framework selection, rationale, and quality priorities update live as you tune review criteria.
             </p>
           </section>
           <ReviewSetupSummary reviewSetup={preview} />
@@ -523,27 +608,61 @@ export function UploadDiagramPage() {
   );
 }
 
-function TextField({
+function SelectField({
   label,
   value,
   onChange,
+  options,
   placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  options: readonly string[];
   placeholder: string;
 }) {
+  const fieldId = `review-criteria-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
   return (
-    <div className="space-y-2">
-      <label className="form-label">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="form-input"
-      />
+    <div className="space-y-1.5">
+      <label htmlFor={fieldId} className="form-label">{label}</label>
+      <select id={fieldId} value={value} onChange={(e) => onChange(e.target.value)} className="form-select h-9 py-1.5 text-sm">
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function CompactWeightField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (nextValue: number) => void;
+}) {
+  const fieldId = `weight-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+  return (
+    <div className="rounded-lg border border-[#dde1e6] bg-white px-3 py-2 dark:border-white/10 dark:bg-[#08101d]">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={fieldId} className="text-sm font-semibold text-secondary-950 dark:text-white">{label}</label>
+        <input
+          id={fieldId}
+          type="number"
+          min={0}
+          max={100}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="h-8 w-20 rounded-md border border-[#d7dce2] bg-[#fafafa] px-2 text-right text-sm text-secondary-950 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+        />
+      </div>
     </div>
   );
 }

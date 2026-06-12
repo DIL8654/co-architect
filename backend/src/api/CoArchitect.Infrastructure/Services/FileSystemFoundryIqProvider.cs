@@ -31,6 +31,11 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selectedStandards = query.SuggestedStandards
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(NormalizeStandardKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (selectedFrameworks.Count == 0)
         {
@@ -40,13 +45,18 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             }
         }
 
+        if (items.Count == 0)
+        {
+            return Task.FromResult(BuildCatalogMissingFallback(selectedFrameworks, selectedStandards));
+        }
+
         var principleCategories = ResolvePrincipleCategories(query.QualityAttributeWeights.ToList());
         var architectureTags = ResolveArchitectureTags(normalizedText, query);
 
-        var frameworkItems = SelectFrameworkItems(items, selectedFrameworks, architectureTags);
+        var frameworkItems = SelectFrameworkItems(items, selectedFrameworks, selectedStandards, architectureTags);
         var principleItems = SelectPrincipleItems(items, principleCategories, architectureTags);
         var tradeoffItems = SelectTradeoffItems(items, principleCategories, architectureTags);
-        var complianceItems = SelectComplianceItems(items, architectureTags, normalizedText, query);
+        var complianceItems = SelectComplianceItems(items, selectedStandards, architectureTags, normalizedText, query);
         var adrTemplateItems = items
             .Where(item => string.Equals(item.Kind, "adr-template", StringComparison.OrdinalIgnoreCase))
             .Select(MapItem)
@@ -72,9 +82,74 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
         });
     }
 
+    private FoundryIqContextBundle BuildCatalogMissingFallback(
+        HashSet<string> selectedFrameworks,
+        HashSet<string> selectedStandards)
+    {
+        var frameworkItems = selectedFrameworks
+            .Take(4)
+            .Select(key => BuildFallbackItem($"fallback-framework-{key}", "framework-guidance", key, "baseline", $"{key} baseline guidance", "Knowledge-base catalog was not found; using minimal baseline guidance so the reasoning trace remains explicit."))
+            .ToList();
+
+        var complianceItems = selectedStandards
+            .Take(4)
+            .Select(key => BuildFallbackItem($"fallback-standard-{key}", "compliance-guidance", key, "compliance", $"{key} standard guidance", "Knowledge-base catalog was not found; selected standards were still carried into the review setup."))
+            .ToList();
+
+        var principleItems = new List<FoundryIqContextItem>
+        {
+            BuildFallbackItem("fallback-principle-security", "architecture-principle", "CorePrinciples", "security", "Protect identity, data, and ingress boundaries", "Use a secure baseline when richer Foundry IQ knowledge is unavailable."),
+            BuildFallbackItem("fallback-principle-reliability", "architecture-principle", "CorePrinciples", "reliability", "Design for failure and recovery", "Use a reliability baseline when richer Foundry IQ knowledge is unavailable."),
+        };
+
+        var tradeoffItems = new List<FoundryIqContextItem>
+        {
+            BuildFallbackItem("fallback-tradeoff-security-usability", "tradeoff-guidance", "CoreTradeoffs", "security", "Security vs usability", "Consider the operational and user impact of stronger security controls."),
+            BuildFallbackItem("fallback-tradeoff-cost-reliability", "tradeoff-guidance", "CoreTradeoffs", "reliability", "Cost vs reliability", "Balance resilience investments against workload value and risk."),
+        };
+
+        var citations = new List<string> { $"Foundry IQ catalog missing at {_catalogLoader.KnowledgeBasePath}" };
+        return new FoundryIqContextBundle
+        {
+            FrameworkGuidanceItems = frameworkItems,
+            ComplianceItems = complianceItems,
+            PrincipleItems = principleItems,
+            TradeoffItems = tradeoffItems,
+            CitationRefs = citations,
+        };
+    }
+
+    private static FoundryIqContextItem BuildFallbackItem(
+        string id,
+        string sourceType,
+        string standardKey,
+        string category,
+        string title,
+        string summary)
+    {
+        return new FoundryIqContextItem
+        {
+            Id = id,
+            Category = category,
+            Title = title,
+            Summary = summary,
+            Content = summary,
+            SourceType = sourceType,
+            SourceLabel = "Foundry IQ fallback baseline",
+            StandardKey = standardKey,
+            UseCaseTags = new List<string> { category },
+            WhyItMatters = "Grounding should remain visible even when the local catalog path is misconfigured.",
+            WhenToApply = "Use as a fallback only until the structured knowledge-base catalog is available.",
+            Framework = sourceType == "framework-guidance" ? standardKey : null,
+            Principle = sourceType == "architecture-principle" ? title : null,
+            TradeoffTag = sourceType == "tradeoff-guidance" ? title : null,
+        };
+    }
+
     private static List<FoundryIqContextItem> SelectFrameworkItems(
         IReadOnlyList<KnowledgeBaseCatalogItem> items,
         HashSet<string> selectedFrameworks,
+        HashSet<string> selectedStandards,
         HashSet<string> architectureTags)
     {
         var directFrameworks = items
@@ -88,7 +163,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             .Where(item =>
                 string.Equals(item.StandardKey, "TOGAF", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(item.StandardKey, "SAFe", StringComparison.OrdinalIgnoreCase))
-            .Where(item => HasTagOverlap(item.UseCaseTags, architectureTags))
+            .Where(item => selectedStandards.Contains(item.StandardKey) || HasTagOverlap(item.UseCaseTags, architectureTags))
             .Select(MapItem)
             .ToList();
 
@@ -96,6 +171,9 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             .Concat(governanceSignals)
             .GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
+            .DefaultIfEmpty()
+            .Where(item => item is not null)
+            .Cast<FoundryIqContextItem>()
             .ToList();
     }
 
@@ -166,6 +244,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 
     private static List<FoundryIqContextItem> SelectComplianceItems(
         IReadOnlyList<KnowledgeBaseCatalogItem> items,
+        HashSet<string> selectedStandards,
         HashSet<string> architectureTags,
         string normalizedText,
         FoundryIqQuery query)
@@ -183,7 +262,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             .Select(item => new
             {
                 Item = item,
-                Score = ScoreComplianceItem(item, architectureTags, normalizedText),
+                Score = ScoreComplianceItem(item, selectedStandards, architectureTags, normalizedText),
             })
             .Where(item => item.Score > 0)
             .OrderByDescending(item => item.Score)
@@ -226,6 +305,21 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
         return score;
     }
 
+    private static string NormalizeStandardKey(string standard)
+    {
+        return standard.Trim() switch
+        {
+            "Iso27001" => "ISO27001",
+            "ISO 27001" => "ISO27001",
+            "Gdpr" => "GDPR",
+            "Soc2" => "SOC2",
+            "SOC 2" => "SOC2",
+            "Togaf" => "TOGAF",
+            "Safe" => "SAFe",
+            _ => standard.Trim(),
+        };
+    }
+
     private static int ScoreTradeoffItem(
         KnowledgeBaseCatalogItem item,
         HashSet<string> principleCategories,
@@ -248,10 +342,16 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 
     private static int ScoreComplianceItem(
         KnowledgeBaseCatalogItem item,
+        HashSet<string> selectedStandards,
         HashSet<string> architectureTags,
         string normalizedText)
     {
         var score = item.UseCaseTags.Count(tag => architectureTags.Contains(tag));
+
+        if (selectedStandards.Contains(item.StandardKey))
+        {
+            score += 5;
+        }
 
         if (normalizedText.Contains(item.StandardKey, StringComparison.OrdinalIgnoreCase))
         {

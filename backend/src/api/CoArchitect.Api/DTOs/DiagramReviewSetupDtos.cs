@@ -11,6 +11,7 @@ public sealed class DiagramReviewSetupRequest
     public string? CurrentPainPoints { get; init; }
     public string FrameworkSelectionMode { get; init; } = "AutoDetect";
     public IList<string> RequestedFrameworks { get; init; } = new List<string>();
+    public IList<string> RequestedStandards { get; init; } = new List<string>();
     public IList<QualityAttributeWeightDto> QualityAttributeWeights { get; init; } = new List<QualityAttributeWeightDto>();
 }
 
@@ -45,6 +46,8 @@ public sealed class FrameworkSelectionSummaryResponse
     public double ConfidenceScore { get; init; }
     public IList<string> RequestedFrameworks { get; init; } = new List<string>();
     public IList<string> SelectedFrameworks { get; init; } = new List<string>();
+    public IList<string> RequestedStandards { get; init; } = new List<string>();
+    public IList<string> SelectedStandards { get; init; } = new List<string>();
     public IList<string> SelectionRationale { get; init; } = new List<string>();
 }
 

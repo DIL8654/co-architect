@@ -6,6 +6,7 @@ export interface AdrVersion {
   title: string;
   status: string;
   frameworks: string[];
+  standards: string[];
   date: string;
   context: string[];
   decision: string[];
@@ -13,6 +14,7 @@ export interface AdrVersion {
   tradeoffs: string[];
   consequences: string[];
   risks: string[];
+  groundedContext: string[];
   history: string[];
   markdown: string;
   html: string;

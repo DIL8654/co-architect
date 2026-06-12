@@ -10,6 +10,7 @@ public interface IFrameworkSelectionService
         ArchitectureReviewContext reviewContext,
         FrameworkSelectionMode mode,
         IEnumerable<ReviewFramework> requestedFrameworks,
+        IEnumerable<ReviewStandard> requestedStandards,
         IEnumerable<QualityAttributeWeight> qualityAttributeWeights);
 
     IReadOnlyList<QualityAttributeWeight> GetDefaultWeights();

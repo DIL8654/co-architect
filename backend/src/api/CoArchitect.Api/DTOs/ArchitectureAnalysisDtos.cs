@@ -23,6 +23,12 @@ public sealed class ArchitectureAnalysisResponse
     public DateTime? CompletedAt { get; init; }
 }
 
+public sealed class RunAnalysisRequest
+{
+    public DiagramReviewSetupRequest? ReviewSetup { get; init; }
+    public bool PersistReviewSetup { get; init; } = true;
+}
+
 public sealed class AnalysisRunTimelineItemResponse
 {
     public Guid Id { get; init; }
@@ -102,6 +108,7 @@ public sealed class AgentExecutionTraceResponse
 public sealed class GroundingReferenceSetResponse
 {
     public List<string> FrameworkRefs { get; init; } = new();
+    public List<string> StandardRefs { get; init; } = new();
     public List<string> PrincipleRefs { get; init; } = new();
     public List<string> TradeoffRefs { get; init; } = new();
     public List<string> HistoryRefs { get; init; } = new();

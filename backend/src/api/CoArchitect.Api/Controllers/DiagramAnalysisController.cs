@@ -3,6 +3,7 @@ using CoArchitect.Api.DTOs;
 using CoArchitect.Api.Services;
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Enums;
+using CoArchitect.Domain.Entities;
 
 namespace CoArchitect.Api.Controllers;
 
@@ -16,6 +17,7 @@ public class DiagramAnalysisController : ControllerBase
     private readonly IArchitectureIntelligenceScoreService _scoreService;
     private readonly IWorkspaceRepository _workspaceRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IFrameworkSelectionService _frameworkSelectionService;
     private readonly ILogger<DiagramAnalysisController> _logger;
 
     public DiagramAnalysisController(
@@ -25,6 +27,7 @@ public class DiagramAnalysisController : ControllerBase
         IArchitectureIntelligenceScoreService scoreService,
         IWorkspaceRepository workspaceRepository,
         ICurrentUserService currentUserService,
+        IFrameworkSelectionService frameworkSelectionService,
         ILogger<DiagramAnalysisController> logger)
     {
         _analysisRepository = analysisRepository;
@@ -33,6 +36,7 @@ public class DiagramAnalysisController : ControllerBase
         _scoreService = scoreService;
         _workspaceRepository = workspaceRepository;
         _currentUserService = currentUserService;
+        _frameworkSelectionService = frameworkSelectionService;
         _logger = logger;
     }
 
@@ -139,6 +143,7 @@ public class DiagramAnalysisController : ControllerBase
     public async Task<ActionResult<ArchitectureAnalysisResponse>> RunAnalysis(
         [FromRoute] Guid? workspaceId,
         [FromRoute] Guid diagramId,
+        [FromBody] RunAnalysisRequest? request,
         CancellationToken cancellationToken)
     {
         var diagram = await _diagramRepository.GetByIdAsync(diagramId, cancellationToken);
@@ -153,6 +158,15 @@ public class DiagramAnalysisController : ControllerBase
             return this.ValidationProblemFor("workspaceId", "Diagram does not belong to workspace.");
         if (workspace.TenantId != _currentUserService.GetCurrentUser().TenantId)
             return this.NotFoundProblem("Diagram not found.");
+
+        if (request?.ReviewSetup is not null)
+        {
+            var requestedWeights = DiagramReviewSetupMapper.ToDomainWeights(request.ReviewSetup, _frameworkSelectionService);
+            if (requestedWeights.Sum(weight => weight.Weight) != 100)
+                return this.ValidationProblemFor("reviewSetup.qualityAttributeWeights", "Quality attribute weights must total exactly 100.");
+
+            diagram = await ApplyReviewSetupOverrideAsync(diagram, request.ReviewSetup, request.PersistReviewSetup, cancellationToken);
+        }
 
         var startedAt = DateTime.UtcNow;
         var agentResult = await _analysisService.AnalyzeAsync(diagram, cancellationToken);
@@ -176,6 +190,50 @@ public class DiagramAnalysisController : ControllerBase
 
         var response = await MapToResponseAsync(analysisRun, diagram, agentResult, cancellationToken);
         return Ok(response);
+    }
+
+    private async Task<ArchitectureDiagram> ApplyReviewSetupOverrideAsync(
+        ArchitectureDiagram diagram,
+        DiagramReviewSetupRequest reviewSetup,
+        bool persistReviewSetup,
+        CancellationToken cancellationToken)
+    {
+        var reviewContext = DiagramReviewSetupMapper.ToDomainContext(reviewSetup);
+        var qualityAttributeWeights = DiagramReviewSetupMapper.ToDomainWeights(reviewSetup, _frameworkSelectionService);
+
+        var frameworkSelection = _frameworkSelectionService.Select(
+            diagram.Description,
+            reviewContext,
+            DiagramReviewSetupMapper.ToMode(reviewSetup.FrameworkSelectionMode),
+            DiagramReviewSetupMapper.ToRequestedFrameworks(reviewSetup.RequestedFrameworks),
+            DiagramReviewSetupMapper.ToRequestedStandards(reviewSetup.RequestedStandards),
+            qualityAttributeWeights);
+
+        var updated = new ArchitectureDiagram
+        {
+            Id = diagram.Id,
+            WorkspaceId = diagram.WorkspaceId,
+            UploadedByUserId = diagram.UploadedByUserId,
+            Name = diagram.Name,
+            OriginalFileName = diagram.OriginalFileName,
+            FileUrl = diagram.FileUrl,
+            Description = diagram.Description,
+            ReviewContext = reviewContext,
+            FrameworkSelection = frameworkSelection,
+            QualityAttributeWeights = qualityAttributeWeights,
+            UploadedAt = diagram.UploadedAt,
+            Comments = diagram.Comments,
+            AnalysisRuns = diagram.AnalysisRuns,
+            Workspace = diagram.Workspace,
+        };
+
+        if (persistReviewSetup)
+        {
+            await _diagramRepository.UpdateAsync(updated, cancellationToken);
+            await _diagramRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return updated;
     }
 
     private async Task<ArchitectureAnalysisResponse> MapToResponseAsync(
@@ -332,6 +390,7 @@ public class DiagramAnalysisController : ControllerBase
         return new GroundingReferenceSetResponse
         {
             FrameworkRefs = grounding.FrameworkRefs.ToList(),
+            StandardRefs = grounding.StandardRefs.ToList(),
             PrincipleRefs = grounding.PrincipleRefs.ToList(),
             TradeoffRefs = grounding.TradeoffRefs.ToList(),
             HistoryRefs = grounding.HistoryRefs.ToList(),
@@ -376,6 +435,7 @@ public class DiagramAnalysisController : ControllerBase
     {
         var shouldUpgradeFrameworks =
             !diagram.FrameworkSelection.SelectedFrameworks.SequenceEqual(result.ResolvedFrameworkSelection.SelectedFrameworks) ||
+            !diagram.FrameworkSelection.SelectedStandards.SequenceEqual(result.ResolvedFrameworkSelection.SelectedStandards) ||
             diagram.FrameworkSelection.SelectionRationale.Count == 0;
 
         var shouldUpgradeWeights =

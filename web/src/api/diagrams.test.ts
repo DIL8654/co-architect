@@ -32,6 +32,8 @@ describe('diagram api', () => {
               confidenceScore: 0.8,
               requestedFrameworks: [],
               selectedFrameworks: ['AzureWellArchitected'],
+              requestedStandards: [],
+              selectedStandards: ['Iso27001'],
               selectionRationale: ['Azure services detected.'],
             },
             qualityAttributeWeights: [
@@ -61,6 +63,7 @@ describe('diagram api', () => {
         currentPainPoints: 'No monitoring',
         frameworkSelectionMode: 'AutoDetect',
         requestedFrameworks: [],
+        requestedStandards: [],
         qualityAttributeWeights: [
           { key: 'security', label: 'Security', weight: 25 },
           { key: 'availability', label: 'Availability', weight: 20 },

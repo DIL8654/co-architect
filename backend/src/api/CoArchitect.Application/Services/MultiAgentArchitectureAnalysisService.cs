@@ -3,6 +3,7 @@ using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
 using CoArchitect.Domain.Enums;
 using CoArchitect.Domain.Models;
+using CoArchitect.Domain.Services;
 
 namespace CoArchitect.Application.Services;
 
@@ -35,6 +36,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
 
         var frameworkDecision = ResolveFrameworkDecision(diagram, effectiveWeights);
         var selectedFrameworks = frameworkDecision.SelectedFrameworks.ToList();
+        var selectedStandards = frameworkDecision.SelectedStandards.ToList();
 
         var intakeStartedAt = DateTime.UtcNow;
         traces.Add(CreateTrace(
@@ -49,7 +51,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 $"Detected technologies: {string.Join(", ", facts.Technologies.DefaultIfEmpty("Unspecified"))}",
                 $"Top weighted priorities: {string.Join(", ", GetTopWeights(effectiveWeights).DefaultIfEmpty("Balanced"))}",
             },
-            grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), GetTopWeights(effectiveWeights), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
+            grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), selectedStandards.Select(item => ToStandardLabel(item)), GetTopWeights(effectiveWeights), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
 
         var understandingStartedAt = DateTime.UtcNow;
         traces.Add(CreateTrace(
@@ -58,7 +60,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             understandingStartedAt,
             BuildDiagramUnderstandingSummary(facts),
             facts.PositiveSignals.Take(4),
-            grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
+            grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), selectedStandards.Select(item => ToStandardLabel(item)), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
 
         var frameworkSelectionStartedAt = DateTime.UtcNow;
         traces.Add(CreateTrace(
@@ -67,10 +69,10 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             frameworkSelectionStartedAt,
             BuildPlannerSummary(diagram, facts, frameworkDecision),
             frameworkDecision.SelectionRationale.Concat(new[] { $"Framework source: {frameworkDecision.Source}" }),
-            grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
+            grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), selectedStandards.Select(item => ToStandardLabel(item)), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
 
         var enrichmentStartedAt = DateTime.UtcNow;
-        var enrichment = await _contextEnrichmentAgent.EnrichAsync(diagram, selectedFrameworks, effectiveWeights, cancellationToken);
+        var enrichment = await _contextEnrichmentAgent.EnrichAsync(diagram, selectedFrameworks, selectedStandards, effectiveWeights, cancellationToken);
         traces.Add(CreateTrace(
             "Context Enrichment Agent",
             "Retrieve shared architecture intelligence, principles, trade-offs, and workspace memory before specialist reasoning.",
@@ -82,6 +84,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             }),
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.AdrHistory,
@@ -92,11 +95,12 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             "Foundry IQ Retrieval",
             "Assemble framework knowledge, ADR patterns, trade-off guidance, and workspace memory into a shared context bundle.",
             retrievalStartedAt,
-            $"Retrieved {enrichment.ContextBundle.FrameworkGuidanceItems.Count} framework items, {enrichment.ContextBundle.PrincipleItems.Count} principles, {enrichment.ContextBundle.TradeoffItems.Count} trade-offs, and {enrichment.ContextBundle.WorkspaceMemoryItems.Count} workspace signals.",
+            $"Retrieved {enrichment.ContextBundle.FrameworkGuidanceItems.Count} framework and governance items, {enrichment.ContextBundle.ComplianceItems.Count} compliance items, {enrichment.ContextBundle.PrincipleItems.Count} principles, {enrichment.ContextBundle.TradeoffItems.Count} trade-offs, and {enrichment.ContextBundle.WorkspaceMemoryItems.Count} workspace signals.",
             enrichment.ContextBundle.CitationRefs.Take(4),
             usedFoundry: true,
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -105,7 +109,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         var expertStartedAt = DateTime.UtcNow;
         var expertBaseline = await _expertAgentService.AnalyzeAsync(
             diagram.Id,
-            BuildExpertPrompt(diagram, facts, selectedFrameworks, effectiveWeights, enrichment),
+            BuildExpertPrompt(diagram, facts, selectedFrameworks, selectedStandards, effectiveWeights, enrichment),
             cancellationToken);
         traces.Add(CreateTrace(
             "Foundry Expert",
@@ -116,6 +120,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             usedFoundry: true,
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -136,6 +141,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 framework.ToString(),
                 grounding: BuildGrounding(
                     new[] { framework.ToString() },
+                    selectedStandards.Select(item => ToStandardLabel(item)),
                     enrichment.ApplicablePrinciples,
                     enrichment.ApplicableTradeoffs,
                     enrichment.ContextBundle.WorkspaceMemory.RecurringFindings,
@@ -152,6 +158,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             tradeoffOutput.Highlights,
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
@@ -168,6 +175,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             combined.DimensionMaturitySuggestions.Select(item => $"{item.Dimension}: {item.CurrentMaturity}->{item.SuggestedMaturity}").Take(4),
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.RecurringFindings,
@@ -182,6 +190,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             enrichment.ContextBundle.RelatedAdrHistoryItems.Select(item => item.Title).Take(3),
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.AdrHistory,
@@ -197,6 +206,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             criticNotes.Take(3),
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.RecurringFindings,
@@ -211,6 +221,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             combined.Recommendations.Select(item => item.Description).Take(3),
             grounding: BuildGrounding(
                 selectedFrameworks.Select(item => item.ToString()),
+                selectedStandards.Select(item => ToStandardLabel(item)),
                 enrichment.ApplicablePrinciples,
                 enrichment.ApplicableTradeoffs,
                 enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
@@ -222,7 +233,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             ArchitectureDiagramId = diagram.Id,
             RequestedAt = analysisStartedAt,
             CompletedAt = DateTime.UtcNow,
-            ExecutiveSummary = BuildExecutiveSummary(diagram, combined, selectedFrameworks),
+            ExecutiveSummary = BuildExecutiveSummary(diagram, combined, selectedFrameworks, selectedStandards),
             ResolvedFrameworkSelection = new FrameworkSelectionResult
             {
                 Mode = frameworkDecision.Source == "stored review setup" ? diagram.FrameworkSelection.Mode : FrameworkSelectionMode.AutoDetect,
@@ -232,6 +243,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                     : InferConfidence(selectedFrameworks, facts),
                 RequestedFrameworks = diagram.FrameworkSelection.RequestedFrameworks.ToList(),
                 SelectedFrameworks = selectedFrameworks,
+                RequestedStandards = diagram.FrameworkSelection.RequestedStandards.ToList(),
+                SelectedStandards = selectedStandards,
                 SelectionRationale = frameworkDecision.SelectionRationale.Count > 0
                     ? frameworkDecision.SelectionRationale
                     : new List<string> { $"Frameworks were resolved from {frameworkDecision.Source}." },
@@ -253,6 +266,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         ArchitectureDiagram diagram,
         ArchitectureFacts facts,
         IReadOnlyCollection<ReviewFramework> frameworks,
+        IReadOnlyCollection<ReviewStandard> standards,
         IReadOnlyCollection<QualityAttributeWeight> effectiveWeights,
         ContextEnrichmentResult enrichment)
     {
@@ -265,6 +279,10 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
 
         builder.AppendLine();
         builder.AppendLine($"Frameworks: {string.Join(", ", frameworks)}");
+        if (standards.Count > 0)
+        {
+            builder.AppendLine($"Additional standards: {string.Join(", ", standards.Select(ToStandardLabel))}");
+        }
         builder.AppendLine($"Technologies: {string.Join(", ", facts.Technologies.DefaultIfEmpty("Unspecified"))}");
 
         if (!string.IsNullOrWhiteSpace(diagram.ReviewContext.BusinessDomain))
@@ -403,6 +421,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Dimension = dimension,
                 Grounding = BuildGrounding(
                     new[] { framework.ToString() },
+                    enrichment.ConfirmedStandards.Select(ToStandardLabel),
                     enrichment.ApplicablePrinciples,
                     enrichment.ApplicableTradeoffs,
                     enrichment.ContextBundle.WorkspaceMemory.RecurringFindings,
@@ -415,6 +434,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Severity = severity,
                 Grounding = BuildGrounding(
                     new[] { framework.ToString() },
+                    enrichment.ConfirmedStandards.Select(ToStandardLabel),
                     enrichment.ApplicablePrinciples,
                     enrichment.ApplicableTradeoffs,
                     enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
@@ -433,6 +453,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                     Details = "The Azure specialist looked for managed identity, observability, disaster recovery, autoscale, and governance controls.",
                     Grounding = BuildGrounding(
                         new[] { framework.ToString() },
+                        enrichment.ConfirmedStandards.Select(ToStandardLabel),
                         enrichment.ApplicablePrinciples,
                         enrichment.ApplicableTradeoffs,
                         enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -453,6 +474,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                     Details = "The AWS specialist looked for explicit operational excellence, reliability, and cost signals even when the deployment target is not final.",
                     Grounding = BuildGrounding(
                         new[] { framework.ToString() },
+                        enrichment.ConfirmedStandards.Select(ToStandardLabel),
                         enrichment.ApplicablePrinciples,
                         enrichment.ApplicableTradeoffs,
                         enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -470,6 +492,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                     Details = "The quality specialist reviewed whether the architecture exposes enough signals for maintainability, portability, and supportability.",
                     Grounding = BuildGrounding(
                         new[] { framework.ToString() },
+                        enrichment.ConfirmedStandards.Select(ToStandardLabel),
                         enrichment.ApplicablePrinciples,
                         enrichment.ApplicableTradeoffs,
                         enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -487,6 +510,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                     Details = "The security specialist looked for authentication boundaries, secrets handling, logging, and tenant-protection signals.",
                     Grounding = BuildGrounding(
                         new[] { framework.ToString() },
+                        enrichment.ConfirmedStandards.Select(ToStandardLabel),
                         enrichment.ApplicablePrinciples,
                         enrichment.ApplicableTradeoffs,
                         enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -506,6 +530,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Details = "The review still produced recommendations, but several findings remain assumption-driven until more evidence is added.",
                 Grounding = BuildGrounding(
                     new[] { framework.ToString() },
+                    enrichment.ConfirmedStandards.Select(ToStandardLabel),
                     enrichment.ApplicablePrinciples,
                     enrichment.ApplicableTradeoffs,
                     enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -542,6 +567,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                     ? item.Grounding
                     : BuildGrounding(
                         diagram.FrameworkSelection.SelectedFrameworks.Select(item => item.ToString()),
+                        diagram.FrameworkSelection.SelectedStandards.Select(ToStandardLabel),
                         enrichment.ApplicablePrinciples,
                         enrichment.ApplicableTradeoffs,
                         enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
@@ -563,6 +589,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Cons = new[] { "More upfront platform wiring is required.", "Teams may need to adjust local development practices." },
                 Grounding = BuildGrounding(
                     specialistOutputs.Select(item => item.Framework.ToString()),
+                    enrichment.ConfirmedStandards.Select(ToStandardLabel),
                     enrichment.ApplicablePrinciples,
                     new[] { "Security vs usability", "Speed of delivery vs governance" },
                     enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
@@ -580,6 +607,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Cons = new[] { "The runtime becomes harder to trace end-to-end.", "Additional platform components increase setup effort." },
                 Grounding = BuildGrounding(
                     specialistOutputs.Select(item => item.Framework.ToString()),
+                    enrichment.ConfirmedStandards.Select(ToStandardLabel),
                     enrichment.ApplicablePrinciples,
                     new[] { "Simplicity vs scalability" },
                     enrichment.ContextBundle.WorkspaceMemory.RecurringFindings,
@@ -597,6 +625,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Cons = new[] { "Deeper provider coupling can increase migration cost.", "Cross-cloud comparisons become more complex." },
                 Grounding = BuildGrounding(
                     specialistOutputs.Select(item => item.Framework.ToString()),
+                    enrichment.ConfirmedStandards.Select(ToStandardLabel),
                     enrichment.ApplicablePrinciples,
                     new[] { "Vendor lock-in vs platform leverage" },
                     enrichment.ContextBundle.WorkspaceMemory.AdrHistory,
@@ -620,6 +649,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
     {
         var expertGrounding = BuildGrounding(
             expertBaseline.ResolvedFrameworkSelection.SelectedFrameworks.Select(item => item.ToString()),
+            expertBaseline.ResolvedFrameworkSelection.SelectedStandards.Select(ToStandardLabel),
             enrichment.ApplicablePrinciples,
             enrichment.ApplicableTradeoffs,
             enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -743,11 +773,16 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
     private static string BuildExecutiveSummary(
         ArchitectureDiagram diagram,
         CombinedResult combined,
-        IReadOnlyCollection<ReviewFramework> frameworks)
+        IReadOnlyCollection<ReviewFramework> frameworks,
+        IReadOnlyCollection<ReviewStandard> standards)
     {
         var topControls = combined.MissingControls.Take(3).Select(item => item.Name).ToList();
         var frameworkText = string.Join(", ", frameworks);
         var summary = $"Reviewed the architecture with {frameworkText}.";
+        if (standards.Count > 0)
+        {
+            summary += $" Additional grounding used {string.Join(", ", standards.Select(ToStandardLabel))}.";
+        }
 
         if (topControls.Any())
         {
@@ -816,6 +851,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
 
     private static GroundingReferenceSet BuildGrounding(
         IEnumerable<string> frameworks,
+        IEnumerable<string> standards,
         IEnumerable<string> principles,
         IEnumerable<string> tradeoffs,
         IEnumerable<string> historyRefs,
@@ -824,6 +860,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         return new GroundingReferenceSet
         {
             FrameworkRefs = frameworks.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            StandardRefs = standards.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             PrincipleRefs = principles.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             TradeoffRefs = tradeoffs.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             HistoryRefs = historyRefs.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList(),
@@ -988,11 +1025,17 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         return 0.7;
     }
 
+    private static string ToStandardLabel(ReviewStandard standard)
+    {
+        return ReviewStandardCatalog.ToDisplayLabel(standard);
+    }
+
     private FrameworkDecision ResolveFrameworkDecision(
         ArchitectureDiagram diagram,
         IReadOnlyCollection<QualityAttributeWeight> effectiveWeights)
     {
         var existing = diagram.FrameworkSelection.SelectedFrameworks.Distinct().ToList();
+        var existingStandards = diagram.FrameworkSelection.SelectedStandards.Distinct().ToList();
         var shouldExpandLegacyFrameworks =
             existing.Count == 0 ||
             (diagram.FrameworkSelection.Mode == FrameworkSelectionMode.AutoDetect &&
@@ -1002,6 +1045,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         {
             return new FrameworkDecision(
                 existing,
+                existingStandards,
                 "stored review setup",
                 diagram.FrameworkSelection.SelectionRationale.ToList());
         }
@@ -1011,10 +1055,15 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             diagram.ReviewContext,
             FrameworkSelectionMode.AutoDetect,
             Array.Empty<ReviewFramework>(),
+            Array.Empty<ReviewStandard>(),
             effectiveWeights);
 
         var expanded = existing
             .Concat(inferred.SelectedFrameworks)
+            .Distinct()
+            .ToList();
+        var expandedStandards = existingStandards
+            .Concat(inferred.SelectedStandards)
             .Distinct()
             .ToList();
 
@@ -1027,11 +1076,12 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             ? "legacy architecture cues in the diagram description"
             : "stored review setup plus legacy architecture cues";
 
-        return new FrameworkDecision(expanded, source, inferred.SelectionRationale.ToList());
+        return new FrameworkDecision(expanded, expandedStandards, source, inferred.SelectionRationale.ToList());
     }
 
     private sealed record FrameworkDecision(
         IList<ReviewFramework> SelectedFrameworks,
+        IList<ReviewStandard> SelectedStandards,
         string Source,
         IList<string> SelectionRationale);
 }

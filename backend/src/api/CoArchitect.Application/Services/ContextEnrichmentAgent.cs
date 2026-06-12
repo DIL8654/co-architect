@@ -2,6 +2,7 @@ using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Entities;
 using CoArchitect.Domain.Enums;
 using CoArchitect.Domain.Models;
+using CoArchitect.Domain.Services;
 
 namespace CoArchitect.Application.Services;
 
@@ -17,6 +18,7 @@ public sealed class ContextEnrichmentAgent : IContextEnrichmentAgent
     public async Task<ContextEnrichmentResult> EnrichAsync(
         ArchitectureDiagram diagram,
         IReadOnlyCollection<ReviewFramework> selectedFrameworks,
+        IReadOnlyCollection<ReviewStandard> selectedStandards,
         IReadOnlyCollection<QualityAttributeWeight> effectiveWeights,
         CancellationToken cancellationToken)
     {
@@ -30,6 +32,7 @@ public sealed class ContextEnrichmentAgent : IContextEnrichmentAgent
             ReviewContext = diagram.ReviewContext,
             QualityAttributeWeights = effectiveWeights.ToList(),
             SuggestedFrameworks = selectedFrameworks.Select(item => item.ToString()).ToList(),
+            SuggestedStandards = selectedStandards.Select(ReviewStandardCatalog.ToCatalogKey).ToList(),
         };
 
         var bundle = await _foundryIqProvider.RetrieveContextAsync(query, cancellationToken);
@@ -41,6 +44,7 @@ public sealed class ContextEnrichmentAgent : IContextEnrichmentAgent
         {
             ContextBundle = bundle,
             ConfirmedFrameworks = selectedFrameworks.ToList(),
+            ConfirmedStandards = selectedStandards.ToList(),
             ApplicablePrinciples = applicablePrinciples,
             ApplicableTradeoffs = applicableTradeoffs,
             MissingContextNotes = missingNotes,
@@ -112,7 +116,7 @@ public sealed class ContextEnrichmentAgent : IContextEnrichmentAgent
 
     private static string BuildSummary(FoundryIqContextBundle bundle, IList<string> principles, IList<string> tradeoffs)
     {
-        return $"Retrieved {bundle.FrameworkGuidanceItems.Count} framework guidance items, {bundle.PrincipleItems.Count} principle notes, {bundle.TradeoffItems.Count} trade-off notes, {bundle.ComplianceItems.Count} compliance notes, and {bundle.WorkspaceMemoryItems.Count} workspace memory signals. Primary principles: {string.Join(", ", principles.Take(3))}. Primary trade-offs: {string.Join(", ", tradeoffs.Take(3))}.";
+        return $"Retrieved {bundle.FrameworkGuidanceItems.Count} framework and governance guidance items, {bundle.PrincipleItems.Count} principle notes, {bundle.TradeoffItems.Count} trade-off notes, {bundle.ComplianceItems.Count} compliance notes, and {bundle.WorkspaceMemoryItems.Count} workspace memory signals. Primary principles: {string.Join(", ", principles.Take(3))}. Primary trade-offs: {string.Join(", ", tradeoffs.Take(3))}.";
     }
 
     private static HashSet<string> MapWeightCategories(IReadOnlyCollection<QualityAttributeWeight> weights)

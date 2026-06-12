@@ -41,8 +41,10 @@ public class MultiAgentArchitectureAnalysisServiceTests
         Assert.Contains(result.DimensionMaturitySuggestions, item => item.Dimension == ArchitectureDimension.DataTenantIsolation);
         Assert.NotEmpty(result.ExecutiveSummary);
         Assert.NotEmpty(result.FoundryIqContext.FrameworkGuidanceItems);
+        Assert.Contains(ReviewStandard.Iso27001, result.ResolvedFrameworkSelection.SelectedStandards);
         Assert.Contains(result.AgentTrace, item => item.AgentName == "Context Enrichment Agent");
         Assert.Contains(result.Recommendations, item => item.Grounding.FrameworkRefs.Count > 0);
+        Assert.Contains(result.Recommendations, item => item.Grounding.StandardRefs.Count > 0);
     }
 
     private sealed class StubFoundryIqProvider : IFoundryIqProvider

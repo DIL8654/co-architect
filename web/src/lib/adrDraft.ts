@@ -13,6 +13,8 @@ export interface AdrDraft {
   consequences: string[];
   risks: string[];
   frameworks: string[];
+  standards: string[];
+  groundedContext: string[];
   markdown: string;
   html: string;
   history: string[];
@@ -31,6 +33,8 @@ export function buildAdrDraft({
   const status = analysis ? 'Proposed' : 'Draft';
   const date = new Date(analysis?.createdAt ?? diagram.uploadedAt).toLocaleDateString();
   const frameworks = analysis?.reviewSetup.frameworkSelection.selectedFrameworks ?? diagram.reviewSetup.frameworkSelection.selectedFrameworks ?? [];
+  const standards = analysis?.reviewSetup.frameworkSelection.selectedStandards ?? diagram.reviewSetup.frameworkSelection.selectedStandards ?? [];
+  const groundedContext = buildGroundedContext(analysis);
 
   const context = [
     diagram.description || 'Architecture evidence was uploaded without a long-form description.',
@@ -72,6 +76,7 @@ export function buildAdrDraft({
     `- Status: ${status}`,
     `- Date: ${date}`,
     `- Frameworks: ${frameworks.length ? frameworks.join(', ') : 'None selected'}`,
+    `- Standards: ${standards.length ? standards.map(formatStandardLabel).join(', ') : 'None selected'}`,
     '',
     '## Context',
     ...context.map((item) => `- ${item}`),
@@ -85,6 +90,9 @@ export function buildAdrDraft({
     '## Trade-offs',
     ...tradeoffs.map((item) => `- ${item}`),
     '',
+    '## Grounded Context Used',
+    ...groundedContext.map((item) => `- ${item}`),
+    '',
     '## Consequences',
     ...consequences.map((item) => `- ${item}`),
     '',
@@ -95,11 +103,13 @@ export function buildAdrDraft({
   const html = `
     <article style="font-family: Inter, Arial, sans-serif; color: #111827; line-height: 1.65;">
       <h1 style="margin-bottom: 8px;">${escapeHtml(title)}</h1>
-      <p style="margin: 0 0 20px; color: #4b5563;">Status: ${escapeHtml(status)} | Date: ${escapeHtml(date)}</p>
+      <p style="margin: 0 0 8px; color: #4b5563;">Status: ${escapeHtml(status)} | Date: ${escapeHtml(date)}</p>
+      <p style="margin: 0 0 20px; color: #4b5563;">Frameworks: ${escapeHtml(frameworks.length ? frameworks.join(', ') : 'None selected')} | Standards: ${escapeHtml(standards.length ? standards.map(formatStandardLabel).join(', ') : 'None selected')}</p>
       ${renderSection('Context', context)}
       ${renderSection('Decision', decision)}
       ${renderSection('Alternatives Considered', alternatives)}
       ${renderSection('Trade-offs', tradeoffs)}
+      ${renderSection('Grounded Context Used', groundedContext)}
       ${renderSection('Consequences', consequences)}
       ${renderSection('Risks and Open Questions', risks)}
     </article>
@@ -116,10 +126,46 @@ export function buildAdrDraft({
     consequences,
     risks,
     frameworks,
+    standards: standards.map(formatStandardLabel),
+    groundedContext,
     markdown,
     html,
     history,
   };
+}
+
+function buildGroundedContext(analysis: ArchitectureAnalysisResult | null) {
+  if (!analysis) {
+    return ['No completed analysis is available yet.'];
+  }
+
+  const contextItems = [
+    ...(analysis.foundryIqContext.frameworkGuidanceItems ?? []),
+    ...(analysis.foundryIqContext.complianceItems ?? []),
+    ...(analysis.foundryIqContext.principleItems ?? []),
+    ...(analysis.foundryIqContext.tradeoffItems ?? []),
+  ]
+    .map((item) => (item.sourceLabel ? `${item.sourceLabel}: ${item.title}` : item.title))
+    .filter(Boolean);
+
+  return Array.from(new Set([...contextItems, ...(analysis.foundryIqContext.citationRefs ?? [])])).slice(0, 8);
+}
+
+function formatStandardLabel(value: string) {
+  switch (value) {
+    case 'Iso27001':
+      return 'ISO 27001';
+    case 'Gdpr':
+      return 'GDPR';
+    case 'Soc2':
+      return 'SOC 2';
+    case 'Togaf':
+      return 'TOGAF';
+    case 'Safe':
+      return 'SAFe';
+    default:
+      return value;
+  }
 }
 
 function renderSection(title: string, items: string[]) {

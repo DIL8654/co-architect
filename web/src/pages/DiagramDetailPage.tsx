@@ -116,6 +116,7 @@ export function DiagramDetailPage() {
   const resolvedAdrDraft = selectedAdr?.latestVersion ? mapAdrRecordToDraft(selectedAdr) : adrDraft;
   const scoreMeta = getScoreBandMeta(activeAnalysis?.finalScore, activeAnalysis?.scoreBand);
   const frameworks = activeAnalysis?.reviewSetup.frameworkSelection.selectedFrameworks ?? [];
+  const standards = activeAnalysis?.reviewSetup.frameworkSelection.selectedStandards ?? diagram.reviewSetup.frameworkSelection.selectedStandards ?? [];
   const findingRows = buildFindingRows(activeAnalysis);
   const canExportDiagram = Boolean(diagram.fileUrl || diagram.description || activeAnalysis?.executiveSummary);
   const canExportAdr = Boolean(resolvedAdrDraft.html || resolvedAdrDraft.markdown);
@@ -196,6 +197,7 @@ export function DiagramDetailPage() {
         scoreLabel: scoreMeta.label,
         freshness: reviewFreshness,
         frameworks: frameworks.length ? frameworks : diagram.reviewSetup.frameworkSelection.selectedFrameworks,
+        standards,
       }),
     );
   };
@@ -246,7 +248,7 @@ export function DiagramDetailPage() {
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-2">
-            <RunAnalysisButton workspaceId={workspaceId} diagramId={diagramId} onAnalysisComplete={handleAnalysisComplete} disabled={!diagram} />
+            <RunAnalysisButton workspaceId={workspaceId} diagramId={diagramId} reviewSetup={diagram?.reviewSetup} onAnalysisComplete={handleAnalysisComplete} disabled={!diagram} />
           </div>
         </div>
       </section>
@@ -320,6 +322,7 @@ export function DiagramDetailPage() {
                         <MetricRow label="Architecture Intelligence Score" value={activeAnalysis.finalScore === null || activeAnalysis.finalScore === undefined ? 'Pending' : `${activeAnalysis.finalScore.toFixed(1)}/100`} />
                         <MetricRow label="Score Band" value={scoreMeta.label} />
                         <MetricRow label="Frameworks" value={frameworks.length ? frameworks.join(', ') : 'None selected'} />
+                        <MetricRow label="Standards Used" value={standards.length ? standards.map(formatStandardLabel).join(', ') : 'None selected'} />
                         <MetricRow label="Completed" value={activeAnalysis.completedAt ? new Date(activeAnalysis.completedAt).toLocaleString() : 'Pending'} />
                       </tbody>
                     </table>
@@ -497,6 +500,11 @@ function ScoreHeroStrip({
               ? `Last reviewed ${new Date(analysis.completedAt).toLocaleString()}`
               : 'Run architecture analysis to generate score, band, and grounded recommendations.'}
           </p>
+          {analysis ? (
+            <p className="mt-1 text-xs font-medium text-secondary-500 dark:text-secondary-400">
+              Final score calculated by CoArchitect scoring engine.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ReviewFreshnessBadge freshness={freshness} />
@@ -658,6 +666,7 @@ function FindingsTable({ rows }: { rows: FindingRow[] }) {
                   </summary>
                   <div className="mt-2 space-y-2 rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-3 text-secondary-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-secondary-200">
                     <GroundingList label="Frameworks" items={row.grounding.frameworkRefs} />
+                    <GroundingList label="Standards" items={row.grounding.standardRefs} />
                     <GroundingList label="Principles" items={row.grounding.principleRefs} />
                     <GroundingList label="Trade-offs" items={row.grounding.tradeoffRefs} />
                     <GroundingList label="History" items={row.grounding.historyRefs} />
@@ -993,6 +1002,8 @@ function mapAdrRecordToDraft(adr: AdrRecord) {
     consequences: latest.consequences,
     risks: latest.risks,
     frameworks: latest.frameworks,
+    standards: latest.standards ?? [],
+    groundedContext: latest.groundedContext ?? [],
     markdown: latest.markdown,
     html: latest.html,
     history: latest.history,
@@ -1041,6 +1052,7 @@ function getGroundedSources(context: FoundryIqContextBundle) {
 function buildGroundingSummary(grounding: GroundingReferenceSet) {
   const parts = [
     grounding.frameworkRefs.length ? `Frameworks: ${grounding.frameworkRefs.join(', ')}` : null,
+    grounding.standardRefs.length ? `Standards: ${grounding.standardRefs.join(', ')}` : null,
     grounding.principleRefs.length ? `Principles: ${grounding.principleRefs.join(', ')}` : null,
     grounding.tradeoffRefs.length ? `Trade-offs: ${grounding.tradeoffRefs.join(', ')}` : null,
   ].filter(Boolean);
@@ -1093,14 +1105,17 @@ function buildDiagramPrintHtml({
   scoreLabel,
   freshness,
   frameworks,
+  standards,
 }: {
   diagram: NonNullable<ReturnType<typeof useDiagram>['data']>;
   analysis: ArchitectureAnalysisResult | null;
   scoreLabel: string;
   freshness: ReviewFreshness;
   frameworks: string[];
+  standards: string[];
 }) {
   const frameworkChips = frameworks.map((item) => `<span class="print-chip">${escapeHtml(item)}</span>`).join('');
+  const standardChips = standards.map((item) => `<span class="print-chip">${escapeHtml(formatStandardLabel(item))}</span>`).join('');
   const imageMarkup = diagram.fileUrl
     ? `<img class="print-image" src="${escapeHtml(diagram.fileUrl)}" alt="${escapeHtml(diagram.name)}" />`
     : '';
@@ -1124,6 +1139,10 @@ function buildDiagramPrintHtml({
       ${frameworkChips || '<p>No frameworks selected yet.</p>'}
     </div>
     <div class="print-card">
+      <h2>Selected Standards</h2>
+      ${standardChips || '<p>No additional standards selected yet.</p>'}
+    </div>
+    <div class="print-card">
       <h2>Architecture Evidence</h2>
       ${imageMarkup}
       ${diagram.description ? `<p>${escapeHtml(diagram.description)}</p>` : ''}
@@ -1134,6 +1153,23 @@ function buildDiagramPrintHtml({
         : ''
     }
   `;
+}
+
+function formatStandardLabel(value: string) {
+  switch (value) {
+    case 'Iso27001':
+      return 'ISO 27001';
+    case 'Gdpr':
+      return 'GDPR';
+    case 'Soc2':
+      return 'SOC 2';
+    case 'Togaf':
+      return 'TOGAF';
+    case 'Safe':
+      return 'SAFe';
+    default:
+      return value;
+  }
 }
 
 function buildAdrPrintHtml({

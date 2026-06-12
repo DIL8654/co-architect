@@ -57,6 +57,7 @@ public class FoundryIqKnowledgeBaseTests
                 TargetUsers = "External enterprise users",
             },
             SuggestedFrameworks = [nameof(ReviewFramework.AzureWellArchitected), nameof(ReviewFramework.OwaspAsvs)],
+            SuggestedStandards = [nameof(ReviewStandard.Iso27001), nameof(ReviewStandard.Gdpr)],
             QualityAttributeWeights =
             [
                 new QualityAttributeWeight { Key = "security", Label = "Security", Weight = 30 },
@@ -142,6 +143,7 @@ public class FoundryIqKnowledgeBaseTests
         var result = await agent.EnrichAsync(
             diagram,
             [ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs],
+            [ReviewStandard.Iso27001, ReviewStandard.Gdpr, ReviewStandard.Safe],
             [
                 new QualityAttributeWeight { Key = "security", Label = "Security", Weight = 25 },
                 new QualityAttributeWeight { Key = "compliance", Label = "Compliance", Weight = 20 },
@@ -152,6 +154,7 @@ public class FoundryIqKnowledgeBaseTests
         Assert.NotEmpty(result.ApplicablePrinciples);
         Assert.NotEmpty(result.ApplicableTradeoffs);
         Assert.NotEmpty(result.ContextBundle.ComplianceItems);
+        Assert.Contains(ReviewStandard.Iso27001, result.ConfirmedStandards);
         Assert.Contains("compliance notes", result.Summary, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Retrieved 0 framework guidance items, 0 principle notes, 0 trade-off notes, 0 compliance notes", result.Summary, StringComparison.OrdinalIgnoreCase);
     }

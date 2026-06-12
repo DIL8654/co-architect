@@ -13,9 +13,17 @@ const frameworkLabels: Record<string, string> = {
   Iso25010: 'ISO 25010',
   OwaspAsvs: 'OWASP ASVS',
 };
+const standardLabels: Record<string, string> = {
+  Iso27001: 'ISO 27001',
+  Gdpr: 'GDPR',
+  Soc2: 'SOC 2',
+  Togaf: 'TOGAF',
+  Safe: 'SAFe',
+};
 
 export function ReviewSetupSummary({ reviewSetup, compact = false }: ReviewSetupSummaryProps) {
   const selectedFrameworks = reviewSetup.frameworkSelection.selectedFrameworks ?? [];
+  const selectedStandards = reviewSetup.frameworkSelection.selectedStandards ?? [];
   const topWeights = [...(reviewSetup.qualityAttributeWeights ?? [])]
     .sort((left, right) => right.weight - left.weight)
     .slice(0, compact ? 3 : 5);
@@ -24,6 +32,7 @@ export function ReviewSetupSummary({ reviewSetup, compact = false }: ReviewSetup
     <Card header={compact ? 'Review Setup' : 'Architecture Review Setup'}>
       <div className="space-y-4">
         <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Frameworks</p>
           <div className="mb-2 flex flex-wrap gap-2">
             {selectedFrameworks.length > 0 ? (
               selectedFrameworks.map((framework) => (
@@ -45,9 +54,24 @@ export function ReviewSetupSummary({ reviewSetup, compact = false }: ReviewSetup
           </p>
         </div>
 
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Standards used</p>
+          <div className="flex flex-wrap gap-2">
+            {selectedStandards.length > 0 ? (
+              selectedStandards.map((standard) => (
+                <Badge key={standard} variant="primary">
+                  {standardLabels[standard] ?? standard}
+                </Badge>
+              ))
+            ) : (
+              <Badge variant="warning">No additional standards selected</Badge>
+            )}
+          </div>
+        </div>
+
         {reviewSetup.frameworkSelection.selectionRationale.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Why these frameworks</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400">Why these review lenses</p>
             <div className="space-y-2">
               {reviewSetup.frameworkSelection.selectionRationale.map((item) => (
                 <p key={item} className="text-sm leading-6 text-secondary-600 dark:text-secondary-300">

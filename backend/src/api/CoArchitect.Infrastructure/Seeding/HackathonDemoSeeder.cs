@@ -468,7 +468,7 @@ public sealed class HackathonDemoSeeder
                 ComplianceNeeds = "Content access control, retention, auditability, and regional resilience",
                 CurrentPainPoints = "Unclear API gateway, missing queue isolation, missing retry/dead-letter policy, limited observability, unclear lifecycle policy",
             },
-            FrameworkSelection("Azure media workload with APIs, uploaded content, and processing pipeline cues."),
+            FrameworkSelection("Azure media workload with APIs, uploaded content, and processing pipeline cues.", ReviewStandard.Iso27001, ReviewStandard.Soc2),
             "The video analysis platform is a promising event-driven media pipeline, but it needs stronger ingress control, workload isolation, lifecycle management, observability, and recovery controls before it is production ready.",
             ["Detected upload APIs, blob storage, queue-driven processing, AI analysis, metadata storage, and dashboard/API consumption.", "Processing large media files introduces cost, retry, lifecycle, and observability pressure."],
             [
@@ -547,7 +547,7 @@ public sealed class HackathonDemoSeeder
                 ComplianceNeeds = "PII protection, retention, audit logging, model validation, reviewer traceability",
                 CurrentPainPoints = "Unclear classification boundary, missing PII controls, weak audit logging, unclear tenant isolation and reprocessing strategy",
             },
-            FrameworkSelection("Document upload, sensitive extraction, human review, and external users require security and quality review."),
+            FrameworkSelection("Document upload, sensitive extraction, human review, and external users require security and quality review.", ReviewStandard.Iso27001, ReviewStandard.Gdpr, ReviewStandard.Soc2),
             "The document processing platform has a strong AI workflow, but it needs clearer classification boundaries, PII controls, auditability, tenant isolation, model validation, and reprocessing behavior to become enterprise ready.",
             ["Detected upload, classification, extraction, custom processing, storage, review workflow, and integration APIs.", "Sensitive documents and model outputs require validation, auditability, and retention controls."],
             [
@@ -626,7 +626,7 @@ public sealed class HackathonDemoSeeder
                 ComplianceNeeds = "GDPR, auditability, tenant isolation, disaster recovery",
                 CurrentPainPoints = "No API gateway, no tenant isolation, no audit logging, no disaster recovery plan, limited monitoring, unclear secrets management",
             },
-            FrameworkSelection("Cloud-neutral SaaS with APIs, PII, external users, and multi-tenancy concerns requires broad framework coverage."),
+            FrameworkSelection("Cloud-neutral SaaS with APIs, PII, external users, and multi-tenancy concerns requires broad framework coverage.", ReviewStandard.Iso27001, ReviewStandard.Gdpr, ReviewStandard.Togaf),
             "The baseline SaaS architecture demonstrates the core product value loop: it has enough application structure to review, while missing several enterprise readiness capabilities around isolation, auditability, observability, recovery, and secrets management.",
             ["Detected React frontend, .NET APIs, relational database, blob storage, background jobs, external enterprise users, and European data sensitivity.", "The absence of tenant isolation, audit logging, DR, monitoring, and secrets controls creates clear maturity gaps."],
             [
@@ -679,7 +679,7 @@ public sealed class HackathonDemoSeeder
             SeedStart.AddDays(2));
     }
 
-    private static FrameworkSelectionResult FrameworkSelection(string rationale)
+    private static FrameworkSelectionResult FrameworkSelection(string rationale, params ReviewStandard[] standards)
     {
         return new FrameworkSelectionResult
         {
@@ -688,6 +688,8 @@ public sealed class HackathonDemoSeeder
             ConfidenceScore = 0.92,
             RequestedFrameworks = [],
             SelectedFrameworks = [ReviewFramework.AzureWellArchitected, ReviewFramework.AwsWellArchitected, ReviewFramework.Iso25010, ReviewFramework.OwaspAsvs],
+            RequestedStandards = [],
+            SelectedStandards = standards.ToList(),
             SelectionRationale =
             [
                 rationale,

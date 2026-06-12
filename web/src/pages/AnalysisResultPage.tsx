@@ -76,6 +76,7 @@ export function AnalysisResultPage() {
   const findings = buildFindingRows(analysis);
   const adrDraft = diagram ? buildAdrDraft({ diagram, analysis, comments: [] }) : null;
   const criticalFindings = findings.filter((finding) => finding.severity === 'Critical' || finding.severity === 'High').length;
+  const selectedStandards = analysis.reviewSetup.frameworkSelection.selectedStandards ?? [];
 
   return (
     <div className="page-shell">
@@ -122,11 +123,25 @@ export function AnalysisResultPage() {
               ))}
             </div>
           </MetaPanel>
+          <MetaPanel title="Standards Used">
+            <div className="flex flex-wrap gap-2">
+              {selectedStandards.length > 0 ? (
+                selectedStandards.map((standard) => (
+                  <span key={standard} className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
+                    {formatStandardLabel(standard)}
+                  </span>
+                ))
+              ) : (
+                <p className="text-sm text-secondary-600 dark:text-secondary-300">No additional standards were selected for this run.</p>
+              )}
+            </div>
+          </MetaPanel>
           <MetaPanel title="Foundry IQ">
             <div className="space-y-3 text-sm text-secondary-700 dark:text-secondary-200">
               <p>{analysis.foundryIqContext.workspaceMemory.architectureEvolutionSummary}</p>
               <div className="flex flex-wrap gap-2">
                 <ContextCountBadge label="Framework" count={analysis.foundryIqContext.frameworkGuidanceItems.length} />
+                <ContextCountBadge label="Compliance" count={analysis.foundryIqContext.complianceItems.length} />
                 <ContextCountBadge label="Principle" count={analysis.foundryIqContext.principleItems.length} />
                 <ContextCountBadge label="Trade-off" count={analysis.foundryIqContext.tradeoffItems.length} />
                 <ContextCountBadge label="Memory" count={analysis.foundryIqContext.workspaceMemoryItems.length} />
@@ -559,6 +574,7 @@ function GroundingDetails({ grounding, compact = false }: { grounding: Grounding
   const [showCitations, setShowCitations] = useState(false);
   const sections = [
     { label: 'Frameworks', values: grounding.frameworkRefs },
+    { label: 'Standards', values: grounding.standardRefs },
     { label: 'Principles', values: grounding.principleRefs },
     { label: 'Trade-offs', values: grounding.tradeoffRefs },
     { label: 'History', values: grounding.historyRefs },
@@ -590,4 +606,21 @@ function GroundingDetails({ grounding, compact = false }: { grounding: Grounding
       ) : null}
     </div>
   );
+}
+
+function formatStandardLabel(value: string) {
+  switch (value) {
+    case 'Iso27001':
+      return 'ISO 27001';
+    case 'Gdpr':
+      return 'GDPR';
+    case 'Soc2':
+      return 'SOC 2';
+    case 'Togaf':
+      return 'TOGAF';
+    case 'Safe':
+      return 'SAFe';
+    default:
+      return value;
+  }
 }

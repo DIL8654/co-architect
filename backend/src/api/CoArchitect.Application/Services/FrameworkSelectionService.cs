@@ -33,30 +33,35 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
         ArchitectureReviewContext reviewContext,
         FrameworkSelectionMode mode,
         IEnumerable<ReviewFramework> requestedFrameworks,
+        IEnumerable<ReviewStandard> requestedStandards,
         IEnumerable<QualityAttributeWeight> qualityAttributeWeights)
     {
         var requested = requestedFrameworks.Distinct().ToList();
+        var requestedStandardList = requestedStandards.Distinct().ToList();
         var normalizedText = BuildNormalizedText(architectureDescription, reviewContext);
         var weights = qualityAttributeWeights.Any() ? qualityAttributeWeights.ToList() : GetDefaultWeights().ToList();
 
-        if (mode == FrameworkSelectionMode.Manual && requested.Count > 0)
+        if (mode == FrameworkSelectionMode.Manual && (requested.Count > 0 || requestedStandardList.Count > 0))
         {
             return new FrameworkSelectionResult
             {
                 Mode = mode,
                 RequestedFrameworks = requested,
                 SelectedFrameworks = requested,
+                RequestedStandards = requestedStandardList,
+                SelectedStandards = requestedStandardList,
                 DetectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext),
                 ConfidenceScore = 0.99,
                 SelectionRationale = new List<string>
                 {
-                    "Frameworks were selected manually by the user.",
-                    "The system will preserve the chosen frameworks and still show detected cloud context for transparency.",
+                    "Review frameworks and standards were selected manually by the user.",
+                    "The system will preserve the chosen review lenses and still show detected cloud and governance context for transparency.",
                 },
             };
         }
 
         var selected = new List<ReviewFramework>();
+        var selectedStandards = new List<ReviewStandard>();
         var rationale = new List<string>();
         var detectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext);
 
@@ -82,6 +87,36 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
         {
             selected.Add(ReviewFramework.OwaspAsvs);
             rationale.Add("OWASP ASVS was included because the architecture appears to include web APIs, external users, sensitive data, or security-critical access flows.");
+        }
+
+        if (ShouldIncludeIso27001(normalizedText, reviewContext, weights))
+        {
+            selectedStandards.Add(ReviewStandard.Iso27001);
+            rationale.Add("ISO 27001 was included because the review context points to access control, auditability, secrets handling, or broader security governance needs.");
+        }
+
+        if (ShouldIncludeGdpr(normalizedText, reviewContext))
+        {
+            selectedStandards.Add(ReviewStandard.Gdpr);
+            rationale.Add("GDPR was included because the architecture appears to handle personal data, European users, or data-retention and deletion responsibilities.");
+        }
+
+        if (ShouldIncludeSoc2(normalizedText, reviewContext))
+        {
+            selectedStandards.Add(ReviewStandard.Soc2);
+            rationale.Add("SOC 2 was included because the architecture needs stronger control evidence for security, availability, confidentiality, or audit-ready operations.");
+        }
+
+        if (ShouldIncludeTogaf(normalizedText, reviewContext, weights))
+        {
+            selectedStandards.Add(ReviewStandard.Togaf);
+            rationale.Add("TOGAF was included because the architecture signals governance-heavy change planning, capability thinking, or enterprise roadmap coordination.");
+        }
+
+        if (ShouldIncludeSafe(normalizedText, reviewContext))
+        {
+            selectedStandards.Add(ReviewStandard.Safe);
+            rationale.Add("SAFe was included because the architecture appears to involve platform coordination, value streams, or multi-team delivery alignment.");
         }
 
         if (selected.Count == 0)
@@ -110,6 +145,8 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
             Mode = FrameworkSelectionMode.AutoDetect,
             RequestedFrameworks = requested,
             SelectedFrameworks = selected.Distinct().ToList(),
+            RequestedStandards = requestedStandardList,
+            SelectedStandards = selectedStandards.Distinct().ToList(),
             DetectedCloudProvider = detectedCloudProvider,
             ConfidenceScore = CalculateConfidence(selected, detectedCloudProvider, normalizedText),
             SelectionRationale = rationale,
@@ -198,6 +235,76 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
             (weight.Key.Equals("security", StringComparison.OrdinalIgnoreCase) ||
              weight.Key.Equals("compliance", StringComparison.OrdinalIgnoreCase)) &&
             weight.Weight >= 15);
+    }
+
+    private static bool ShouldIncludeIso27001(string normalizedText, ArchitectureReviewContext reviewContext, IEnumerable<QualityAttributeWeight> weights)
+    {
+        if (ContainsAny(normalizedText, new[] { "audit", "access control", "secrets", "credential", "incident", "risk", "isms", "security controls", "key vault" }))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(reviewContext.ComplianceNeeds) &&
+            ContainsAny(reviewContext.ComplianceNeeds.ToLowerInvariant(), new[] { "iso 27001", "security", "audit", "control" }))
+        {
+            return true;
+        }
+
+        return weights.Any(weight =>
+            (weight.Key.Equals("security", StringComparison.OrdinalIgnoreCase) ||
+             weight.Key.Equals("compliance", StringComparison.OrdinalIgnoreCase)) &&
+            weight.Weight >= 20);
+    }
+
+    private static bool ShouldIncludeGdpr(string normalizedText, ArchitectureReviewContext reviewContext)
+    {
+        if (ContainsAny(normalizedText, new[] { "gdpr", "personal data", "pii", "privacy", "retention", "deletion", "europe", "european", "eu" }))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(reviewContext.ComplianceNeeds) &&
+               ContainsAny(reviewContext.ComplianceNeeds.ToLowerInvariant(), new[] { "gdpr", "privacy", "retention", "deletion" });
+    }
+
+    private static bool ShouldIncludeSoc2(string normalizedText, ArchitectureReviewContext reviewContext)
+    {
+        if (ContainsAny(normalizedText, new[] { "soc 2", "audit evidence", "availability", "confidentiality", "trust", "controls" }))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(reviewContext.ComplianceNeeds) &&
+               ContainsAny(reviewContext.ComplianceNeeds.ToLowerInvariant(), new[] { "soc 2", "audit", "availability", "confidentiality" });
+    }
+
+    private static bool ShouldIncludeTogaf(string normalizedText, ArchitectureReviewContext reviewContext, IEnumerable<QualityAttributeWeight> weights)
+    {
+        if (ContainsAny(normalizedText, new[] { "governance", "architecture board", "enterprise architecture", "roadmap", "capability", "change management" }))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(reviewContext.CurrentPainPoints) &&
+            ContainsAny(reviewContext.CurrentPainPoints.ToLowerInvariant(), new[] { "governance", "roadmap", "change management", "enterprise" }))
+        {
+            return true;
+        }
+
+        return weights.Any(weight => weight.Key.Equals("deliverySpeed", StringComparison.OrdinalIgnoreCase) && weight.Weight >= 15)
+               && ContainsAny(normalizedText, new[] { "governance", "roadmap", "platform" });
+    }
+
+    private static bool ShouldIncludeSafe(string normalizedText, ArchitectureReviewContext reviewContext)
+    {
+        if (ContainsAny(normalizedText, new[] { "value stream", "release train", "platform team", "system team", "release coordination", "many teams" }))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(reviewContext.TargetUsers) &&
+               ContainsAny(reviewContext.TargetUsers.ToLowerInvariant(), new[] { "operations", "partners", "integrators", "enterprise tenants" }) &&
+               ContainsAny(normalizedText, new[] { "platform", "shared service", "release", "coordination" });
     }
 
     private static string DetectCloudProvider(string normalizedText, ArchitectureReviewContext reviewContext)

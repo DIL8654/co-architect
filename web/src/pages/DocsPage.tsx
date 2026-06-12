@@ -17,8 +17,8 @@ export function DocsPage() {
   const workflowRows = [
     ['1. Add architecture evidence', 'Create a workspace, then add a diagram image or a written architecture description.'],
     ['2. Add review context', 'Tell the system about users, traffic, data sensitivity, cloud preference, and pain points.'],
-    ['3. Choose frameworks', 'Use auto-detect or pick frameworks yourself. The system explains why each one was chosen.'],
-    ['4. Gather grounded context', 'Foundry IQ pulls in framework notes, principles, trade-offs, ADR templates, and workspace history.'],
+    ['3. Choose review lenses', 'Use auto-detect or pick frameworks and standards yourself. The system explains why each one was chosen.'],
+    ['4. Gather grounded context', 'Foundry IQ pulls in framework notes, standards guidance, principles, trade-offs, ADR templates, and workspace history.'],
     ['5. Run the agent workflow', 'The planner, specialists, critic, and composer reason over the same grounded context bundle.'],
     ['6. Calculate the score', 'AI suggests maturity evidence, then application code calculates the final Architecture Intelligence Score.'],
     ['7. Review outcomes', 'Inspect findings, recommendations, trade-offs, analysis history, and agent workflow for each run.'],
@@ -28,8 +28,9 @@ export function DocsPage() {
   const capabilityRows = [
     ['Workspace-centric navigation', 'The product is organized around workspaces and diagrams, not organization setup screens.'],
     ['Architecture review', 'Analyze image-based diagrams and text descriptions in one workbench.'],
-    ['Framework-aware reasoning', 'Use Azure Well-Architected, AWS Well-Architected, ISO/IEC 25010, and OWASP ASVS.'],
-    ['Foundry IQ grounding', 'Ground recommendations with knowledge sources, principles, trade-offs, and workspace memory.'],
+    ['Framework-aware reasoning', 'Use Azure Well-Architected, AWS Well-Architected, ISO/IEC 25010, and OWASP ASVS as the main review lenses.'],
+    ['Standards-aware grounding', 'Bring in ISO 27001, GDPR, SOC 2, TOGAF, and SAFe when governance, privacy, security, or scale cues are present.'],
+    ['Foundry IQ grounding', 'Ground recommendations with knowledge sources, principles, trade-offs, standards, and workspace memory.'],
     ['Architecture Intelligence Score', 'Show the final score, score band, and dimension breakdown in every completed review.'],
     ['Agent workflow trace', 'Inspect how the agents worked step by step for each analysis run.'],
     ['ADR version history', 'Generate ADRs, regenerate them, and review version history in the same diagram workbench.'],
@@ -41,6 +42,14 @@ export function DocsPage() {
     ['AWS Well-Architected', 'Used when the architecture shows AWS services or AWS-style platform patterns.'],
     ['ISO/IEC 25010', 'Used to review quality attributes like reliability, maintainability, and performance.'],
     ['OWASP ASVS', 'Used when the system has APIs, user data, security controls, or external access.'],
+  ];
+
+  const standardsRows = [
+    ['ISO 27001', 'Used when the system needs stronger security governance, access control, secrets handling, auditability, or risk treatment.'],
+    ['GDPR', 'Used when the architecture handles personal data, European users, retention, deletion, or privacy-sensitive workflows.'],
+    ['SOC 2', 'Used when the review needs trust-service controls around security, availability, confidentiality, and evidence.'],
+    ['TOGAF', 'Used when the architecture needs stronger enterprise governance, roadmap thinking, capability planning, or change coordination.'],
+    ['SAFe', 'Used when many teams, value streams, platform coordination, or release alignment shape the solution.'],
   ];
 
   const principleRows = [
@@ -136,7 +145,12 @@ export function DocsPage() {
 
         {activeTab === 'capabilities' ? <KnowledgeTable title="Current Capabilities" rows={capabilityRows} firstColumnLabel="Capability" secondColumnLabel="Current behavior" /> : null}
 
-        {activeTab === 'frameworks' ? <KnowledgeTable title="Framework Knowledge" rows={frameworkRows} /> : null}
+        {activeTab === 'frameworks' ? (
+          <div className="space-y-5">
+            <KnowledgeTable title="Primary Review Frameworks" rows={frameworkRows} firstColumnLabel="Framework" secondColumnLabel="When the system uses it" />
+            <KnowledgeTable title="Standards and Governance Criteria" rows={standardsRows} firstColumnLabel="Standard" secondColumnLabel="How it guides the review" />
+          </div>
+        ) : null}
 
         {activeTab === 'principles' ? <KnowledgeTable title="Architecture Principles" rows={principleRows} /> : null}
 
@@ -166,7 +180,7 @@ export function DocsPage() {
                   Foundry IQ is the grounded knowledge layer behind the agents. It gives them architecture context before they start reasoning.
                 </p>
                 <p>
-                  Instead of relying only on a prompt, the agents read framework notes, architecture principles, trade-off guidance, ADR templates, workspace memory, and prior findings.
+                  Instead of relying only on a prompt, the agents read framework notes, standards guidance, architecture principles, trade-off guidance, ADR templates, workspace memory, and prior findings.
                 </p>
               </div>
             </Card>
@@ -175,6 +189,7 @@ export function DocsPage() {
               title="Foundry IQ Context Sources"
               rows={[
                 ['Framework knowledge', 'Helps the system review Azure, AWS, quality, and security concerns with the right lens.'],
+                ['Standards guidance', 'Adds privacy, compliance, governance, and scaled-delivery context when the review needs it.'],
                 ['Architecture principles', 'Helps recommendations stay aligned with things like simplicity, reliability, and maintainability.'],
                 ['Trade-off catalog', 'Helps the trade-off agent explain what is gained and what is given up.'],
                 ['ADR templates', 'Helps turn findings into a cleaner, more structured decision record.'],

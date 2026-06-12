@@ -22,6 +22,8 @@ vi.mock('../hooks/useDiagrams', () => ({
             confidenceScore: 0.9,
             requestedFrameworks: [],
             selectedFrameworks: [],
+            requestedStandards: [],
+            selectedStandards: [],
             selectionRationale: [],
           },
           qualityAttributeWeights: [],

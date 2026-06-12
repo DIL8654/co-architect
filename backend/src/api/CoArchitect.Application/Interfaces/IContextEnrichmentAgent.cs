@@ -9,6 +9,7 @@ public interface IContextEnrichmentAgent
     Task<ContextEnrichmentResult> EnrichAsync(
         ArchitectureDiagram diagram,
         IReadOnlyCollection<ReviewFramework> selectedFrameworks,
+        IReadOnlyCollection<ReviewStandard> selectedStandards,
         IReadOnlyCollection<QualityAttributeWeight> effectiveWeights,
         CancellationToken cancellationToken);
 }

@@ -68,6 +68,17 @@ public static class DiagramReviewSetupMapper
             .ToList();
     }
 
+    public static List<ReviewStandard> ToRequestedStandards(IEnumerable<string> standards)
+    {
+        return standards
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => Enum.TryParse<ReviewStandard>(value, ignoreCase: true, out var parsed) ? parsed : (ReviewStandard?)null)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .Distinct()
+            .ToList();
+    }
+
     public static DiagramReviewSetupResponse ToResponse(ArchitectureDiagram diagram)
     {
         return new DiagramReviewSetupResponse
@@ -89,6 +100,8 @@ public static class DiagramReviewSetupMapper
                 ConfidenceScore = diagram.FrameworkSelection.ConfidenceScore,
                 RequestedFrameworks = diagram.FrameworkSelection.RequestedFrameworks.Select(item => item.ToString()).ToList(),
                 SelectedFrameworks = diagram.FrameworkSelection.SelectedFrameworks.Select(item => item.ToString()).ToList(),
+                RequestedStandards = diagram.FrameworkSelection.RequestedStandards.Select(item => item.ToString()).ToList(),
+                SelectedStandards = diagram.FrameworkSelection.SelectedStandards.Select(item => item.ToString()).ToList(),
                 SelectionRationale = diagram.FrameworkSelection.SelectionRationale.ToList(),
             },
             QualityAttributeWeights = diagram.QualityAttributeWeights

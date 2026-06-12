@@ -99,6 +99,8 @@ describe('hackathon guided flow', () => {
         confidenceScore: 0.9,
         requestedFrameworks: [],
         selectedFrameworks: ['AzureWellArchitected', 'Iso25010', 'OwaspAsvs'],
+        requestedStandards: [],
+        selectedStandards: ['Iso27001', 'Soc2'],
         selectionRationale: ['Azure and API security cues were detected.'],
       },
       qualityAttributeWeights: [],
@@ -109,6 +111,6 @@ describe('hackathon guided flow', () => {
     expect(await screen.findByDisplayValue(SAMPLE_DIAGRAM_NAME)).toBeTruthy();
     const description = screen.getByPlaceholderText('Describe the architecture, integrations, trust boundaries, constraints, and current gaps...') as HTMLTextAreaElement;
     expect(description.value).toBe(SAMPLE_ARCHITECTURE_DESCRIPTION);
-    expect(screen.getByDisplayValue('B2B SaaS')).toBeTruthy();
+    expect(screen.getByDisplayValue('SaaS')).toBeTruthy();
   });
 });

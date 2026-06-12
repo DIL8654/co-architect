@@ -1,5 +1,5 @@
 import { apiClient } from './axios';
-import type { DiagramReviewSetup } from './diagrams';
+import type { DiagramReviewSetup, DiagramReviewSetupInput } from './diagrams';
 
 export interface EvidenceItem {
   summary: string;
@@ -23,6 +23,7 @@ export interface AgentExecutionTrace {
 
 export interface GroundingReferenceSet {
   frameworkRefs: string[];
+  standardRefs: string[];
   principleRefs: string[];
   tradeoffRefs: string[];
   historyRefs: string[];
@@ -130,8 +131,14 @@ export interface ArchitectureAnalysisResult {
   completedAt?: string;
 }
 
+export interface RunAnalysisRequest {
+  reviewSetup?: DiagramReviewSetupInput;
+  persistReviewSetup?: boolean;
+}
+
 const EMPTY_GROUNDING: GroundingReferenceSet = {
   frameworkRefs: [],
+  standardRefs: [],
   principleRefs: [],
   tradeoffRefs: [],
   historyRefs: [],
@@ -161,6 +168,7 @@ const EMPTY_CONTEXT: FoundryIqContextBundle = {
 function normalizeGrounding(grounding?: Partial<GroundingReferenceSet> | null): GroundingReferenceSet {
   return {
     frameworkRefs: grounding?.frameworkRefs ?? [],
+    standardRefs: grounding?.standardRefs ?? [],
     principleRefs: grounding?.principleRefs ?? [],
     tradeoffRefs: grounding?.tradeoffRefs ?? [],
     historyRefs: grounding?.historyRefs ?? [],
@@ -202,10 +210,10 @@ export const analysisApi = {
     }
   },
 
-  async runAnalysis(workspaceId: string, diagramId: string): Promise<ArchitectureAnalysisResult> {
+  async runAnalysis(workspaceId: string, diagramId: string, request: RunAnalysisRequest = {}): Promise<ArchitectureAnalysisResult> {
     const response = await apiClient.post<ArchitectureAnalysisResult>(
       `/api/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs`,
-      {}
+      request
     );
     return normalizeAnalysisResult(response.data);
   },

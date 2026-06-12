@@ -10,4 +10,5 @@ public sealed class FoundryIqQuery
     public ArchitectureReviewContext ReviewContext { get; init; } = new();
     public IList<QualityAttributeWeight> QualityAttributeWeights { get; init; } = new List<QualityAttributeWeight>();
     public IList<string> SuggestedFrameworks { get; init; } = new List<string>();
+    public IList<string> SuggestedStandards { get; init; } = new List<string>();
 }

@@ -220,7 +220,7 @@ export function SettingsPage() {
                 <Button type="submit" isLoading={mutation.isPending}>
                   Save Settings
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => window.location.assign('/health')}>
+                <Button type="button" variant="secondary" onClick={() => window.location.assign('/app/health')}>
                   Check Health
                 </Button>
               </div>

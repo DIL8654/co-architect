@@ -48,9 +48,9 @@ describe('DiagramListPage', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/workspaces/workspace-1/diagrams']}>
+        <MemoryRouter initialEntries={['/app/workspaces/workspace-1/diagrams']}>
           <Routes>
-            <Route path="/workspaces/:workspaceId/diagrams" element={<DiagramListPage />} />
+            <Route path="/app/workspaces/:workspaceId/diagrams" element={<DiagramListPage />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,

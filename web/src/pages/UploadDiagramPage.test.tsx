@@ -18,7 +18,7 @@ vi.mock('../hooks/useDiagrams', () => ({
   }),
 }));
 
-function renderPage(path = '/workspaces/workspace-1/diagrams/upload') {
+function renderPage(path = '/app/workspaces/workspace-1/diagrams/upload') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -29,7 +29,7 @@ function renderPage(path = '/workspaces/workspace-1/diagrams/upload') {
   const router = createMemoryRouter(
     [
       {
-        path: '/workspaces/:workspaceId/diagrams/upload',
+        path: '/app/workspaces/:workspaceId/diagrams/upload',
         element: <UploadDiagramPage />,
       },
     ],

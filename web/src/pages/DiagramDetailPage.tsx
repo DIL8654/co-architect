@@ -224,8 +224,8 @@ export function DiagramDetailPage() {
       <section className="page-header">
         <Breadcrumbs
           items={[
-            { label: 'Workspaces', to: '/workspaces' },
-            { label: 'Diagrams', to: `/workspaces/${workspaceId}/diagrams` },
+            { label: 'Workspaces', to: '/app/workspaces' },
+            { label: 'Diagrams', to: `/app/workspaces/${workspaceId}/diagrams` },
             { label: diagram.name },
           ]}
         />

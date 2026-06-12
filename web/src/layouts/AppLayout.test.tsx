@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppLayout } from './AppLayout';
 
-function renderLayout(path = '/') {
+function renderLayout(path = '/app') {
   localStorage.setItem(
     'coarchitect.local-profile',
     JSON.stringify({
@@ -26,7 +26,7 @@ function renderLayout(path = '/') {
   const router = createMemoryRouter(
     [
       {
-        path: '/',
+        path: '/app',
         element: <AppLayout />,
         children: [
           {
@@ -97,14 +97,14 @@ describe('AppLayout', () => {
   });
 
   it('uses dashboard as the brand logo destination', () => {
-    renderLayout('/settings');
+    renderLayout('/app/settings');
 
     const brandLink = screen.getByLabelText('CoArchitect AI home') as HTMLAnchorElement;
-    expect(brandLink.getAttribute('href')).toBe('/dashboard');
+    expect(brandLink.getAttribute('href')).toBe('/app/dashboard');
   });
 
   it('does not highlight Workspaces nav item on nested workspace diagram routes', () => {
-    renderLayout('/workspaces/abc-123/diagrams');
+    renderLayout('/app/workspaces/abc-123/diagrams');
 
     const workspacesLink = screen.getByRole('link', { name: 'Workspaces' });
     expect(workspacesLink.className.includes('active')).toBe(false);

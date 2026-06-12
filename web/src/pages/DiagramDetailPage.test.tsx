@@ -155,7 +155,7 @@ vi.mock('../hooks/useAdrs', () => ({
   useDeleteAdr: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-function renderPage(path = '/workspaces/workspace-1/diagrams/diagram-1') {
+function renderPage(path = '/app/workspaces/workspace-1/diagrams/diagram-1') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -166,7 +166,7 @@ function renderPage(path = '/workspaces/workspace-1/diagrams/diagram-1') {
   const router = createMemoryRouter(
     [
       {
-        path: '/workspaces/:workspaceId/diagrams/:diagramId',
+        path: '/app/workspaces/:workspaceId/diagrams/:diagramId',
         element: <DiagramDetailPage />,
       },
     ],

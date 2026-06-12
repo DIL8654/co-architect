@@ -53,8 +53,8 @@ function renderWithRouter(initialPath: string, element: ReactNode) {
   });
   const router = createMemoryRouter(
     [
-      { path: '/', element },
-      { path: '/workspaces/:workspaceId/diagrams/upload', element: <UploadDiagramPage /> },
+      { path: '/app', element },
+      { path: '/app/workspaces/:workspaceId/diagrams/upload', element: <UploadDiagramPage /> },
     ],
     { initialEntries: [initialPath] },
   );
@@ -80,7 +80,7 @@ describe('hackathon guided flow', () => {
     vi.mocked(workspaceApi.listWorkspaces).mockResolvedValue([]);
     vi.mocked(workspaceApi.createWorkspace).mockRejectedValue(new Error('test stops before navigation'));
 
-    renderWithRouter('/', <LandingPage />);
+    renderWithRouter('/app', <LandingPage />);
 
     await screen.findByText('Start Architecture Review');
     fireEvent.click(screen.getByRole('button', { name: 'Use Sample Architecture' }));
@@ -106,7 +106,7 @@ describe('hackathon guided flow', () => {
       qualityAttributeWeights: [],
     });
 
-    renderWithRouter('/workspaces/workspace-1/diagrams/upload?sample=1', <UploadDiagramPage />);
+    renderWithRouter('/app/workspaces/workspace-1/diagrams/upload?sample=1', <UploadDiagramPage />);
 
     expect(await screen.findByDisplayValue(SAMPLE_DIAGRAM_NAME)).toBeTruthy();
     const description = screen.getByPlaceholderText('Describe the architecture, integrations, trust boundaries, constraints, and current gaps...') as HTMLTextAreaElement;

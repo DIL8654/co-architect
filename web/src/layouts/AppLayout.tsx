@@ -30,11 +30,11 @@ type RouteContext = {
 
 function getRouteContext(pathname: string): RouteContext {
   const patterns = [
-    '/workspaces/:workspaceId/diagrams/:diagramId/analysis-runs/:runId',
-    '/workspaces/:workspaceId/diagrams/upload',
-    '/workspaces/:workspaceId/diagrams/:diagramId',
-    '/workspaces/:workspaceId/diagrams',
-    '/workspaces/:workspaceId',
+    '/app/workspaces/:workspaceId/diagrams/:diagramId/analysis-runs/:runId',
+    '/app/workspaces/:workspaceId/diagrams/upload',
+    '/app/workspaces/:workspaceId/diagrams/:diagramId',
+    '/app/workspaces/:workspaceId/diagrams',
+    '/app/workspaces/:workspaceId',
   ];
 
   for (const pattern of patterns) {
@@ -82,7 +82,7 @@ export function AppLayout() {
     <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <header className="top-nav">
         <div className="header-left">
-          <NavLink to="/dashboard" className="brand" aria-label="CoArchitect AI home">
+          <NavLink to="/app/dashboard" className="brand" aria-label="CoArchitect AI home">
             <span className="logo-shell">
               <LogoMark className="h-9 w-9" />
             </span>
@@ -118,7 +118,7 @@ export function AppLayout() {
               );
             })}
           </div>
-          <Link to="/docs" className="header-icon-button" aria-label="Documentation" title="Documentation">
+          <Link to="/app/docs" className="header-icon-button" aria-label="Documentation" title="Documentation">
             <DocsIcon className="h-4 w-4" />
           </Link>
           <button type="button" className="header-icon-button" aria-label="Notifications" title="Notifications">
@@ -143,8 +143,8 @@ export function AppLayout() {
         <div className="side-nav-scroll">
           <nav className="side-nav-section">
             <NavSectionLabel collapsed={isSidebarCollapsed}>Workspace</NavSectionLabel>
-            <NavItem to="/dashboard" label="Dashboard" icon={<WorkspaceIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
-            <NavItem to="/workspaces" label="Workspaces" icon={<WorkspaceIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
+            <NavItem to="/app/dashboard" label="Dashboard" icon={<WorkspaceIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
+            <NavItem to="/app/workspaces" label="Workspaces" icon={<WorkspaceIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
           </nav>
 
           <nav className="side-nav-section">
@@ -166,13 +166,13 @@ export function AppLayout() {
 
           <nav className="side-nav-section">
             <NavSectionLabel collapsed={isSidebarCollapsed}>Knowledge</NavSectionLabel>
-            <NavItem to="/docs" label="Knowledge Base" icon={<DocsIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
+            <NavItem to="/app/docs" label="Knowledge Base" icon={<DocsIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
           </nav>
 
           <nav className="side-nav-section">
             <NavSectionLabel collapsed={isSidebarCollapsed}>Settings</NavSectionLabel>
-            <NavItem to="/health" label="Health" icon={<HealthIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
-            <NavItem to="/settings" label="Settings" icon={<SettingsIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
+            <NavItem to="/app/health" label="Health" icon={<HealthIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
+            <NavItem to="/app/settings" label="Settings" icon={<SettingsIcon className="h-4 w-4" />} collapsed={isSidebarCollapsed} />
           </nav>
         </div>
       </aside>
@@ -216,7 +216,7 @@ function WorkspaceTreeNode({
         <button
           type="button"
           className="tree-link"
-          onClick={() => onNavigate(`/workspaces/${workspace.id}/diagrams`)}
+          onClick={() => onNavigate(`/app/workspaces/${workspace.id}/diagrams`)}
           title={workspace.name}
         >
           <WorkspaceIcon className="h-4 w-4 shrink-0" />
@@ -262,7 +262,7 @@ function DiagramTreeNode({
       <button
         type="button"
         className={`tree-link nested ${isActive ? 'active' : ''}`}
-        onClick={() => onNavigate(`/workspaces/${workspaceId}/diagrams/${diagramId}`)}
+        onClick={() => onNavigate(`/app/workspaces/${workspaceId}/diagrams/${diagramId}`)}
         title={diagramName}
       >
         <DiagramIcon className="h-4 w-4 shrink-0" />

@@ -14,7 +14,7 @@ export function DiagramListPage() {
     return <ErrorState title="Invalid workspace" message="Please select a valid workspace." />;
   }
 
-  const uploadRoute = `/workspaces/${workspaceId}/diagrams/upload`;
+  const uploadRoute = `/app/workspaces/${workspaceId}/diagrams/upload`;
 
   const handleDeleteDiagram = async () => {
     if (!diagramToDelete) return;
@@ -43,7 +43,7 @@ export function DiagramListPage() {
   return (
     <div className="page-shell">
       <section className="page-header">
-        <Breadcrumbs items={[{ label: 'Workspaces', to: '/workspaces' }, { label: 'Diagrams' }]} />
+        <Breadcrumbs items={[{ label: 'Workspaces', to: '/app/workspaces' }, { label: 'Diagrams' }]} />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="page-title">Diagrams</h1>

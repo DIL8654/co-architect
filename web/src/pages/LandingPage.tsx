@@ -83,7 +83,7 @@ export function LandingPage() {
     try {
       const workspaceId = selectedWorkspaceId || firstWorkspaceId;
       if (workspaceId) {
-        navigate(`/workspaces/${workspaceId}/diagrams/upload?sample=1`);
+        navigate(`/app/workspaces/${workspaceId}/diagrams/upload?sample=1`);
         return;
       }
 
@@ -94,7 +94,7 @@ export function LandingPage() {
       }
 
       const workspace = await createWorkspaceMutation.mutateAsync(name);
-      navigate(`/workspaces/${workspace.id}/diagrams/upload?sample=1`);
+      navigate(`/app/workspaces/${workspace.id}/diagrams/upload?sample=1`);
     } catch (error) {
       setStartError(error instanceof Error ? error.message : 'Could not start the sample architecture review.');
     }
@@ -122,7 +122,7 @@ export function LandingPage() {
           onSelectWorkspace={setSelectedWorkspaceId}
           onWorkspaceNameChange={setWorkspaceName}
           onStartSample={handleStartSampleReview}
-          onCreateBlank={() => navigate(firstWorkspaceId ? `/workspaces/${firstWorkspaceId}/diagrams/upload` : '/workspaces')}
+          onCreateBlank={() => navigate(firstWorkspaceId ? `/app/workspaces/${firstWorkspaceId}/diagrams/upload` : '/app/workspaces')}
         />
       </div>
     );
@@ -139,7 +139,7 @@ export function LandingPage() {
           <Button variant="secondary" onClick={handleStartSampleReview} isLoading={createWorkspaceMutation.isPending}>
             Use Sample Architecture
           </Button>
-          <Button onClick={() => navigate(firstWorkspaceId ? `/workspaces/${firstWorkspaceId}/diagrams/upload` : '/workspaces')} icon={<PlusIcon className="h-4 w-4" />}>
+          <Button onClick={() => navigate(firstWorkspaceId ? `/app/workspaces/${firstWorkspaceId}/diagrams/upload` : '/app/workspaces')} icon={<PlusIcon className="h-4 w-4" />}>
             New Review
           </Button>
         </div>
@@ -160,7 +160,7 @@ export function LandingPage() {
                   <button
                     type="button"
                     className="block h-40 w-full bg-[#f8f9fb] dark:bg-white/[0.03]"
-                    onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.id}`)}
+                    onClick={() => navigate(`/app/workspaces/${journey.workspaceId}/diagrams/${journey.id}`)}
                   >
                     <img src={journey.fileUrl} alt={journey.name} className="h-full w-full object-contain p-3" />
                   </button>
@@ -177,11 +177,11 @@ export function LandingPage() {
                     <KpiTile label="ADRs" value={journey.adrCount} />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.id}`)}>
+                    <Button size="sm" onClick={() => navigate(`/app/workspaces/${journey.workspaceId}/diagrams/${journey.id}`)}>
                       Open Diagram
                     </Button>
                     {journey.analysisRuns[0]?.id ? (
-                      <Button size="sm" variant="secondary" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.id}/analysis-runs/${journey.analysisRuns[0].id}`)}>
+                      <Button size="sm" variant="secondary" onClick={() => navigate(`/app/workspaces/${journey.workspaceId}/diagrams/${journey.id}/analysis-runs/${journey.analysisRuns[0].id}`)}>
                         Open Analysis
                       </Button>
                     ) : null}
@@ -243,7 +243,7 @@ export function LandingPage() {
                     key={diagram.id}
                     diagram={diagram}
                     freshness={freshness}
-                    onOpen={() => navigate(`/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
+                    onOpen={() => navigate(`/app/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
                   />
                 );
               })}
@@ -280,7 +280,7 @@ export function LandingPage() {
               {highestRiskDiagrams.map((diagram) => (
                 <tr
                   key={`attention-${diagram.id}`}
-                  onClick={() => navigate(`/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
+                  onClick={() => navigate(`/app/workspaces/${diagram.workspaceId}/diagrams/${diagram.id}`)}
                   className="cursor-pointer border-b border-[#eef1f4] transition last:border-0 hover:bg-[#f8f9fb] dark:border-white/10 dark:hover:bg-white/[0.03]"
                 >
                   <td className="px-4 py-3">

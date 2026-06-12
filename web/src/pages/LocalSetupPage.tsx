@@ -20,7 +20,7 @@ export function LocalSetupPage() {
       displayName: displayName.trim(),
       organizationLabel: organizationLabel.trim(),
     });
-    navigate('/', { replace: true });
+    navigate('/app', { replace: true });
   };
 
   return (

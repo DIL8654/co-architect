@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { analysisApi } from '../api/analysis';
@@ -33,41 +33,13 @@ const reviewSetup = {
 
 describe('RunAnalysisButton', () => {
   it('opens confirmation before calling the analysis API', async () => {
-    vi.mocked(analysisApi.runAnalysis).mockResolvedValue({
-      id: 'run-1',
-      diagramId: 'diagram-1',
-      status: 'Completed',
-      executiveSummary: 'Done',
-      openQuestions: [],
-      criticNotes: [],
-      foundryIqContext: {
-        frameworkGuidanceItems: [],
-        principleItems: [],
-        tradeoffItems: [],
-        complianceItems: [],
-        adrTemplateItems: [],
-        workspaceMemoryItems: [],
-        relatedFindingItems: [],
-        relatedAdrHistoryItems: [],
-        citationRefs: [],
-        workspaceMemory: {
-          previousReviewSummaries: [],
-          recurringFindings: [],
-          priorRecommendations: [],
-          recentComments: [],
-          adrHistory: [],
-          architectureEvolutionSummary: '',
-        },
-      },
-      agentTrace: [],
-      evidence: [],
-      missingControls: [],
-      recommendations: [],
-      tradeoffs: [],
-      dimensionMaturitySuggestions: [],
-      reviewSetup,
-      createdAt: '2026-06-12T00:00:00Z',
-    });
+    let resolveAnalysis: ((value: any) => void) | null = null;
+    vi.mocked(analysisApi.runAnalysis).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAnalysis = resolve;
+        }) as any,
+    );
 
     render(
       <MemoryRouter>
@@ -80,10 +52,62 @@ describe('RunAnalysisButton', () => {
     expect(await screen.findByRole('heading', { name: 'Confirm criteria before agents run' })).toBeTruthy();
     expect(analysisApi.runAnalysis).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Analysis' }));
-
-    await waitFor(() => {
-      expect(analysisApi.runAnalysis).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Analysis' }));
+      await Promise.resolve();
+      await Promise.resolve();
     });
-  });
+
+    expect(analysisApi.runAnalysis).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('workflow-step-1').getAttribute('data-status')).toBe('active');
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+    });
+
+    expect(screen.getByTestId('workflow-step-1').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('workflow-step-2').getAttribute('data-status')).toBe('active');
+
+    await act(async () => {
+      resolveAnalysis?.({
+        id: 'run-1',
+        diagramId: 'diagram-1',
+        status: 'Completed',
+        executiveSummary: 'Done',
+        openQuestions: [],
+        criticNotes: [],
+        foundryIqContext: {
+          frameworkGuidanceItems: [],
+          principleItems: [],
+          tradeoffItems: [],
+          complianceItems: [],
+          adrTemplateItems: [],
+          workspaceMemoryItems: [],
+          relatedFindingItems: [],
+          relatedAdrHistoryItems: [],
+          citationRefs: [],
+          workspaceMemory: {
+            previousReviewSummaries: [],
+            recurringFindings: [],
+            priorRecommendations: [],
+            recentComments: [],
+            adrHistory: [],
+            architectureEvolutionSummary: '',
+          },
+        },
+        agentTrace: [],
+        evidence: [],
+        missingControls: [],
+        recommendations: [],
+        tradeoffs: [],
+        dimensionMaturitySuggestions: [],
+        reviewSetup,
+        createdAt: '2026-06-12T00:00:00Z',
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('workflow-step-12').getAttribute('data-status')).toBe('completed');
+  }, 10000);
 });

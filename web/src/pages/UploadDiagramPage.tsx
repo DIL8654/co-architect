@@ -264,7 +264,7 @@ export function UploadDiagramPage() {
         reviewSetup: buildReviewSetup(),
       });
 
-      navigate(`/workspaces/${workspaceId}/diagrams/${diagram.id}`);
+      navigate(`/app/workspaces/${workspaceId}/diagrams/${diagram.id}`);
     } catch {
       setErrors((current) => ({ ...current, submit: 'Failed to save the architecture review setup.' }));
     }
@@ -305,8 +305,8 @@ export function UploadDiagramPage() {
       <section className="page-header">
         <Breadcrumbs
           items={[
-            { label: 'Workspaces', to: '/workspaces' },
-            { label: 'Diagrams', to: `/workspaces/${workspaceId}/diagrams` },
+            { label: 'Workspaces', to: '/app/workspaces' },
+            { label: 'Diagrams', to: `/app/workspaces/${workspaceId}/diagrams` },
             { label: 'Upload' },
           ]}
         />
@@ -583,7 +583,7 @@ export function UploadDiagramPage() {
             <Button
               variant="secondary"
               type="button"
-              onClick={() => navigate(`/workspaces/${workspaceId}/diagrams`)}
+              onClick={() => navigate(`/app/workspaces/${workspaceId}/diagrams`)}
               disabled={uploadMutation.isPending}
             >
               Cancel

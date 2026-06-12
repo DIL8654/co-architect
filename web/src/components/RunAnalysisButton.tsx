@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Modal, SparkIcon } from './index';
+import { Button, ChevronDownIcon, ChevronRightIcon, Modal, SparkIcon } from './index';
 import type { ArchitectureAnalysisResult } from '../api/analysis';
 import type { DiagramReviewSetup, DiagramReviewSetupInput, ReviewFramework, ReviewStandard } from '../api/diagrams';
 import { formatScoreBandLabel } from '../lib/scoreBands';
@@ -10,6 +10,8 @@ interface AnalysisStep {
   label: string;
   summary: string;
 }
+
+type ModalWorkflowStepStatus = 'pending' | 'active' | 'completed' | 'error';
 
 interface RunAnalysisButtonProps {
   workspaceId: string;
@@ -67,16 +69,96 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
     const [analysisResult, setAnalysisResult] = useState<ArchitectureAnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [setup, setSetup] = useState<DiagramReviewSetupInput>(() => toInput(reviewSetup));
+    const [openSections, setOpenSections] = useState({
+      context: true,
+      frameworks: false,
+      weights: false,
+    });
+    const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
+    const [errorStepIndex, setErrorStepIndex] = useState<number | null>(null);
+    const activeStepIndexRef = useRef<number | null>(null);
+    const workflowScrollerRef = useRef<HTMLDivElement | null>(null);
+    const workflowStepRefs = useRef<Array<HTMLDivElement | null>>([]);
 
     const totalWeight = setup.qualityAttributeWeights.reduce((sum, weight) => sum + Number(weight.weight || 0), 0);
-    const groundingReadiness = useMemo(() => buildGroundingReadiness(setup), [setup]);
 
     const openModal = () => {
       setSetup(toInput(reviewSetup));
       setAnalysisResult(null);
       setError(null);
+      setOpenSections({ context: true, frameworks: false, weights: false });
+      setActiveStepIndex(null);
+      setErrorStepIndex(null);
       setIsOpen(true);
     };
+
+    useEffect(() => {
+      activeStepIndexRef.current = activeStepIndex;
+    }, [activeStepIndex]);
+
+    useEffect(() => {
+      if (!isRunning && errorStepIndex === null) {
+        return;
+      }
+
+      const targetIndex = errorStepIndex ?? activeStepIndex;
+      if (targetIndex === null) {
+        return;
+      }
+
+      const container = workflowScrollerRef.current;
+      const step = workflowStepRefs.current[targetIndex];
+      if (!container || !step) {
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const stepRect = step.getBoundingClientRect();
+      const margin = 56;
+
+      const isOutOfViewLeft = stepRect.left < containerRect.left + margin;
+      const isOutOfViewRight = stepRect.right > containerRect.right - margin;
+
+      if (!isOutOfViewLeft && !isOutOfViewRight) {
+        return;
+      }
+
+      const desiredLeft = step.offsetLeft - Math.max(24, container.clientWidth * 0.2);
+      const maxLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+      const nextLeft = Math.min(Math.max(0, desiredLeft), maxLeft);
+
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({
+          left: nextLeft,
+          behavior: 'smooth',
+        });
+        return;
+      }
+
+      container.scrollLeft = nextLeft;
+    }, [activeStepIndex, errorStepIndex, isRunning]);
+
+    useEffect(() => {
+      if (!isRunning) {
+        return undefined;
+      }
+
+      const timer = window.setInterval(() => {
+        setActiveStepIndex((current) => {
+          if (current === null) {
+            return 0;
+          }
+
+          if (current >= ANALYSIS_STEPS.length - 1) {
+            return current;
+          }
+
+          return current + 1;
+        });
+      }, 650);
+
+      return () => window.clearInterval(timer);
+    }, [isRunning]);
 
     const runAnalysis = async () => {
       if (totalWeight !== 100) {
@@ -87,6 +169,8 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
       setIsRunning(true);
       setError(null);
       setAnalysisResult(null);
+      setErrorStepIndex(null);
+      setActiveStepIndex(0);
 
       try {
         const { analysisApi } = await import('../api/analysis');
@@ -94,10 +178,12 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
           reviewSetup: setup,
           persistReviewSetup: true,
         });
+        setActiveStepIndex(ANALYSIS_STEPS.length - 1);
         setAnalysisResult(result);
         onAnalysisComplete?.(result);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to run analysis');
+        setErrorStepIndex(activeStepIndexRef.current ?? 0);
       } finally {
         setIsRunning(false);
       }
@@ -121,119 +207,115 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
           {isRunning ? 'Running Analysis...' : 'Run AI Analysis'}
         </Button>
 
-        <Modal isOpen={isOpen} onClose={handleClose} title="Run Architecture Review" size="xl">
-          <div className="max-h-[78vh] overflow-y-auto pr-1">
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="space-y-5">
-                <section className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Review Setup</p>
-                      <h3 className="mt-1 text-base font-semibold text-secondary-950 dark:text-white">Confirm criteria before agents run</h3>
+        <Modal isOpen={isOpen} onClose={handleClose} title="Run Architecture Review" size="2xl">
+          <div className="max-h-[80vh] overflow-y-auto pr-1">
+            <div className="space-y-3.5">
+              <AnalysisPipeline
+                isRunning={isRunning}
+                isComplete={Boolean(analysisResult)}
+                activeStepIndex={activeStepIndex}
+                errorStepIndex={errorStepIndex}
+                scrollContainerRef={workflowScrollerRef}
+                stepRefs={workflowStepRefs}
+              />
+
+              <section className="rounded-xl border border-[#dde1e6] bg-white p-2.5 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="flex flex-wrap items-start justify-between gap-2.5">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">Review Setup</p>
+                    <h3 className="mt-1 text-sm font-semibold text-secondary-950 dark:text-white">Confirm criteria before agents run</h3>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${totalWeight === 100 ? 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400' : totalWeight > 100 ? 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' : 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300'}`}>
+                    Weights {totalWeight}%
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-2.5">
+                  <AccordionSection
+                    title="Business and Operating Context"
+                    isOpen={openSections.context}
+                    onToggle={() => setOpenSections((current) => ({ ...current, context: !current.context }))}
+                  >
+                    <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+                      <CompactField label="Business domain" value={setup.businessDomain ?? ''} onChange={(value) => setSetup({ ...setup, businessDomain: value })} />
+                      <CompactField label="Data sensitivity" value={setup.dataSensitivity ?? ''} onChange={(value) => setSetup({ ...setup, dataSensitivity: value })} />
+                      <CompactField label="Expected traffic" value={setup.expectedTraffic ?? ''} onChange={(value) => setSetup({ ...setup, expectedTraffic: value })} />
+                      <CompactField label="Compliance needs" value={setup.complianceNeeds ?? ''} onChange={(value) => setSetup({ ...setup, complianceNeeds: value })} />
                     </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${totalWeight === 100 ? 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400' : totalWeight > 100 ? 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' : 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300'}`}>
-                      Weights {totalWeight}%
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <CompactField label="Business domain" value={setup.businessDomain ?? ''} onChange={(value) => setSetup({ ...setup, businessDomain: value })} />
-                    <CompactField label="Data sensitivity" value={setup.dataSensitivity ?? ''} onChange={(value) => setSetup({ ...setup, dataSensitivity: value })} />
-                    <CompactField label="Expected traffic" value={setup.expectedTraffic ?? ''} onChange={(value) => setSetup({ ...setup, expectedTraffic: value })} />
-                    <CompactField label="Compliance needs" value={setup.complianceNeeds ?? ''} onChange={(value) => setSetup({ ...setup, complianceNeeds: value })} />
-                  </div>
-
-                  <div className="mt-4">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Current pain points</label>
-                    <textarea
-                      value={setup.currentPainPoints ?? ''}
-                      onChange={(event) => setSetup({ ...setup, currentPainPoints: event.target.value })}
-                      className="mt-1 min-h-[72px] w-full rounded-lg border border-[#dde1e6] bg-white px-3 py-2 text-sm text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
-                      placeholder="Known risks, constraints, incidents, or concerns"
-                    />
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Frameworks and Standards</p>
-                  <div className="mt-3 grid gap-4 md:grid-cols-2">
-                    <CheckboxGroup
-                      title="Primary review frameworks"
-                      options={FRAMEWORK_OPTIONS}
-                      values={setup.requestedFrameworks}
-                      onChange={(values) => setSetup({ ...setup, frameworkSelectionMode: 'Manual', requestedFrameworks: values as ReviewFramework[] })}
-                    />
-                    <CheckboxGroup
-                      title="Additional standards"
-                      options={STANDARD_OPTIONS}
-                      values={setup.requestedStandards}
-                      onChange={(values) => setSetup({ ...setup, frameworkSelectionMode: 'Manual', requestedStandards: values as ReviewStandard[] })}
-                    />
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Quality Attribute Weights</p>
-                      <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-300">The application scoring engine uses these weights after AI suggests maturity evidence.</p>
+                    <div className="mt-2.5">
+                      <label className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">Current pain points</label>
+                      <textarea
+                        value={setup.currentPainPoints ?? ''}
+                        onChange={(event) => setSetup({ ...setup, currentPainPoints: event.target.value })}
+                        className="mt-1 min-h-[48px] w-full rounded-lg border border-[#dde1e6] bg-white px-3 py-2 text-sm text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
+                        placeholder="Known risks, constraints, incidents, or concerns"
+                      />
                     </div>
-                    <Button variant="secondary" size="sm" onClick={() => setSetup({ ...setup, qualityAttributeWeights: DEFAULT_WEIGHTS })}>
-                      Reset
-                    </Button>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {setup.qualityAttributeWeights.map((weight, index) => (
-                      <label key={weight.key} className="flex items-center justify-between gap-3 rounded-lg border border-[#eef1f4] px-3 py-2 dark:border-white/10">
-                        <span className="text-sm font-medium text-secondary-800 dark:text-secondary-100">{weight.label}</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={weight.weight}
-                          onChange={(event) => {
-                            const next = [...setup.qualityAttributeWeights];
-                            next[index] = { ...weight, weight: Number(event.target.value) };
-                            setSetup({ ...setup, qualityAttributeWeights: next });
-                          }}
-                          className="h-8 w-16 rounded-md border border-[#dde1e6] bg-white px-2 text-right text-sm text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                  {totalWeight > 100 ? <p className="mt-3 text-sm font-semibold text-error-700 dark:text-error-300">Total weight is above 100%. Reduce one or more values before running analysis.</p> : null}
-                  {totalWeight < 100 ? <p className="mt-3 text-sm font-semibold text-warning-700 dark:text-warning-300">Total weight must equal 100% before running analysis.</p> : null}
-                </section>
-              </div>
+                  </AccordionSection>
 
-              <aside className="space-y-5">
-                <section className="rounded-xl border border-[#dde1e6] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Foundry IQ Grounding Readiness</p>
-                  <div className="mt-3 space-y-2">
-                    {groundingReadiness.map((item) => (
-                      <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm dark:bg-white/[0.04]">
-                        <span className="font-medium text-secondary-800 dark:text-secondary-100">{item.label}</span>
-                        <span className={item.count > 0 ? 'font-semibold text-success-700 dark:text-success-400' : 'font-semibold text-warning-700 dark:text-warning-300'}>{item.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-xs leading-5 text-secondary-600 dark:text-secondary-300">
-                    This preview estimates the knowledge sources that will be requested. The completed analysis will show exact retrieved citations.
-                  </p>
-                </section>
+                  <AccordionSection
+                    title="Frameworks and Standards"
+                    isOpen={openSections.frameworks}
+                    onToggle={() => setOpenSections((current) => ({ ...current, frameworks: !current.frameworks }))}
+                  >
+                    <div className="grid gap-2.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                      <CheckboxGroup
+                        title="Primary review frameworks"
+                        options={FRAMEWORK_OPTIONS}
+                        values={setup.requestedFrameworks}
+                        onChange={(values) => setSetup({ ...setup, frameworkSelectionMode: 'Manual', requestedFrameworks: values as ReviewFramework[] })}
+                        compact
+                        horizontal
+                      />
+                      <CheckboxGroup
+                        title="Additional standards"
+                        options={STANDARD_OPTIONS}
+                        values={setup.requestedStandards}
+                        onChange={(values) => setSetup({ ...setup, frameworkSelectionMode: 'Manual', requestedStandards: values as ReviewStandard[] })}
+                        compact
+                        horizontal
+                      />
+                    </div>
+                  </AccordionSection>
 
-                <section className="rounded-xl border border-[#dde1e6] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Agentic Orchestration</p>
-                  <p className="mt-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
-                    CoArchitect uses application-led multi-agent orchestration with one cost-aware Azure Foundry expert call when the AzureFoundry provider is enabled.
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-secondary-600 dark:text-secondary-300">
-                    This may call Azure Foundry when AzureFoundry provider is enabled.
-                  </p>
-                </section>
+                  <AccordionSection
+                    title="Quality Attribute Weights"
+                    isOpen={openSections.weights}
+                    onToggle={() => setOpenSections((current) => ({ ...current, weights: !current.weights }))}
+                    headerAction={
+                      <Button variant="secondary" size="sm" onClick={() => setSetup({ ...setup, qualityAttributeWeights: DEFAULT_WEIGHTS })}>
+                        Reset
+                      </Button>
+                    }
+                  >
+                    <p className="text-[11px] leading-4 text-secondary-600 dark:text-secondary-300">Final score is calculated by the application scoring engine.</p>
+                    <div className="mt-2.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {setup.qualityAttributeWeights.map((weight, index) => (
+                        <label key={weight.key} className="flex min-h-[34px] items-center justify-between gap-3 rounded-lg border border-[#eef1f4] bg-white px-3 py-1.5 dark:border-white/10 dark:bg-[#08101d]">
+                          <span className="text-xs font-medium text-secondary-800 dark:text-secondary-100">{weight.label}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={weight.weight}
+                            onChange={(event) => {
+                              const next = [...setup.qualityAttributeWeights];
+                              next[index] = { ...weight, weight: Number(event.target.value) };
+                              setSetup({ ...setup, qualityAttributeWeights: next });
+                            }}
+                            className="h-7 w-14 rounded-md border border-[#dde1e6] bg-white px-2 text-right text-xs text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </AccordionSection>
+                </div>
 
-                <AnalysisPipeline isRunning={isRunning} isComplete={Boolean(analysisResult)} hasError={Boolean(error)} />
-              </aside>
+                <div className="mt-2.5 min-h-[20px]">
+                  {totalWeight > 100 ? <p className="text-sm font-semibold text-error-700 dark:text-error-300">Total weight is above 100%. Reduce one or more values before running analysis.</p> : null}
+                  {totalWeight < 100 ? <p className="text-sm font-semibold text-warning-700 dark:text-warning-300">Total weight must equal 100% before running analysis.</p> : null}
+                </div>
+              </section>
             </div>
 
             {error ? (
@@ -260,7 +342,7 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
                 <Button
                   variant="primary"
                   onClick={() => {
-                    navigate(`/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs/${analysisResult.id}`);
+                    navigate(`/app/workspaces/${workspaceId}/diagrams/${diagramId}/analysis-runs/${analysisResult.id}`);
                     setIsOpen(false);
                   }}
                 >
@@ -301,25 +383,14 @@ function toInput(setup?: DiagramReviewSetup): DiagramReviewSetupInput {
   };
 }
 
-function buildGroundingReadiness(setup: DiagramReviewSetupInput) {
-  const complianceText = `${setup.complianceNeeds ?? ''} ${setup.dataSensitivity ?? ''}`.toLowerCase();
-  return [
-    { label: 'Frameworks', count: Math.max(setup.requestedFrameworks.length, setup.frameworkSelectionMode === 'AutoDetect' ? 2 : 0) },
-    { label: 'Standards', count: setup.requestedStandards.length },
-    { label: 'Compliance cues', count: complianceText.includes('gdpr') || complianceText.includes('pii') || complianceText.includes('audit') ? 1 : 0 },
-    { label: 'Principle groups', count: setup.qualityAttributeWeights.filter((weight) => weight.weight > 0).slice(0, 4).length },
-    { label: 'Trade-off focus', count: setup.qualityAttributeWeights.filter((weight) => weight.weight >= 10).slice(0, 4).length },
-  ];
-}
-
 function CompactField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label>
-      <span className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{label}</span>
+    <label className="flex min-w-0 flex-col">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 h-9 w-full rounded-lg border border-[#dde1e6] bg-white px-3 text-sm text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
+        className="mt-1 h-8 w-full rounded-lg border border-[#dde1e6] bg-white px-2.5 text-sm text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
       />
     </label>
   );
@@ -330,20 +401,27 @@ function CheckboxGroup<T extends string>({
   options,
   values,
   onChange,
+  compact = false,
+  horizontal = false,
 }: {
   title: string;
   options: Array<{ value: T; label: string }>;
   values: T[];
   onChange: (values: T[]) => void;
+  compact?: boolean;
+  horizontal?: boolean;
 }) {
   return (
-    <div>
-      <p className="text-sm font-semibold text-secondary-950 dark:text-white">{title}</p>
-      <div className="mt-2 space-y-2">
+    <div className="min-w-0">
+      <p className={`${compact ? 'text-xs' : 'text-sm'} font-semibold text-secondary-950 dark:text-white`}>{title}</p>
+      <div className={`mt-2 ${horizontal ? 'flex flex-wrap gap-1.5' : compact ? 'space-y-1.5' : 'space-y-2'}`}>
         {options.map((option) => {
           const checked = values.includes(option.value);
           return (
-            <label key={option.value} className="flex items-center gap-2 rounded-lg border border-[#eef1f4] px-3 py-2 text-sm dark:border-white/10">
+            <label
+              key={option.value}
+              className={`flex min-h-[32px] items-center gap-2 rounded-lg border border-[#eef1f4] dark:border-white/10 ${compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} ${horizontal ? 'shrink-0 bg-white dark:bg-[#08101d]' : ''}`}
+            >
               <input
                 type="checkbox"
                 checked={checked}
@@ -358,34 +436,170 @@ function CheckboxGroup<T extends string>({
   );
 }
 
-function AnalysisPipeline({ isRunning, isComplete, hasError }: { isRunning: boolean; isComplete: boolean; hasError: boolean }) {
+function AnalysisPipeline({
+  isRunning,
+  isComplete,
+  activeStepIndex,
+  errorStepIndex,
+  scrollContainerRef,
+  stepRefs,
+}: {
+  isRunning: boolean;
+  isComplete: boolean;
+  activeStepIndex: number | null;
+  errorStepIndex: number | null;
+  scrollContainerRef: React.MutableRefObject<HTMLDivElement | null>;
+  stepRefs: React.MutableRefObject<Array<HTMLDivElement | null>>;
+}) {
   return (
-    <section className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Workflow Preview</p>
-      <div className="mt-4 space-y-0">
+    <section className="rounded-xl border border-[#dde1e6] bg-white p-3.5 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">Workflow Preview</p>
+          <p className="mt-1 text-[11px] leading-4 text-secondary-600 dark:text-secondary-300">
+            Application-led orchestration with one cost-aware Azure Foundry expert call when the AzureFoundry provider is enabled.
+          </p>
+        </div>
+        <p className="text-[11px] text-secondary-500 dark:text-secondary-400">Animated preview of the review pipeline</p>
+      </div>
+      <div ref={scrollContainerRef} className="mt-3 overflow-x-auto pb-1">
+        <div className="flex min-w-[1080px] items-start gap-0">
         {ANALYSIS_STEPS.map((step, index) => {
-          const status = hasError ? 'error' : isComplete ? 'done' : isRunning ? 'running' : 'pending';
+          const status = getModalWorkflowStepStatus({
+            index,
+            isComplete,
+            activeStepIndex,
+            errorStepIndex,
+          });
           return (
-            <div key={step.id} className="relative flex gap-3 pb-4 last:pb-0">
-              <div className="relative flex w-6 shrink-0 justify-center">
-                {index < ANALYSIS_STEPS.length - 1 ? <span className="absolute top-5 h-[calc(100%-8px)] w-px bg-[#d7dce2] dark:bg-white/10" /> : null}
-                <span className={`relative z-10 mt-1 h-3.5 w-3.5 rounded-full border-2 ${getNodeClass(status)}`} />
+            <div
+              key={step.id}
+              ref={(node) => {
+                stepRefs.current[index] = node;
+              }}
+              data-testid={`workflow-step-${step.id}`}
+              data-status={status}
+              className={`workflow-step-active relative flex min-w-[132px] flex-1 flex-col items-center text-center ${status === 'active' ? 'workflow-step-active' : ''}`}
+            >
+              <div className="relative flex w-full items-center justify-center">
+                {index < ANALYSIS_STEPS.length - 1 ? (
+                  <span className={`absolute left-[calc(50%+14px)] right-[-50%] top-[6px] h-px ${getWorkflowConnectorClass(status)}`} />
+                ) : null}
+                <span className={`relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 ${getNodeClass(status)}`}>
+                  {status === 'active' ? <span className="workflow-node-pulse" /> : null}
+                </span>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-secondary-950 dark:text-white">{step.label}</p>
-                <p className="mt-1 text-xs leading-5 text-secondary-600 dark:text-secondary-300">{step.summary}</p>
+              <div className="mt-2 min-w-0 px-2">
+                <p className={`text-xs font-semibold leading-5 ${status === 'active' ? 'text-primary-700 dark:text-cyan-200' : 'text-secondary-950 dark:text-white'}`}>
+                  {getWorkflowStepLabel(step.label)}
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-secondary-600 dark:text-secondary-300">{step.summary}</p>
               </div>
             </div>
           );
         })}
+        </div>
       </div>
     </section>
   );
 }
 
-function getNodeClass(status: 'pending' | 'running' | 'done' | 'error') {
-  if (status === 'done') return 'border-success-500 bg-success-500';
-  if (status === 'running') return 'border-primary-500 bg-primary-100 dark:bg-cyan-400/20';
-  if (status === 'error') return 'border-error-500 bg-error-500';
+function AccordionSection({
+  title,
+  isOpen,
+  onToggle,
+  headerAction,
+  children,
+}: {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  headerAction?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#eef1f4] bg-[#fafafa] dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          aria-expanded={isOpen}
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#dde1e6] bg-white text-secondary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-secondary-300">
+            {isOpen ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">{title}</span>
+        </button>
+        {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
+      </div>
+      {isOpen ? <div className="border-t border-[#eef1f4] px-2.5 py-2.5 dark:border-white/10">{children}</div> : null}
+    </section>
+  );
+}
+
+function getWorkflowStepLabel(label: string) {
+  return label
+    .replace(' Agent', '')
+    .replace('Framework Specialists', 'Specialists')
+    .replace('Recommendation Composer', 'Composer')
+    .replace('Trade-off Balancing', 'Trade-offs')
+    .replace('Context Enrichment', 'Enrichment');
+}
+
+function getModalWorkflowStepStatus({
+  index,
+  isComplete,
+  activeStepIndex,
+  errorStepIndex,
+}: {
+  index: number;
+  isComplete: boolean;
+  activeStepIndex: number | null;
+  errorStepIndex: number | null;
+}): ModalWorkflowStepStatus {
+  if (errorStepIndex === index) {
+    return 'error';
+  }
+
+  if (isComplete) {
+    return 'completed';
+  }
+
+  if (activeStepIndex === null) {
+    return 'pending';
+  }
+
+  if (index < activeStepIndex) {
+    return 'completed';
+  }
+
+  if (index === activeStepIndex) {
+    return 'active';
+  }
+
+  return 'pending';
+}
+
+function getNodeClass(status: ModalWorkflowStepStatus) {
+  if (status === 'completed') return 'border-success-500 bg-success-500 shadow-[0_0_0_4px_rgba(34,197,94,0.12)]';
+  if (status === 'active') return 'border-primary-500 bg-primary-100 dark:border-cyan-300 dark:bg-cyan-400/20 shadow-[0_0_0_5px_rgba(59,130,246,0.12)] dark:shadow-[0_0_0_5px_rgba(34,211,238,0.12)]';
+  if (status === 'error') return 'border-error-500 bg-error-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]';
   return 'border-secondary-300 bg-white dark:border-white/20 dark:bg-[#08101d]';
+}
+
+function getWorkflowConnectorClass(status: ModalWorkflowStepStatus) {
+  if (status === 'completed') {
+    return 'bg-success-300 dark:bg-success-500/60';
+  }
+
+  if (status === 'active') {
+    return 'bg-primary-300 dark:bg-cyan-400/50';
+  }
+
+  if (status === 'error') {
+    return 'bg-error-300 dark:bg-error-500/60';
+  }
+
+  return 'bg-[#d7dce2] dark:bg-white/10';
 }

@@ -83,8 +83,8 @@ export function AnalysisResultPage() {
       <section className="page-header">
         <Breadcrumbs
           items={[
-            { label: 'Workspaces', to: '/workspaces' },
-            { label: 'Diagram', to: `/workspaces/${workspaceId}/diagrams/${diagramId}` },
+            { label: 'Workspaces', to: '/app/workspaces' },
+            { label: 'Diagram', to: `/app/workspaces/${workspaceId}/diagrams/${diagramId}` },
             { label: 'Analysis Result' },
           ]}
         />
@@ -96,7 +96,7 @@ export function AnalysisResultPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => navigate(`/workspaces/${workspaceId}/diagrams/${diagramId}`)}>
+            <Button variant="secondary" onClick={() => navigate(`/app/workspaces/${workspaceId}/diagrams/${diagramId}`)}>
               Back to Diagram
             </Button>
           </div>
@@ -173,7 +173,7 @@ export function AnalysisResultPage() {
                   <button
                     key={adr.id}
                     type="button"
-                    onClick={() => navigate(`/workspaces/${workspaceId}/diagrams/${diagramId}?tab=adr&adrId=${adr.id}`)}
+                    onClick={() => navigate(`/app/workspaces/${workspaceId}/diagrams/${diagramId}?tab=adrs&adrId=${adr.id}`)}
                     className="block w-full rounded-lg border border-[#e5e7eb] bg-[#fafafa] px-3 py-2 text-left text-sm font-medium text-secondary-950 hover:bg-[#f4f6f8] dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:bg-white/[0.06]"
                   >
                     {adr.title}

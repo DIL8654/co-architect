@@ -65,7 +65,7 @@ export function DashboardPage() {
             {data!.demoJourneys.map((journey) => (
               <article key={journey.diagramId} className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
                 {journey.thumbnailUrl ? (
-                  <button type="button" className="block h-40 w-full bg-[#f8f9fb] dark:bg-white/[0.03]" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}`)}>
+                  <button type="button" className="block h-40 w-full bg-[#f8f9fb] dark:bg-white/[0.03]" onClick={() => navigate(`/app/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}`)}>
                     <img src={journey.thumbnailUrl} alt={journey.diagramName} className="h-full w-full object-contain p-3" />
                   </button>
                 ) : null}
@@ -81,11 +81,11 @@ export function DashboardPage() {
                     <Metric label="ADRs" value={journey.adrCount} />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}`)}>
+                    <Button size="sm" onClick={() => navigate(`/app/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}`)}>
                       Open Diagram
                     </Button>
                     {journey.latestRunId ? (
-                      <Button size="sm" variant="secondary" onClick={() => navigate(`/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}/analysis-runs/${journey.latestRunId}`)}>
+                      <Button size="sm" variant="secondary" onClick={() => navigate(`/app/workspaces/${journey.workspaceId}/diagrams/${journey.diagramId}/analysis-runs/${journey.latestRunId}`)}>
                         Open Analysis
                       </Button>
                     ) : null}
@@ -125,7 +125,7 @@ export function DashboardPage() {
                   <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{workspace.scoredDiagramCount}</td>
                   <td className="px-4 py-4 text-sm text-secondary-600 dark:text-secondary-300">{workspace.needsReviewCount}</td>
                   <td className="px-4 py-4 text-right">
-                    <Button size="sm" variant="secondary" onClick={() => navigate(`/workspaces/${workspace.id}/diagrams`)}>
+                    <Button size="sm" variant="secondary" onClick={() => navigate(`/app/workspaces/${workspace.id}/diagrams`)}>
                       Open
                     </Button>
                   </td>
@@ -143,13 +143,13 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="space-y-2">
-            <Button className="w-full" onClick={() => navigate('/workspaces')}>
+            <Button className="w-full" onClick={() => navigate('/app/workspaces')}>
               Manage Workspaces
             </Button>
-            <Button className="w-full" variant="secondary" onClick={() => navigate('/')}>
+            <Button className="w-full" variant="secondary" onClick={() => navigate('/app/dashboard')}>
               Open Architecture Intelligence
             </Button>
-            <Button className="w-full" variant="secondary" onClick={() => navigate('/health')}>
+            <Button className="w-full" variant="secondary" onClick={() => navigate('/app/health')}>
               Check Platform Health
             </Button>
           </div>

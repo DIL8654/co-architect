@@ -10,6 +10,11 @@ Microsoft Agents League — Reasoning Agents
 
 The current MVP is a workspace-centric architecture reasoning platform. Users create a workspace, add a diagram or architecture description, run analysis, inspect agent reasoning traces, review the Architecture Intelligence Score, study findings and trade-offs, and generate ADRs.
 
+The app now has a simple public front door and a separate in-app product surface:
+
+- public site: `http://localhost:5173/`
+- product app: `http://localhost:5173/app`
+
 ## Key Features
 
 - workspace-centric architecture review flow
@@ -54,6 +59,8 @@ npm run dev
 
 Default URLs:
 
+- Public site: `http://localhost:5173/`
+- Product app: `http://localhost:5173/app`
 - API: `http://localhost:5010`
 - Swagger: `http://localhost:5010/swagger`
 - Frontend: `http://localhost:5173`
@@ -82,7 +89,28 @@ DemoData__Enabled=false
 
 ## Demo Flow
 
-1. open the app
+1. open the public site
+2. click `Try Now`
+3. choose a Demo Architecture Journey from the in-app dashboard
+4. inspect the real diagram image or architecture description
+5. open the latest analysis result
+6. inspect score, findings, trade-offs, agent workflow, and Foundry IQ grounding
+7. open ADRs and version history
+8. optionally create a new workspace and run a fresh mock or Azure-backed analysis
+
+Legacy product URLs redirect automatically into `/app/...`, so older bookmarks still work during local testing.
+
+## Public Site
+
+The public site is intentionally minimal and static. It includes:
+
+- `Home` for the product overview and workflow story
+- `Product` for workbench, agent workflow, ADR, and Foundry IQ preview sections
+- `Try Now` as the entry point into the live application
+
+## Demo Flow In App
+
+1. open the app at `/app`
 2. choose a Demo Architecture Journey from the dashboard
 3. inspect the real diagram image or architecture description
 4. open the latest analysis result

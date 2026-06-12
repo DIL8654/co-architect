@@ -1,0 +1,26 @@
+# Secrets and local runtime files
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+*.pid
+*.pid.lock
+*.seed
+*.out
+*.err
+
+# Build outputs and caches
+**/bin/
+**/obj/
+**/publish/
+**/TestResults/
+**/coverage/
+web/dist/
+web/node_modules/
+web/.vite/
+
+# Local tool state
+.vs/
+.idea/
+.vscode/
+.azure/

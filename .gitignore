@@ -1,16 +1,33 @@
 .DS_Store
 *.log
+*.pid
+*.pid.lock
+*.seed
+*.out
+*.err
+*.publishsettings
+*.pubxml
+*.pubxml.user
 
 # Local runtime configuration and secrets
-backend/.env
-web/.env
-web/.env.local
+**/.env
+**/.env.*
+!**/.env.example
 
 # Build outputs
 backend/src/**/bin/
 backend/src/**/obj/
 backend/tests/**/bin/
 backend/tests/**/obj/
+backend/publish/
+backend/*.zip
 web/dist/
 web/node_modules/
 web/.vite/
+
+# Local Azure/GitHub runtime artifacts
+.azure/
+
+# Requested local documentation ignores
+docs/implementation/ENVIRONMENT_VARIABLES.md
+DEPLOYMENT.md

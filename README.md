@@ -122,6 +122,8 @@ The public site is intentionally minimal and static. It includes:
 
 Start with [docs/README.md](docs/README.md).
 
+Deployment guide: [DEPLOYMENT.md](DEPLOYMENT.md)
+
 Demo-specific docs:
 
 - [Demo Data Plan](docs/demo/DEMO_DATA_PLAN.md)

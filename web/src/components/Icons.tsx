@@ -16,15 +16,40 @@ const base = {
 export function LogoMark({ className = '', ...props }: IconProps) {
   return (
     <svg viewBox="0 0 128 128" className={className} fill="none" {...props}>
-      <rect width="128" height="128" rx="30" fill="#080F1F" />
-      <path d="M28 70.5C28 48.6848 45.6848 31 67.5 31H92V55.5C92 77.3152 74.3152 95 52.5 95H28V70.5Z" fill="url(#logoGradient)" />
-      <path d="M40 70.3C40 55.5 52 43.5 66.8 43.5H80V56.7C80 71.5 68 83.5 53.2 83.5H40V70.3Z" fill="#F8FAFC" />
-      <path d="M64 28L72.7887 51.2113L96 60L72.7887 68.7887L64 92L55.2113 68.7887L32 60L55.2113 51.2113L64 28Z" fill="#37D3FF" fillOpacity="0.86" />
-      <circle cx="64" cy="60" r="9" fill="#7C3AED" />
+      <path
+        d="M93 34 64 20 26 42v44l38 22 29-17"
+        stroke="url(#logoGradientOuter)"
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M84 45 64 34 38 49v30l26 15 20-11"
+        stroke="url(#logoGradientInner)"
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M77 55 64 48 49 57v14l15 9 13-7"
+        stroke="url(#logoGradientCore)"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <defs>
-        <linearGradient id="logoGradient" x1="28" y1="95" x2="94.5" y2="28.5" gradientUnits="userSpaceOnUse">
+        <linearGradient id="logoGradientOuter" x1="26" y1="82" x2="94" y2="24" gradientUnits="userSpaceOnUse">
           <stop stopColor="#2563EB" />
-          <stop offset="0.5" stopColor="#22D3EE" />
+          <stop offset="0.55" stopColor="#4F46E5" />
+          <stop offset="1" stopColor="#8B5CF6" />
+        </linearGradient>
+        <linearGradient id="logoGradientInner" x1="38" y1="77" x2="84" y2="37" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#1D4ED8" />
+          <stop offset="0.6" stopColor="#4338CA" />
+          <stop offset="1" stopColor="#7C3AED" />
+        </linearGradient>
+        <linearGradient id="logoGradientCore" x1="49" y1="73" x2="77" y2="50" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#2563EB" />
           <stop offset="1" stopColor="#8B5CF6" />
         </linearGradient>
       </defs>

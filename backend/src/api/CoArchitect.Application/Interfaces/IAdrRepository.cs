@@ -6,6 +6,7 @@ public interface IAdrRepository
 {
     Task<Adr?> GetByIdAsync(Guid adrId, CancellationToken cancellationToken);
     Task<IEnumerable<Adr>> GetByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken);
+    Task<IDictionary<Guid, int>> GetCountsByDiagramIdsAsync(IEnumerable<Guid> diagramIds, CancellationToken cancellationToken);
     Task<AdrVersion?> GetLatestVersionAsync(Guid adrId, CancellationToken cancellationToken);
     Task<IEnumerable<AdrVersion>> GetVersionsAsync(Guid adrId, CancellationToken cancellationToken);
     Task<Adr> AddAsync(Adr adr, CancellationToken cancellationToken);

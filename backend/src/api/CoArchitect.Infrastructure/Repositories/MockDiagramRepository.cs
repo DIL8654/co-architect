@@ -30,6 +30,34 @@ public sealed class MockDiagramRepository : IDiagramRepository
         }
     }
 
+    public Task<IEnumerable<ArchitectureDiagram>> GetByWorkspaceIdsAsync(IEnumerable<Guid> workspaceIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var workspaceIdSet = workspaceIds.ToHashSet();
+
+        lock (_lock)
+        {
+            var diagrams = _diagrams.Values.Where(d => workspaceIdSet.Contains(d.WorkspaceId)).ToList();
+            return Task.FromResult(diagrams.AsEnumerable());
+        }
+    }
+
+    public Task<IDictionary<Guid, int>> GetDiagramCountsByWorkspaceIdsAsync(IEnumerable<Guid> workspaceIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var workspaceIdSet = workspaceIds.ToHashSet();
+
+        lock (_lock)
+        {
+            IDictionary<Guid, int> counts = _diagrams.Values
+                .Where(d => workspaceIdSet.Contains(d.WorkspaceId))
+                .GroupBy(d => d.WorkspaceId)
+                .ToDictionary(group => group.Key, group => group.Count());
+
+            return Task.FromResult(counts);
+        }
+    }
+
     public Task<IEnumerable<ArchitectureDiagram>> GetAllAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

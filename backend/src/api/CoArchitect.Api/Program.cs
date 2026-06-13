@@ -9,6 +9,7 @@ using CoArchitect.Infrastructure.Seeding;
 using CoArchitect.Infrastructure.Storage;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 
@@ -99,6 +100,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -156,6 +158,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddScoped<ICurrentUserService, LocalCurrentUserService>();
 builder.Services.AddScoped<IArchitectureIntelligenceScoreService, ArchitectureIntelligenceScoreService>();
 builder.Services.AddScoped<IFrameworkSelectionService, FrameworkSelectionService>();
+builder.Services.AddSingleton<PerformanceCacheService>();
+builder.Services.AddScoped<PerformanceReadModelService>();
 builder.Services.AddSingleton<KnowledgeBaseCatalogLoader>();
 builder.Services.AddScoped<FileSystemFoundryIqProvider>();
 builder.Services.AddHttpClient<AzureFoundryInvocationService>();
@@ -223,6 +227,25 @@ else
 builder.Services.AddScoped<IArchitectureAnalyzer, MockArchitectureAgentService>();
 
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    var stopwatch = Stopwatch.StartNew();
+    await next();
+    stopwatch.Stop();
+
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        var loggerFactory = context.RequestServices.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("CoArchitect.Api.RequestTiming");
+        logger.LogInformation(
+            "{Method} {Path} responded {StatusCode} in {ElapsedMs} ms",
+            context.Request.Method,
+            context.Request.Path,
+            context.Response.StatusCode,
+            stopwatch.ElapsedMilliseconds);
+    }
+});
 
 if (configuration.GetValue("DemoData:Enabled", true))
 {

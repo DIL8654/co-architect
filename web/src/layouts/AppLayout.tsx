@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom';
 import {
   BellIcon,
@@ -19,6 +20,7 @@ import { useDiagrams } from '../hooks/useDiagrams';
 import { useLocalIdentity } from '../hooks/useLocalIdentity';
 import { useTheme, type ThemeMode } from '../hooks/useTheme';
 import { useWorkspaces } from '../hooks/useWorkspaces';
+import { diagramApi } from '../api/diagrams';
 import type { Workspace } from '../api/workspaces';
 import { sortWorkspacesForDisplay } from '../lib/demoJourneys';
 import { useSidebarTreeStore } from '../stores/useSidebarTreeStore';
@@ -52,6 +54,7 @@ function getRouteContext(pathname: string): RouteContext {
 
 export function AppLayout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { displayName } = useLocalIdentity();
@@ -71,6 +74,22 @@ export function AppLayout() {
   useEffect(() => {
     localStorage.setItem('coarchitect.sidebarCollapsed', String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    const demoWorkspaceIds = orderedWorkspaces
+      .filter((workspace) => workspace.name.startsWith('[Demo] '))
+      .slice(0, 3)
+      .map((workspace) => workspace.id);
+    const workspaceIdsToWarm = new Set([...expandedWorkspaceIds, ...demoWorkspaceIds]);
+
+    workspaceIdsToWarm.forEach((workspaceId) => {
+      void queryClient.prefetchQuery({
+        queryKey: ['diagrams', workspaceId],
+        queryFn: () => diagramApi.listDiagrams(workspaceId),
+        staleTime: 5 * 60 * 1000,
+      });
+    });
+  }, [expandedWorkspaceIds, orderedWorkspaces, queryClient]);
 
   const themeItems: Array<{ value: ThemeMode; label: string; icon: typeof SunIcon }> = [
     { value: 'dark', label: 'Dark mode', icon: MoonIcon },

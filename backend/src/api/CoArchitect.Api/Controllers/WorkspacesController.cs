@@ -16,6 +16,8 @@ public class WorkspacesController : ControllerBase
     private readonly IAgentAnalysisRunRepository _analysisRunRepository;
     private readonly IAdrRepository _adrRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly PerformanceReadModelService _performanceReadModelService;
+    private readonly PerformanceCacheService _performanceCacheService;
     private readonly ILogger<WorkspacesController> _logger;
 
     public WorkspacesController(
@@ -25,6 +27,8 @@ public class WorkspacesController : ControllerBase
         IAgentAnalysisRunRepository analysisRunRepository,
         IAdrRepository adrRepository,
         ICurrentUserService currentUserService,
+        PerformanceReadModelService performanceReadModelService,
+        PerformanceCacheService performanceCacheService,
         ILogger<WorkspacesController> logger)
     {
         _workspaceRepository = workspaceRepository;
@@ -33,6 +37,8 @@ public class WorkspacesController : ControllerBase
         _analysisRunRepository = analysisRunRepository;
         _adrRepository = adrRepository;
         _currentUserService = currentUserService;
+        _performanceReadModelService = performanceReadModelService;
+        _performanceCacheService = performanceCacheService;
         _logger = logger;
     }
 
@@ -60,15 +66,17 @@ public class WorkspacesController : ControllerBase
 
         await _workspaceRepository.AddAsync(workspace, cancellationToken);
         await _workspaceRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateTenant(currentUser.TenantId);
 
-        var response = new WorkspaceResponse
-        {
-            Id = workspace.Id,
-            Name = workspace.Name,
-            CreatedAt = workspace.CreatedAt,
-            UpdatedAt = workspace.UpdatedAt,
-            DiagramCount = workspace.Diagrams.Count,
-        };
+        var response = await _performanceReadModelService.GetWorkspaceResponseAsync(currentUser.TenantId, workspace.Id, cancellationToken)
+            ?? new WorkspaceResponse
+            {
+                Id = workspace.Id,
+                Name = workspace.Name,
+                CreatedAt = workspace.CreatedAt,
+                UpdatedAt = workspace.UpdatedAt,
+                DiagramCount = 0,
+            };
 
         return CreatedAtAction(nameof(GetWorkspace), new { workspaceId = workspace.Id }, response);
     }
@@ -78,27 +86,7 @@ public class WorkspacesController : ControllerBase
         CancellationToken cancellationToken)
     {
         var currentUser = _currentUserService.GetCurrentUser();
-        var workspaces = (await _workspaceRepository.GetByTenantIdAsync(currentUser.TenantId, cancellationToken)).ToList();
-        var workspaceIds = workspaces.Select(item => item.Id).ToHashSet();
-        var diagramCounts = (await _diagramRepository.GetAllAsync(cancellationToken))
-            .Where(item => workspaceIds.Contains(item.WorkspaceId))
-            .GroupBy(item => item.WorkspaceId)
-            .ToDictionary(group => group.Key, group => group.Count());
-
-        var responses = new List<WorkspaceResponse>();
-        foreach (var workspace in workspaces)
-        {
-            responses.Add(new WorkspaceResponse
-            {
-                Id = workspace.Id,
-                Name = workspace.Name,
-                CreatedAt = workspace.CreatedAt,
-                UpdatedAt = workspace.UpdatedAt,
-                DiagramCount = diagramCounts.TryGetValue(workspace.Id, out var count) ? count : 0,
-            });
-        }
-
-        return Ok(responses);
+        return Ok(await _performanceReadModelService.GetWorkspaceResponsesAsync(currentUser.TenantId, cancellationToken));
     }
 
     [HttpGet("{workspaceId}")]
@@ -107,20 +95,9 @@ public class WorkspacesController : ControllerBase
         CancellationToken cancellationToken)
     {
         var currentUser = _currentUserService.GetCurrentUser();
-        var workspace = await _workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
-        if (workspace is null || workspace.TenantId != currentUser.TenantId)
+        var response = await _performanceReadModelService.GetWorkspaceResponseAsync(currentUser.TenantId, workspaceId, cancellationToken);
+        if (response is null)
             return this.NotFoundProblem("Workspace not found.");
-
-        var diagramCount = (await _diagramRepository.GetByWorkspaceIdAsync(workspace.Id, cancellationToken)).Count();
-
-        var response = new WorkspaceResponse
-        {
-            Id = workspace.Id,
-            Name = workspace.Name,
-            CreatedAt = workspace.CreatedAt,
-            UpdatedAt = workspace.UpdatedAt,
-            DiagramCount = diagramCount,
-        };
 
         return Ok(response);
     }
@@ -150,6 +127,7 @@ public class WorkspacesController : ControllerBase
         await _analysisRunRepository.SaveChangesAsync(cancellationToken);
         await _adrRepository.SaveChangesAsync(cancellationToken);
         await _workspaceRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateWorkspace(currentUser.TenantId, workspaceId);
 
         return NoContent();
     }

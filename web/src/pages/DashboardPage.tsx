@@ -17,10 +17,6 @@ export function DashboardPage() {
     [data]
   );
 
-  if (isLoading) {
-    return <LoadingState message="Loading dashboard..." />;
-  }
-
   const busyWorkspaces = data?.workspaceSummaries.filter((workspace) => workspace.diagramCount > 0).length ?? 0;
 
   return (
@@ -36,15 +32,43 @@ export function DashboardPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-[#08101d]">
-            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{metric.label}</p>
-            <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{metric.value}</p>
-          </div>
-        ))}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-[#08101d]">
+                <div className="h-3 w-20 rounded bg-[#eef1f4] dark:bg-white/[0.08]" />
+                <div className="mt-3 h-8 w-16 rounded bg-[#eef1f4] dark:bg-white/[0.08]" />
+              </div>
+            ))
+          : metrics.map((metric) => (
+              <div key={metric.label} className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-[#08101d]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{metric.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-secondary-950 dark:text-white">{metric.value}</p>
+              </div>
+            ))}
       </section>
 
-      {(data?.demoJourneys.length ?? 0) > 0 ? (
+      {isLoading ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-secondary-950 dark:text-white">Demo Architecture Journeys</h2>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <article key={index} className="overflow-hidden rounded-xl border border-[#dde1e6] bg-white dark:border-white/10 dark:bg-[#08101d]">
+                <div className="h-40 w-full bg-[#eef1f4] dark:bg-white/[0.04]" />
+                <div className="space-y-4 p-4">
+                  <div className="h-3 w-28 rounded bg-[#eef1f4] dark:bg-white/[0.08]" />
+                  <div className="h-5 w-2/3 rounded bg-[#eef1f4] dark:bg-white/[0.08]" />
+                  <div className="space-y-2">
+                    <div className="h-3 rounded bg-[#eef1f4] dark:bg-white/[0.08]" />
+                    <div className="h-3 rounded bg-[#eef1f4] dark:bg-white/[0.08]" />
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : (data?.demoJourneys.length ?? 0) > 0 ? (
         <section className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-secondary-950 dark:text-white">Demo Architecture Journeys</h2>

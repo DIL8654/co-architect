@@ -33,6 +33,24 @@ public sealed class MockAgentAnalysisRunRepository : IAgentAnalysisRunRepository
         }
     }
 
+    public Task<IDictionary<Guid, AgentAnalysisRun>> GetLatestByDiagramIdsAsync(IEnumerable<Guid> diagramIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var diagramIdSet = diagramIds.ToHashSet();
+
+        lock (_lock)
+        {
+            IDictionary<Guid, AgentAnalysisRun> runs = _runs.Values
+                .Where(r => diagramIdSet.Contains(r.ArchitectureDiagramId))
+                .GroupBy(r => r.ArchitectureDiagramId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.OrderByDescending(run => run.RequestedAt).First());
+
+            return Task.FromResult(runs);
+        }
+    }
+
     public Task<IEnumerable<AgentAnalysisRun>> GetByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -13,6 +13,9 @@ export function useDiagramComments(workspaceId: string, diagramId: string) {
     queryKey: ['diagram-comments', workspaceId, diagramId],
     queryFn: () => commentsApi.getDiagramComments(workspaceId, diagramId),
     enabled: !!workspaceId && !!diagramId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

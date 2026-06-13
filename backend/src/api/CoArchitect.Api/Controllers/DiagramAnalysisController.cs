@@ -19,6 +19,7 @@ public class DiagramAnalysisController : ControllerBase
     private readonly IWorkspaceRepository _workspaceRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IFrameworkSelectionService _frameworkSelectionService;
+    private readonly PerformanceCacheService _performanceCacheService;
     private readonly ILogger<DiagramAnalysisController> _logger;
 
     public DiagramAnalysisController(
@@ -29,6 +30,7 @@ public class DiagramAnalysisController : ControllerBase
         IWorkspaceRepository workspaceRepository,
         ICurrentUserService currentUserService,
         IFrameworkSelectionService frameworkSelectionService,
+        PerformanceCacheService performanceCacheService,
         ILogger<DiagramAnalysisController> logger)
     {
         _analysisRepository = analysisRepository;
@@ -38,6 +40,7 @@ public class DiagramAnalysisController : ControllerBase
         _workspaceRepository = workspaceRepository;
         _currentUserService = currentUserService;
         _frameworkSelectionService = frameworkSelectionService;
+        _performanceCacheService = performanceCacheService;
         _logger = logger;
     }
 
@@ -189,6 +192,7 @@ public class DiagramAnalysisController : ControllerBase
 
         await _analysisRepository.AddAsync(analysisRun, cancellationToken);
         await _analysisRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(workspace.TenantId, workspace.Id, diagramId);
 
         var response = await MapToResponseAsync(analysisRun, diagram, agentResult, cancellationToken);
         return Ok(response);

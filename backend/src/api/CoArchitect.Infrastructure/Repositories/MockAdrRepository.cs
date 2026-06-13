@@ -28,6 +28,22 @@ public sealed class MockAdrRepository : IAdrRepository
         }
     }
 
+    public Task<IDictionary<Guid, int>> GetCountsByDiagramIdsAsync(IEnumerable<Guid> diagramIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var diagramIdSet = diagramIds.ToHashSet();
+
+        lock (_lock)
+        {
+            IDictionary<Guid, int> counts = _adrs.Values
+                .Where(item => diagramIdSet.Contains(item.ArchitectureDiagramId))
+                .GroupBy(item => item.ArchitectureDiagramId)
+                .ToDictionary(group => group.Key, group => group.Count());
+
+            return Task.FromResult(counts);
+        }
+    }
+
     public Task<AdrVersion?> GetLatestVersionAsync(Guid adrId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

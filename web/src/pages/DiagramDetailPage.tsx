@@ -63,20 +63,32 @@ export function DiagramDetailPage() {
   const requestedRunId = searchParams.get('runId');
   const requestedAdrId = searchParams.get('adrId');
   const [activeAdrTab, setActiveAdrTab] = useSearchParamsState<AdrTab>(searchParams, setSearchParams, 'adrView', 'preview');
+  const shouldLoadAnalysisRuns = activeTab === 'analysis-runs' || activeTab === 'agent-workflow' || Boolean(requestedRunId);
+  const shouldLoadComments = activeTab === 'diagram';
+  const shouldLoadAdrs = activeTab === 'adrs' || Boolean(requestedAdrId);
 
   const { data: diagram, isLoading: isDiagramLoading, isError: isDiagramError } = useDiagram(diagramId!);
   const { data: latestAnalysis, refetch: refetchLatestAnalysis } = useDiagramAnalysis(diagramId!);
-  const { data: analysisRuns = [], refetch: refetchAnalysisRuns } = useAnalysisRuns(workspaceId!, diagramId!);
-  const { data: comments = [], refetch: refetchComments } = useDiagramComments(workspaceId!, diagramId!);
-  const { data: adrs = [], refetch: refetchAdrs } = useAdrs(workspaceId, diagramId);
+  const { data: analysisRuns = [], refetch: refetchAnalysisRuns, isLoading: isAnalysisRunsLoading } = useAnalysisRuns(
+    shouldLoadAnalysisRuns ? workspaceId! : '',
+    shouldLoadAnalysisRuns ? diagramId! : '',
+  );
+  const { data: comments = [], refetch: refetchComments, isLoading: isCommentsLoading } = useDiagramComments(
+    shouldLoadComments ? workspaceId! : '',
+    shouldLoadComments ? diagramId! : '',
+  );
+  const { data: adrs = [], refetch: refetchAdrs, isLoading: isAdrsLoading } = useAdrs(
+    shouldLoadAdrs ? workspaceId : undefined,
+    shouldLoadAdrs ? diagramId : undefined,
+  );
   const createCommentMutation = useCreateComment();
   const generateAdrMutation = useGenerateAdr();
   const regenerateAdrMutation = useRegenerateAdr();
   const deleteAdrMutation = useDeleteAdr();
 
   const defaultRunId = useMemo(
-    () => latestAnalysis?.id ?? analysisRuns.find((item) => item.status === 'Completed')?.id ?? analysisRuns[0]?.id ?? null,
-    [analysisRuns, latestAnalysis?.id],
+    () => latestAnalysis?.id ?? diagram?.latestRunId ?? analysisRuns.find((item) => item.status === 'Completed')?.id ?? analysisRuns[0]?.id ?? null,
+    [analysisRuns, diagram?.latestRunId, latestAnalysis?.id],
   );
 
   const effectiveRunId = requestedRunId ?? defaultRunId;
@@ -84,7 +96,7 @@ export function DiagramDetailPage() {
   const { data: selectedRunAnalysis, isLoading: isSelectedRunLoading } = useQuery({
     queryKey: ['diagram-workbench-analysis-run', workspaceId, diagramId, effectiveRunId],
     queryFn: () => analysisApi.getAnalysisRun(workspaceId!, diagramId!, effectiveRunId!),
-    enabled: !!workspaceId && !!diagramId && !!effectiveRunId && effectiveRunId !== latestAnalysis?.id,
+    enabled: shouldLoadAnalysisRuns && !!workspaceId && !!diagramId && !!effectiveRunId && effectiveRunId !== latestAnalysis?.id,
   });
 
   if (!workspaceId || !diagramId) {
@@ -301,7 +313,7 @@ export function DiagramDetailPage() {
                 </div>
               </section>
 
-              <CommentsSection comments={comments} onAddComment={handleAddComment} isLoading={createCommentMutation.isPending} />
+              <CommentsSection comments={comments} onAddComment={handleAddComment} isLoading={createCommentMutation.isPending || isCommentsLoading} />
             </div>
           ) : null}
 
@@ -375,7 +387,9 @@ export function DiagramDetailPage() {
           ) : null}
 
           {activeTab === 'analysis-runs' ? (
-            analysisRuns.length ? (
+            isAnalysisRunsLoading ? (
+              <LoadingState message="Loading analysis history..." />
+            ) : analysisRuns.length ? (
               <AnalysisRunsTable items={analysisRuns} activeRunId={activeRunId} onSelectRun={(runId) => handleSelectRun(runId, 'analysis-runs')} />
             ) : (
               <EmptyPanel title="No analysis history yet" description="Completed analysis runs will appear here so the team can review changes over time." />
@@ -383,7 +397,7 @@ export function DiagramDetailPage() {
           ) : null}
 
           {activeTab === 'agent-workflow' ? (
-            isLoadingSelectedAnalysis ? (
+            isAnalysisRunsLoading || isLoadingSelectedAnalysis ? (
               <LoadingState message="Loading selected workflow..." />
             ) : activeAnalysis ? (
               <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -396,6 +410,9 @@ export function DiagramDetailPage() {
           ) : null}
 
           {activeTab === 'adrs' ? (
+            isAdrsLoading ? (
+              <LoadingState message="Loading ADRs..." />
+            ) : (
             <div className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -465,6 +482,7 @@ export function DiagramDetailPage() {
                 <AdrHistoryPanel selectedAdr={selectedAdr} history={resolvedAdrDraft.history} />
               ) : null}
             </div>
+            )
           ) : null}
         </div>
       </section>

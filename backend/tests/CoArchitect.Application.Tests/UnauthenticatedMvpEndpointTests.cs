@@ -9,6 +9,7 @@ using CoArchitect.Infrastructure.Seeding;
 using CoArchitect.Infrastructure.Services;
 using CoArchitect.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -38,6 +39,15 @@ public class UnauthenticatedMvpEndpointTests
         var analysisRepository = new MockAgentAnalysisRunRepository();
         var adrRepository = new MockAdrRepository();
         IFrameworkSelectionService frameworkSelectionService = new FrameworkSelectionService();
+        var scoreService = new ArchitectureIntelligenceScoreService();
+        var performanceCacheService = CreatePerformanceCacheService();
+        var performanceReadModelService = CreatePerformanceReadModelService(
+            workspaceRepository,
+            diagramRepository,
+            analysisRepository,
+            adrRepository,
+            scoreService,
+            performanceCacheService);
 
         var workspacesController = new WorkspacesController(
             workspaceRepository,
@@ -46,6 +56,8 @@ public class UnauthenticatedMvpEndpointTests
             analysisRepository,
             adrRepository,
             currentUserService,
+            performanceReadModelService,
+            performanceCacheService,
             NullLogger<WorkspacesController>.Instance);
         var diagramsController = new DiagramsController(
             diagramRepository,
@@ -56,7 +68,8 @@ public class UnauthenticatedMvpEndpointTests
             currentUserService,
             new NoopArchitectureFileStorage(),
             frameworkSelectionService,
-            new ArchitectureIntelligenceScoreService(),
+            performanceReadModelService,
+            performanceCacheService,
             NullLogger<DiagramsController>.Instance);
         var commentsController = new DiagramCommentsController(
             commentRepository,
@@ -71,10 +84,11 @@ public class UnauthenticatedMvpEndpointTests
                 new MockArchitectureAgentService(),
                 frameworkSelectionService,
                 new ContextEnrichmentAgent(new TestFoundryIqProvider())),
-            new ArchitectureIntelligenceScoreService(),
+            scoreService,
             workspaceRepository,
             currentUserService,
             frameworkSelectionService,
+            performanceCacheService,
             NullLogger<DiagramAnalysisController>.Instance);
         var adrsController = new AdrsController(
             adrRepository,
@@ -83,7 +97,8 @@ public class UnauthenticatedMvpEndpointTests
             workspaceRepository,
             commentRepository,
             analysisRepository,
-            currentUserService);
+            currentUserService,
+            performanceCacheService);
 
         var createdWorkspace = await workspacesController.CreateWorkspace(
             new CreateWorkspaceRequest { Name = "Test Workspace" },
@@ -271,6 +286,14 @@ public class UnauthenticatedMvpEndpointTests
             new MockAgentAnalysisRunRepository(),
             new MockAdrRepository(),
             new LocalCurrentUserService(),
+            CreatePerformanceReadModelService(
+                new MockWorkspaceRepository(),
+                new MockDiagramRepository(),
+                new MockAgentAnalysisRunRepository(),
+                new MockAdrRepository(),
+                new ArchitectureIntelligenceScoreService(),
+                CreatePerformanceCacheService()),
+            CreatePerformanceCacheService(),
             NullLogger<WorkspacesController>.Instance);
 
         var result = await controller.CreateWorkspace(
@@ -287,16 +310,28 @@ public class UnauthenticatedMvpEndpointTests
     [Fact]
     public async Task DiagramLookup_MissingDiagram_ReturnsProblemDetails()
     {
+        var workspaceRepository = new MockWorkspaceRepository();
+        var diagramRepository = new MockDiagramRepository();
+        var analysisRepository = new MockAgentAnalysisRunRepository();
+        var adrRepository = new MockAdrRepository();
+        var performanceCacheService = CreatePerformanceCacheService();
         var controller = new DiagramsController(
-            new MockDiagramRepository(),
-            new MockWorkspaceRepository(),
+            diagramRepository,
+            workspaceRepository,
             new MockDiagramCommentRepository(),
-            new MockAgentAnalysisRunRepository(),
-            new MockAdrRepository(),
+            analysisRepository,
+            adrRepository,
             new LocalCurrentUserService(),
             new NoopArchitectureFileStorage(),
             new FrameworkSelectionService(),
-            new ArchitectureIntelligenceScoreService(),
+            CreatePerformanceReadModelService(
+                workspaceRepository,
+                diagramRepository,
+                analysisRepository,
+                adrRepository,
+                new ArchitectureIntelligenceScoreService(),
+                performanceCacheService),
+            performanceCacheService,
             NullLogger<DiagramsController>.Instance);
 
         var result = await controller.GetDiagram(Guid.NewGuid(), CancellationToken.None);
@@ -326,6 +361,29 @@ public class UnauthenticatedMvpEndpointTests
     {
         Assert.IsNotType<UnauthorizedResult>(result);
         Assert.IsNotType<ForbidResult>(result);
+    }
+
+    private static PerformanceCacheService CreatePerformanceCacheService()
+    {
+        return new PerformanceCacheService(new MemoryCache(new MemoryCacheOptions()));
+    }
+
+    private static PerformanceReadModelService CreatePerformanceReadModelService(
+        IWorkspaceRepository workspaceRepository,
+        IDiagramRepository diagramRepository,
+        IAgentAnalysisRunRepository analysisRepository,
+        IAdrRepository adrRepository,
+        IArchitectureIntelligenceScoreService scoreService,
+        PerformanceCacheService performanceCacheService)
+    {
+        return new PerformanceReadModelService(
+            workspaceRepository,
+            diagramRepository,
+            analysisRepository,
+            adrRepository,
+            scoreService,
+            performanceCacheService,
+            NullLogger<PerformanceReadModelService>.Instance);
     }
 }
 

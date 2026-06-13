@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Azure.Core;
+using Azure.Identity;
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Infrastructure.Settings;
 
@@ -9,10 +11,12 @@ namespace CoArchitect.Infrastructure.Services;
 public sealed class AzureFoundryInvocationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string[] FoundryScopes = ["https://cognitiveservices.azure.com/.default"];
 
     private readonly AzureFoundryArchitectureAgentOptions _options;
     private readonly HttpClient _httpClient;
     private readonly IAiFoundrySettingsRepository _settingsRepository;
+    private readonly TokenCredential _credential;
 
     public AzureFoundryInvocationService(
         AzureFoundryArchitectureAgentOptions options,
@@ -22,6 +26,7 @@ public sealed class AzureFoundryInvocationService
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _settingsRepository = settingsRepository ?? throw new ArgumentNullException(nameof(settingsRepository));
+        _credential = BuildCredential(options);
     }
 
     public async Task<AzureFoundryInvocationResult> InvokeAsync(string input, string agentId, CancellationToken cancellationToken)
@@ -42,7 +47,8 @@ public sealed class AzureFoundryInvocationService
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, BuildEndpointUri(options));
-            AddAuthenticationHeaders(request, options);
+            var auth = await BuildAuthenticationAsync(options, cancellationToken);
+            ApplyAuthenticationHeaders(request, auth);
             request.Content = JsonContent.Create(new
             {
                 model = options.ModelDeployment,
@@ -88,6 +94,44 @@ public sealed class AzureFoundryInvocationService
             ClientSecret = _options.ClientSecret,
             TenantId = _options.TenantId,
         };
+    }
+
+    public async Task<FoundryAuthenticationResult> BuildAuthenticationAsync(
+        AzureFoundryArchitectureAgentOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(options.BearerToken))
+        {
+            return FoundryAuthenticationResult.StaticBearer(options.BearerToken!);
+        }
+
+        try
+        {
+            var accessToken = await _credential.GetTokenAsync(
+                new TokenRequestContext(FoundryScopes),
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(accessToken.Token))
+            {
+                return FoundryAuthenticationResult.ManagedIdentity(accessToken.Token);
+            }
+        }
+        catch (Exception ex) when (ex is AuthenticationFailedException or CredentialUnavailableException)
+        {
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                return FoundryAuthenticationResult.WithApiKey(options.ApiKey!, ex.Message);
+            }
+
+            return FoundryAuthenticationResult.Unavailable($"Managed identity authentication failed: {ex.Message}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        {
+            return FoundryAuthenticationResult.WithApiKey(options.ApiKey!);
+        }
+
+        return FoundryAuthenticationResult.Unavailable("No bearer token, managed identity token, or API key was available for Azure Foundry.");
     }
 
     public static string? ExtractOutputText(string responseBody)
@@ -151,7 +195,7 @@ public sealed class AzureFoundryInvocationService
 
     public static Uri BuildEndpointUri(AzureFoundryArchitectureAgentOptions options)
     {
-        var endpoint = options.ProjectEndpoint!;
+        var endpoint = NormalizeResponsesEndpoint(options.ProjectEndpoint!);
         if (string.IsNullOrWhiteSpace(options.ApiVersion) ||
             endpoint.Contains("api-version=", StringComparison.OrdinalIgnoreCase))
         {
@@ -162,16 +206,34 @@ public sealed class AzureFoundryInvocationService
         return new Uri($"{endpoint}{separator}api-version={Uri.EscapeDataString(options.ApiVersion)}");
     }
 
-    public static void AddAuthenticationHeaders(HttpRequestMessage request, AzureFoundryArchitectureAgentOptions options)
+    public static string NormalizeResponsesEndpoint(string endpoint)
     {
-        if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        var trimmed = endpoint.Trim().TrimEnd('/');
+        if (trimmed.Contains("/openai/responses", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("/endpoint/protocols/openai/responses", StringComparison.OrdinalIgnoreCase))
         {
-            request.Headers.Add("api-key", options.ApiKey);
+            return trimmed;
         }
 
-        if (!string.IsNullOrWhiteSpace(options.BearerToken))
+        if (trimmed.Contains("/api/projects/", StringComparison.OrdinalIgnoreCase))
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.BearerToken);
+            return $"{trimmed}/openai/responses";
+        }
+
+        return trimmed;
+    }
+
+    public static void ApplyAuthenticationHeaders(HttpRequestMessage request, FoundryAuthenticationResult authentication)
+    {
+        if (authentication.Mode == FoundryAuthenticationMode.ApiKey && !string.IsNullOrWhiteSpace(authentication.ApiKey))
+        {
+            request.Headers.Add("api-key", authentication.ApiKey);
+        }
+
+        if ((authentication.Mode == FoundryAuthenticationMode.StaticBearer || authentication.Mode == FoundryAuthenticationMode.ManagedIdentity)
+            && !string.IsNullOrWhiteSpace(authentication.BearerToken))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authentication.BearerToken);
         }
     }
 
@@ -185,6 +247,25 @@ public sealed class AzureFoundryInvocationService
         var trimmed = value.ReplaceLineEndings(" ").Trim();
         return trimmed.Length <= 500 ? trimmed : $"{trimmed[..500]}...";
     }
+
+    private static TokenCredential BuildCredential(AzureFoundryArchitectureAgentOptions options)
+    {
+        var credentialOptions = new DefaultAzureCredentialOptions();
+        if (!string.IsNullOrWhiteSpace(options.ClientId))
+        {
+            credentialOptions.ManagedIdentityClientId = options.ClientId;
+        }
+
+        return new DefaultAzureCredential(credentialOptions);
+    }
+}
+
+public enum FoundryAuthenticationMode
+{
+    Unavailable = 0,
+    ApiKey = 1,
+    StaticBearer = 2,
+    ManagedIdentity = 3,
 }
 
 public sealed class AzureFoundryInvocationResult
@@ -207,4 +288,36 @@ public sealed class AzureFoundryInvocationResult
 
     public static AzureFoundryInvocationResult Failure(string failureReason) =>
         new(false, null, failureReason, null);
+}
+
+public sealed class FoundryAuthenticationResult
+{
+    private FoundryAuthenticationResult(
+        FoundryAuthenticationMode mode,
+        string? bearerToken,
+        string? apiKey,
+        string? note)
+    {
+        Mode = mode;
+        BearerToken = bearerToken;
+        ApiKey = apiKey;
+        Note = note;
+    }
+
+    public FoundryAuthenticationMode Mode { get; }
+    public string? BearerToken { get; }
+    public string? ApiKey { get; }
+    public string? Note { get; }
+
+    public static FoundryAuthenticationResult StaticBearer(string token) =>
+        new(FoundryAuthenticationMode.StaticBearer, token, null, "Using explicit bearer token.");
+
+    public static FoundryAuthenticationResult ManagedIdentity(string token) =>
+        new(FoundryAuthenticationMode.ManagedIdentity, token, null, "Using DefaultAzureCredential / managed identity.");
+
+    public static FoundryAuthenticationResult WithApiKey(string apiKey, string? note = null) =>
+        new(FoundryAuthenticationMode.ApiKey, null, apiKey, note ?? "Using API key fallback.");
+
+    public static FoundryAuthenticationResult Unavailable(string note) =>
+        new(FoundryAuthenticationMode.Unavailable, null, null, note);
 }

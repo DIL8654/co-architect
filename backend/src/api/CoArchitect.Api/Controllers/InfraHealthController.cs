@@ -22,6 +22,7 @@ public sealed class InfraHealthController : ControllerBase
     private readonly AzureFoundryAgentExperimentOptions _experimentOptions;
     private readonly IAiFoundrySettingsRepository _foundrySettingsRepository;
     private readonly KnowledgeBaseCatalogLoader _knowledgeBaseCatalogLoader;
+    private readonly AzureFoundryInvocationService _foundryInvocationService;
 
     public InfraHealthController(
         IServiceProvider services,
@@ -32,7 +33,8 @@ public sealed class InfraHealthController : ControllerBase
         FoundryIqOptions foundryIqOptions,
         AzureFoundryAgentExperimentOptions experimentOptions,
         IAiFoundrySettingsRepository foundrySettingsRepository,
-        KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader)
+        KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader,
+        AzureFoundryInvocationService foundryInvocationService)
     {
         _services = services;
         _httpClientFactory = httpClientFactory;
@@ -43,6 +45,7 @@ public sealed class InfraHealthController : ControllerBase
         _experimentOptions = experimentOptions;
         _foundrySettingsRepository = foundrySettingsRepository;
         _knowledgeBaseCatalogLoader = knowledgeBaseCatalogLoader;
+        _foundryInvocationService = foundryInvocationService;
     }
 
     [HttpGet]
@@ -134,17 +137,15 @@ public sealed class InfraHealthController : ControllerBase
 
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
-            if (!string.IsNullOrWhiteSpace(foundryOptions.ApiKey))
+            var auth = await _foundryInvocationService.BuildAuthenticationAsync(foundryOptions, cancellationToken);
+            if (auth.Mode == FoundryAuthenticationMode.Unavailable)
             {
-                request.Headers.Add("api-key", foundryOptions.ApiKey);
+                return InfraHealthCheck.Unhealthy("azureFoundry", "AzureFoundry", auth.Note ?? "No usable Foundry authentication was available.");
             }
 
-            if (!string.IsNullOrWhiteSpace(foundryOptions.BearerToken))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", foundryOptions.BearerToken);
-            }
+            var client = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
+            AzureFoundryInvocationService.ApplyAuthenticationHeaders(request, auth);
 
             request.Content = JsonContent.Create(new
             {
@@ -161,7 +162,7 @@ public sealed class InfraHealthController : ControllerBase
 
             if (response.IsSuccessStatusCode)
             {
-                return InfraHealthCheck.Healthy("azureFoundry", "AzureFoundry", "Foundry endpoint accepted a request.");
+                return InfraHealthCheck.Healthy("azureFoundry", "AzureFoundry", $"Foundry endpoint accepted a request using {DescribeAuthMode(auth.Mode)}.");
             }
 
             var status = response.StatusCode == System.Net.HttpStatusCode.BadRequest ? "degraded" : "unhealthy";
@@ -170,7 +171,7 @@ public sealed class InfraHealthController : ControllerBase
                 Name = "azureFoundry",
                 Provider = "AzureFoundry",
                 Status = status,
-                Message = Trim($"Foundry returned {(int)response.StatusCode} {response.ReasonPhrase}. {body}"),
+                Message = Trim($"Foundry returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeAuthMode(auth.Mode)}. {body}"),
             };
         }
         catch (Exception ex)
@@ -215,17 +216,15 @@ public sealed class InfraHealthController : ControllerBase
 
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
-            if (!string.IsNullOrWhiteSpace(foundryOptions.ApiKey))
+            var auth = await _foundryInvocationService.BuildAuthenticationAsync(foundryOptions, cancellationToken);
+            if (auth.Mode == FoundryAuthenticationMode.Unavailable)
             {
-                request.Headers.Add("api-key", foundryOptions.ApiKey);
+                return InfraHealthCheck.Unhealthy("managedFoundryIq", "AzureFoundryIQ", auth.Note ?? "No usable Foundry authentication was available.");
             }
 
-            if (!string.IsNullOrWhiteSpace(foundryOptions.BearerToken))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", foundryOptions.BearerToken);
-            }
+            var client = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
+            AzureFoundryInvocationService.ApplyAuthenticationHeaders(request, auth);
 
             request.Content = JsonContent.Create(new
             {
@@ -240,11 +239,11 @@ public sealed class InfraHealthController : ControllerBase
             using var response = await client.SendAsync(request, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
-                return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ retrieval agent accepted a request.");
+                return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", $"Managed Foundry IQ retrieval agent accepted a request using {DescribeAuthMode(auth.Mode)}.");
             }
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", Trim($"Managed retrieval returned {(int)response.StatusCode} {response.ReasonPhrase}. {body}"));
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", Trim($"Managed retrieval returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeAuthMode(auth.Mode)}. {body}"));
         }
         catch (Exception ex)
         {
@@ -299,7 +298,7 @@ public sealed class InfraHealthController : ControllerBase
 
     private static Uri BuildFoundryEndpointUri(AzureFoundryArchitectureAgentOptions options)
     {
-        var endpoint = options.ProjectEndpoint!;
+        var endpoint = AzureFoundryInvocationService.NormalizeResponsesEndpoint(options.ProjectEndpoint!);
         if (string.IsNullOrWhiteSpace(options.ApiVersion) ||
             endpoint.Contains("api-version=", StringComparison.OrdinalIgnoreCase))
         {
@@ -314,6 +313,17 @@ public sealed class InfraHealthController : ControllerBase
     {
         var trimmed = value.ReplaceLineEndings(" ").Trim();
         return trimmed.Length <= 500 ? trimmed : $"{trimmed[..500]}...";
+    }
+
+    private static string DescribeAuthMode(FoundryAuthenticationMode mode)
+    {
+        return mode switch
+        {
+            FoundryAuthenticationMode.ManagedIdentity => "DefaultAzureCredential / managed identity",
+            FoundryAuthenticationMode.StaticBearer => "explicit bearer token",
+            FoundryAuthenticationMode.ApiKey => "API key fallback",
+            _ => "no auth",
+        };
     }
 }
 

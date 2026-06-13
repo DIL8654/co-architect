@@ -9,6 +9,7 @@
     <ProjectReference Include="../CoArchitect.Application/CoArchitect.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
   </ItemGroup>
 </Project>

@@ -23,6 +23,9 @@ export function useWorkspace(workspaceId: string) {
     queryKey: ['workspace', workspaceId],
     queryFn: () => workspaceApi.getWorkspace(workspaceId),
     enabled: !!workspaceId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

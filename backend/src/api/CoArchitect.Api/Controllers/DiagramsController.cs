@@ -156,13 +156,11 @@ public class DiagramsController : ControllerBase
         else
         {
             var workspaces = await _workspaceRepository.GetByTenantIdAsync(currentUser.TenantId, cancellationToken);
-            var allDiagrams = new List<ArchitectureDiagram>();
-            foreach (var workspace in workspaces)
-            {
-                allDiagrams.AddRange(await _diagramRepository.GetByWorkspaceIdAsync(workspace.Id, cancellationToken));
-            }
-
-            diagrams = allDiagrams;
+            var workspaceIds = workspaces.Select(item => item.Id).ToHashSet();
+            diagrams = (await _diagramRepository.GetAllAsync(cancellationToken))
+                .Where(item => workspaceIds.Contains(item.WorkspaceId))
+                .OrderByDescending(item => item.UploadedAt)
+                .ToList();
         }
 
         var responses = new List<ArchitectureDiagramResponse>();

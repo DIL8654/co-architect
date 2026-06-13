@@ -4,7 +4,7 @@
 
 The active troubleshooting guide is:
 
-- [implementation/TROUBLESHOOTING.md](/Users/dilankamuthukumarana/Documents/sourcecodes/personal-projects/coarchitect/docs/implementation/TROUBLESHOOTING.md)
+- [Implementation Troubleshooting](./implementation/TROUBLESHOOTING.md)
 
 ## Demo Notes
 

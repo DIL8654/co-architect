@@ -24,6 +24,9 @@ export function useDiagram(diagramId: string) {
     queryKey: ['diagram', diagramId],
     queryFn: () => diagramApi.getDiagram(diagramId),
     enabled: !!diagramId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

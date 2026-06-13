@@ -6,6 +6,9 @@ export function useDiagramAnalysis(diagramId: string) {
     queryKey: ['diagram-analysis', diagramId],
     queryFn: () => analysisApi.getDiagramAnalysis(diagramId),
     enabled: !!diagramId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -28,5 +31,8 @@ export function useAnalysisRuns(workspaceId: string, diagramId: string) {
     queryKey: ['analysis-runs', workspaceId, diagramId],
     queryFn: () => analysisApi.listAnalysisRuns(workspaceId, diagramId),
     enabled: !!workspaceId && !!diagramId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }

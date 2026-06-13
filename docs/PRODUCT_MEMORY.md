@@ -4,9 +4,9 @@
 
 The active product documents are:
 
-- [product/PRODUCT_VISION.md](/Users/dilankamuthukumarana/Documents/sourcecodes/personal-projects/coarchitect/docs/product/PRODUCT_VISION.md)
-- [product/HACKATHON_SCOPE.md](/Users/dilankamuthukumarana/Documents/sourcecodes/personal-projects/coarchitect/docs/product/HACKATHON_SCOPE.md)
-- [demo/DEMO_DATA_PLAN.md](/Users/dilankamuthukumarana/Documents/sourcecodes/personal-projects/coarchitect/docs/demo/DEMO_DATA_PLAN.md)
+- [Product Vision](./product/PRODUCT_VISION.md)
+- [Hackathon Scope](./product/HACKATHON_SCOPE.md)
+- [Demo Data Plan](./demo/DEMO_DATA_PLAN.md)
 
 ## Current Product Direction
 

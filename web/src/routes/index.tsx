@@ -10,6 +10,7 @@ import { InfraHealthPage } from '../pages/InfraHealthPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { DocsPage } from '../pages/DocsPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { SettingsPromoPage } from '../pages/SettingsPromoPage';
 import { LocalSetupPage } from '../pages/LocalSetupPage';
 import { PublicHomePage } from '../pages/PublicHomePage';
 import { PublicProductPage } from '../pages/PublicProductPage';
@@ -158,6 +159,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <SettingsPage />,
+      },
+      {
+        path: 'settings/promo',
+        element: <SettingsPromoPage />,
       },
       {
         path: 'health',

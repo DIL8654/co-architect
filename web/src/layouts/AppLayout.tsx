@@ -200,7 +200,7 @@ function WorkspaceTreeNode({
   isExpanded: boolean;
 }) {
   const toggleWorkspace = useSidebarTreeStore((state) => state.toggleWorkspace);
-  const { data: diagrams = [] } = useDiagrams(isExpanded ? workspace.id : undefined);
+  const { data: diagrams = [], isLoading } = useDiagrams(isExpanded ? workspace.id : undefined);
 
   return (
     <div className="tree-node">
@@ -226,6 +226,12 @@ function WorkspaceTreeNode({
 
       {isExpanded && !collapsed ? (
         <div className="tree-children">
+          {isLoading ? (
+            <div className="space-y-1 px-3 py-2">
+              <div className="h-8 rounded-md bg-[#eef1f4] dark:bg-white/[0.06]" />
+              <div className="h-8 rounded-md bg-[#eef1f4] dark:bg-white/[0.04]" />
+            </div>
+          ) : null}
           {diagrams.map((diagram) => (
             <DiagramTreeNode
               key={diagram.id}

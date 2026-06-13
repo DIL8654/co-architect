@@ -78,19 +78,23 @@ public class WorkspacesController : ControllerBase
         CancellationToken cancellationToken)
     {
         var currentUser = _currentUserService.GetCurrentUser();
-        var workspaces = await _workspaceRepository.GetByTenantIdAsync(currentUser.TenantId, cancellationToken);
+        var workspaces = (await _workspaceRepository.GetByTenantIdAsync(currentUser.TenantId, cancellationToken)).ToList();
+        var workspaceIds = workspaces.Select(item => item.Id).ToHashSet();
+        var diagramCounts = (await _diagramRepository.GetAllAsync(cancellationToken))
+            .Where(item => workspaceIds.Contains(item.WorkspaceId))
+            .GroupBy(item => item.WorkspaceId)
+            .ToDictionary(group => group.Key, group => group.Count());
 
         var responses = new List<WorkspaceResponse>();
         foreach (var workspace in workspaces)
         {
-            var diagrams = await _diagramRepository.GetByWorkspaceIdAsync(workspace.Id, cancellationToken);
             responses.Add(new WorkspaceResponse
             {
                 Id = workspace.Id,
                 Name = workspace.Name,
                 CreatedAt = workspace.CreatedAt,
                 UpdatedAt = workspace.UpdatedAt,
-                DiagramCount = diagrams.Count(),
+                DiagramCount = diagramCounts.TryGetValue(workspace.Id, out var count) ? count : 0,
             });
         }
 
@@ -107,7 +111,7 @@ public class WorkspacesController : ControllerBase
         if (workspace is null || workspace.TenantId != currentUser.TenantId)
             return this.NotFoundProblem("Workspace not found.");
 
-        var diagrams = await _diagramRepository.GetByWorkspaceIdAsync(workspace.Id, cancellationToken);
+        var diagramCount = (await _diagramRepository.GetByWorkspaceIdAsync(workspace.Id, cancellationToken)).Count();
 
         var response = new WorkspaceResponse
         {
@@ -115,7 +119,7 @@ public class WorkspacesController : ControllerBase
             Name = workspace.Name,
             CreatedAt = workspace.CreatedAt,
             UpdatedAt = workspace.UpdatedAt,
-            DiagramCount = diagrams.Count(),
+            DiagramCount = diagramCount,
         };
 
         return Ok(response);

@@ -4,7 +4,7 @@
 
 The active evaluator-facing document is:
 
-- [hackathon/HACKATHON_JUDGING_ALIGNMENT.md](/Users/dilankamuthukumarana/Documents/sourcecodes/personal-projects/coarchitect/docs/hackathon/HACKATHON_JUDGING_ALIGNMENT.md)
+- [Hackathon Judging Alignment](./hackathon/HACKATHON_JUDGING_ALIGNMENT.md)
 
 ## Demo Alignment
 

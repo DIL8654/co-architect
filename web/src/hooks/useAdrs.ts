@@ -6,6 +6,9 @@ export function useAdrs(workspaceId?: string, diagramId?: string) {
     queryKey: ['adrs', workspaceId, diagramId],
     queryFn: () => adrApi.list(workspaceId!, diagramId!),
     enabled: !!workspaceId && !!diagramId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

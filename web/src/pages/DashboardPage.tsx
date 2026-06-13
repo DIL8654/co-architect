@@ -1,20 +1,11 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumbs, Button, LoadingState, WorkspaceIcon } from '../components';
-import { adrApi } from '../api/adrs';
-import { analysisApi } from '../api/analysis';
-import { diagramApi } from '../api/diagrams';
-import { workspaceApi } from '../api/workspaces';
-import { DEMO_WORKSPACE_ORDER, isDemoWorkspace, sortWorkspacesForDisplay } from '../lib/demoJourneys';
+import { useDashboardSummary } from '../hooks/useDashboardSummary';
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({
-    queryKey: ['shell-dashboard-summary'],
-    queryFn: loadDashboardSummary,
-    refetchOnWindowFocus: false,
-  });
+  const { data, isLoading } = useDashboardSummary();
 
   const metrics = useMemo(
     () => [
@@ -169,84 +160,4 @@ function Metric({ label, value }: { label: string; value: string | number }) {
       <p className="mt-1 truncate font-semibold text-secondary-950 dark:text-white">{value}</p>
     </div>
   );
-}
-
-async function loadDashboardSummary() {
-  const workspaces = sortWorkspacesForDisplay(await workspaceApi.listWorkspaces());
-  const workspaceSummaries = await Promise.all(
-    workspaces.map(async (workspace) => {
-      const shouldEnrich = isDemoWorkspace(workspace.name);
-      const diagrams = shouldEnrich ? await safeLoad(() => diagramApi.listDiagrams(workspace.id), []) : [];
-      const enrichedDiagrams = await Promise.all(
-        diagrams.map(async (diagram) => {
-          const [latestAnalysis, analysisRuns, adrs] = await Promise.all([
-            safeLoad(() => analysisApi.getDiagramAnalysis(diagram.id), null),
-            safeLoad(() => analysisApi.listAnalysisRuns(workspace.id, diagram.id), []),
-            safeLoad(() => adrApi.list(workspace.id, diagram.id), []),
-          ]);
-          return { diagram, latestAnalysis, analysisRuns, adrs };
-        }),
-      );
-      const scoredDiagrams = enrichedDiagrams.filter((item) => item.latestAnalysis?.finalScore !== null && item.latestAnalysis?.finalScore !== undefined);
-      return {
-        id: workspace.id,
-        name: workspace.name,
-        workspaceCount: 1,
-        diagramCount: shouldEnrich ? diagrams.length : workspace.diagramCount,
-        scoredDiagramCount: scoredDiagrams.length,
-        needsReviewCount: shouldEnrich
-          ? enrichedDiagrams.filter((item) => !item.latestAnalysis?.finalScore).length
-          : workspace.diagramCount,
-        diagrams: enrichedDiagrams,
-      };
-    })
-  );
-
-  const totals = workspaceSummaries.reduce(
-    (total, current) => ({
-      workspaceCount: total.workspaceCount + current.workspaceCount,
-      diagramCount: total.diagramCount + current.diagramCount,
-      scoredDiagramCount: total.scoredDiagramCount + current.scoredDiagramCount,
-      needsReviewCount: total.needsReviewCount + current.needsReviewCount,
-    }),
-    { workspaceCount: 0, diagramCount: 0, scoredDiagramCount: 0, needsReviewCount: 0 }
-  );
-
-  return {
-    workspaceCount: totals.workspaceCount,
-    diagramCount: totals.diagramCount,
-    scoredDiagramCount: totals.scoredDiagramCount,
-    needsReviewCount: totals.needsReviewCount,
-    workspaceSummaries,
-    demoJourneys: workspaceSummaries
-      .flatMap((workspace) =>
-        workspace.diagrams
-          .filter(() => isDemoWorkspace(workspace.name))
-          .map((item) => ({
-            workspaceId: workspace.id,
-            workspaceName: workspace.name,
-            diagramId: item.diagram.id,
-            diagramName: item.diagram.name,
-            description: item.diagram.description ?? '',
-            thumbnailUrl: item.diagram.fileUrl,
-            score: item.latestAnalysis?.finalScore ?? null,
-            analysisStatus: item.latestAnalysis?.status ?? 'Not run',
-            latestRunId: item.analysisRuns[0]?.id,
-            adrCount: item.adrs.length,
-          })),
-      )
-      .sort((left, right) => DEMO_WORKSPACE_ORDER.indexOf(left.workspaceName as (typeof DEMO_WORKSPACE_ORDER)[number]) - DEMO_WORKSPACE_ORDER.indexOf(right.workspaceName as (typeof DEMO_WORKSPACE_ORDER)[number]))
-      .slice(0, 3),
-  };
-}
-
-async function safeLoad<T>(loader: () => Promise<T>, fallback: T): Promise<T> {
-  try {
-    return await Promise.race([
-      loader(),
-      new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), 4500)),
-    ]);
-  } catch {
-    return fallback;
-  }
 }

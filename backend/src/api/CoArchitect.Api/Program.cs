@@ -7,6 +7,8 @@ using CoArchitect.Infrastructure.Repositories;
 using CoArchitect.Infrastructure.Persistence;
 using CoArchitect.Infrastructure.Seeding;
 using CoArchitect.Infrastructure.Storage;
+using System.Text.Json;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 
@@ -57,6 +59,42 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        TimeSpan? retryAfter = null;
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfterValue))
+        {
+            retryAfter = retryAfterValue;
+            context.HttpContext.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(retryAfterValue.TotalSeconds)).ToString();
+        }
+
+        var factory = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>();
+        var problemDetails = AnalysisRateLimiting.CreateProblemDetails(factory, context.HttpContext, retryAfter);
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        await context.HttpContext.Response.WriteAsync(
+            JsonSerializer.Serialize(problemDetails),
+            cancellationToken);
+    };
+
+    options.AddPolicy(AnalysisRateLimiting.PolicyName, httpContext =>
+    {
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: AnalysisRateLimiting.ResolveClientKey(httpContext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = AnalysisRateLimiting.PermitLimit,
+                Window = AnalysisRateLimiting.Window,
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true,
+            });
+    });
+});
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -162,6 +200,8 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+app.UseRateLimiter();
+
 // Middleware: CORS must be before endpoints
 app.UseCors("AllowFrontend");
 
@@ -178,3 +218,5 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
+
+public partial class Program;

@@ -30,6 +30,12 @@ Run frontend commands inside `web/`, not the repository root.
 
 Use `ArchitectureAgent__Provider=Mock`.
 
+### `429 Too Many Requests` when running architecture review
+
+- the public MVP limits AI analysis requests to **5 runs per IP per minute**
+- wait about a minute and try again
+- this safeguard protects service availability and Azure Foundry cost during public demos
+
 ### Diagram view fails on older analysis data
 
 Run a fresh analysis so the latest result includes current grounding metadata.

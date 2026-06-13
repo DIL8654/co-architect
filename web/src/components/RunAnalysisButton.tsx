@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, ChevronDownIcon, ChevronRightIcon, Modal, SparkIcon } from './index';
 import type { ArchitectureAnalysisResult } from '../api/analysis';
+import { getErrorMessage, getHttpStatus, getRetryAfterSeconds } from '../api/axios';
 import type { DiagramReviewSetup, DiagramReviewSetupInput, ReviewFramework, ReviewStandard } from '../api/diagrams';
 import { formatScoreBandLabel } from '../lib/scoreBands';
 
@@ -182,7 +183,16 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
         setAnalysisResult(result);
         onAnalysisComplete?.(result);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to run analysis');
+        const status = getHttpStatus(err);
+        if (status === 429) {
+          const retryAfterSeconds = getRetryAfterSeconds(err);
+          const retryHint = retryAfterSeconds
+            ? ` Try again in about ${retryAfterSeconds} seconds.`
+            : ' Please wait a minute before starting another review.';
+          setError(`Architecture review is temporarily limited. This public MVP uses cost-sensitive AI analysis to stay available for everyone.${retryHint}`);
+        } else {
+          setError(getErrorMessage(err));
+        }
         setErrorStepIndex(activeStepIndexRef.current ?? 0);
       } finally {
         setIsRunning(false);

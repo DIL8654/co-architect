@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using CoArchitect.Api.DTOs;
 using CoArchitect.Api.Services;
 using CoArchitect.Application.Interfaces;
@@ -140,6 +141,7 @@ public class DiagramAnalysisController : ControllerBase
 
     [HttpPost("{diagramId}/analysis")]
     [HttpPost("/api/workspaces/{workspaceId:guid}/diagrams/{diagramId:guid}/analysis-runs")]
+    [EnableRateLimiting(AnalysisRateLimiting.PolicyName)]
     public async Task<ActionResult<ArchitectureAnalysisResponse>> RunAnalysis(
         [FromRoute] Guid? workspaceId,
         [FromRoute] Guid diagramId,

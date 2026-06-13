@@ -19,6 +19,25 @@ export interface ApiProblemDetails {
   errors?: Record<string, string[]>;
 }
 
+export function getHttpStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined;
+}
+
+export function getRetryAfterSeconds(error: unknown): number | undefined {
+  if (!axios.isAxiosError(error)) {
+    return undefined;
+  }
+
+  const rawValue = error.response?.headers?.['retry-after'];
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const headerValue = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+  const parsed = Number.parseInt(String(headerValue), 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export function getProblemDetails(error: unknown): ApiProblemDetails | undefined {
   if (!axios.isAxiosError(error)) {
     return undefined;

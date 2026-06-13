@@ -55,6 +55,7 @@ public sealed class InfraHealthController : ControllerBase
         {
             await CheckDatabaseAsync(cancellationToken),
             await CheckBlobStorageAsync(cancellationToken),
+            await CheckFoundryConfigurationAsync(cancellationToken),
             await CheckFoundryAsync(cancellationToken),
             await CheckManagedFoundryIqAsync(cancellationToken),
             CheckAgentMode(),
@@ -178,6 +179,31 @@ public sealed class InfraHealthController : ControllerBase
         {
             return InfraHealthCheck.Unhealthy("azureFoundry", "AzureFoundry", Trim(ex.Message));
         }
+    }
+
+    private async Task<InfraHealthCheck> CheckFoundryConfigurationAsync(CancellationToken cancellationToken)
+    {
+        var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
+        var mode = foundryOptions.UseLegacyAgentEndpoint ? "LegacyAgent" : "ProjectEndpoint";
+        var hasLegacyEndpoint = !string.IsNullOrWhiteSpace(foundryOptions.LegacyAgentEndpoint);
+        var hasProjectEndpoint = !string.IsNullOrWhiteSpace(foundryOptions.ProjectEndpoint);
+
+        var message =
+            $"Resolved endpoint mode: {mode}. " +
+            $"Legacy endpoint configured: {(hasLegacyEndpoint ? "yes" : "no")}. " +
+            $"Project endpoint configured: {(hasProjectEndpoint ? "yes" : "no")}.";
+
+        if (foundryOptions.UseLegacyAgentEndpoint && !hasLegacyEndpoint)
+        {
+            return InfraHealthCheck.Degraded("azureFoundryConfig", "AzureFoundry", message);
+        }
+
+        if (foundryOptions.UseProjectEndpoint && !hasProjectEndpoint)
+        {
+            return InfraHealthCheck.Degraded("azureFoundryConfig", "AzureFoundry", message);
+        }
+
+        return InfraHealthCheck.Healthy("azureFoundryConfig", "AzureFoundry", message);
     }
 
     private InfraHealthCheck CheckFoundryIqCatalog()

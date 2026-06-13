@@ -2,7 +2,7 @@ namespace CoArchitect.Infrastructure.Settings;
 
 public sealed class FoundryIqOptions
 {
-    public string Provider { get; init; } = "Hybrid";
+    public string Provider { get; init; } = "Local";
     public string? AgentId { get; init; }
 
     public bool UseLocalOnly =>

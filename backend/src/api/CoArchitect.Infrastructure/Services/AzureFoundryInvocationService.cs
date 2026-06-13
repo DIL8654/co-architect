@@ -84,6 +84,8 @@ public sealed class AzureFoundryInvocationService
         var saved = await _settingsRepository.GetAsync(cancellationToken);
         return new AzureFoundryArchitectureAgentOptions
         {
+            EndpointMode = _options.EndpointMode,
+            LegacyAgentEndpoint = First(_options.LegacyAgentEndpoint, saved?.ProjectEndpoint),
             ProjectEndpoint = First(saved?.ProjectEndpoint, _options.ProjectEndpoint),
             AgentId = First(saved?.AgentId, _options.AgentId),
             ModelDeployment = First(saved?.ModelDeployment, _options.ModelDeployment),
@@ -100,6 +102,13 @@ public sealed class AzureFoundryInvocationService
         AzureFoundryArchitectureAgentOptions options,
         CancellationToken cancellationToken)
     {
+        if (options.UseLegacyAgentEndpoint)
+        {
+            return !string.IsNullOrWhiteSpace(options.ApiKey)
+                ? FoundryAuthenticationResult.WithApiKey(options.ApiKey!)
+                : FoundryAuthenticationResult.Unavailable("Stable Azure Foundry mode requires an API key for the legacy agent endpoint.");
+        }
+
         if (!string.IsNullOrWhiteSpace(options.BearerToken))
         {
             return FoundryAuthenticationResult.StaticBearer(options.BearerToken!);
@@ -195,7 +204,11 @@ public sealed class AzureFoundryInvocationService
 
     public static Uri BuildEndpointUri(AzureFoundryArchitectureAgentOptions options)
     {
-        var endpoint = NormalizeResponsesEndpoint(options.ProjectEndpoint!);
+        var configuredEndpoint = options.EffectiveEndpoint
+            ?? throw new InvalidOperationException("Azure Foundry endpoint is not configured.");
+        var endpoint = options.UseLegacyAgentEndpoint
+            ? NormalizeLegacyAgentEndpoint(configuredEndpoint)
+            : NormalizeResponsesEndpoint(configuredEndpoint);
         if (string.IsNullOrWhiteSpace(options.ApiVersion) ||
             endpoint.Contains("api-version=", StringComparison.OrdinalIgnoreCase))
         {
@@ -218,6 +231,23 @@ public sealed class AzureFoundryInvocationService
         if (trimmed.Contains("/api/projects/", StringComparison.OrdinalIgnoreCase))
         {
             return $"{trimmed}/openai/responses";
+        }
+
+        return trimmed;
+    }
+
+    public static string NormalizeLegacyAgentEndpoint(string endpoint)
+    {
+        var trimmed = endpoint.Trim().TrimEnd('/');
+        if (trimmed.Contains("/endpoint/protocols/openai/responses", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("/openai/responses", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        if (trimmed.Contains("/agents/", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{trimmed}/endpoint/protocols/openai/responses";
         }
 
         return trimmed;

@@ -192,7 +192,7 @@ CoArchitect now supports:
 * **AzureFoundry**: managed Foundry IQ retrieval through a dedicated Foundry retrieval agent
 * **Hybrid**: prefer managed Foundry IQ and fall back to the repo knowledge base automatically
 
-The current stable default is **hybrid first**.
+The current stable hackathon default is **Local**. Managed Foundry IQ remains available as an explicit experimental upgrade path.
 
 ---
 
@@ -204,6 +204,7 @@ The current stable default is **hybrid first**.
 * Application-calculated scoring (not hallucinated by AI)
 * Demo-first UX for fast evaluation
 * Public AI analysis is limited per client IP to protect cost and availability
+* Stable Azure mode uses API key plus a legacy agent endpoint instead of Managed Identity
 
 ---
 

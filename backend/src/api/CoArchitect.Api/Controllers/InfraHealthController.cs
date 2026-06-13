@@ -132,7 +132,7 @@ public sealed class InfraHealthController : ControllerBase
         var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
         if (!foundryOptions.IsConfigured)
         {
-            return InfraHealthCheck.Degraded("azureFoundry", "AzureFoundry", "Foundry endpoint, agent id, or model deployment is missing.");
+            return InfraHealthCheck.Degraded("azureFoundry", "AzureFoundry", "Foundry endpoint, agent id, or model deployment is missing for the selected Azure mode.");
         }
 
         try
@@ -162,7 +162,7 @@ public sealed class InfraHealthController : ControllerBase
 
             if (response.IsSuccessStatusCode)
             {
-                return InfraHealthCheck.Healthy("azureFoundry", "AzureFoundry", $"Foundry endpoint accepted a request using {DescribeAuthMode(auth.Mode)}.");
+                return InfraHealthCheck.Healthy("azureFoundry", "AzureFoundry", $"Foundry endpoint accepted a request using {DescribeConnectionMode(foundryOptions, auth.Mode)}.");
             }
 
             var status = response.StatusCode == System.Net.HttpStatusCode.BadRequest ? "degraded" : "unhealthy";
@@ -171,7 +171,7 @@ public sealed class InfraHealthController : ControllerBase
                 Name = "azureFoundry",
                 Provider = "AzureFoundry",
                 Status = status,
-                Message = Trim($"Foundry returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeAuthMode(auth.Mode)}. {body}"),
+                Message = Trim($"Foundry returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeConnectionMode(foundryOptions, auth.Mode)}. {body}"),
             };
         }
         catch (Exception ex)
@@ -200,7 +200,7 @@ public sealed class InfraHealthController : ControllerBase
     {
         if (_foundryIqOptions.UseLocalOnly)
         {
-            return InfraHealthCheck.Healthy("managedFoundryIq", "LocalFallback", "Managed Foundry IQ is disabled; local knowledge base is the active source.");
+            return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ is disabled in stable mode; the local knowledge base is the active grounding source.");
         }
 
         if (string.IsNullOrWhiteSpace(_foundryIqOptions.AgentId))
@@ -239,11 +239,11 @@ public sealed class InfraHealthController : ControllerBase
             using var response = await client.SendAsync(request, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
-                return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", $"Managed Foundry IQ retrieval agent accepted a request using {DescribeAuthMode(auth.Mode)}.");
+                return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", $"Managed Foundry IQ retrieval agent accepted a request using {DescribeConnectionMode(foundryOptions, auth.Mode)}.");
             }
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", Trim($"Managed retrieval returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeAuthMode(auth.Mode)}. {body}"));
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", Trim($"Managed retrieval returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeConnectionMode(foundryOptions, auth.Mode)}. {body}"));
         }
         catch (Exception ex)
         {
@@ -279,6 +279,8 @@ public sealed class InfraHealthController : ControllerBase
         var saved = await _foundrySettingsRepository.GetAsync(cancellationToken);
         return new AzureFoundryArchitectureAgentOptions
         {
+            EndpointMode = _foundryOptions.EndpointMode,
+            LegacyAgentEndpoint = First(_foundryOptions.LegacyAgentEndpoint, saved?.ProjectEndpoint),
             ProjectEndpoint = First(saved?.ProjectEndpoint, _foundryOptions.ProjectEndpoint),
             AgentId = First(saved?.AgentId, _foundryOptions.AgentId),
             ModelDeployment = First(saved?.ModelDeployment, _foundryOptions.ModelDeployment),
@@ -298,15 +300,7 @@ public sealed class InfraHealthController : ControllerBase
 
     private static Uri BuildFoundryEndpointUri(AzureFoundryArchitectureAgentOptions options)
     {
-        var endpoint = AzureFoundryInvocationService.NormalizeResponsesEndpoint(options.ProjectEndpoint!);
-        if (string.IsNullOrWhiteSpace(options.ApiVersion) ||
-            endpoint.Contains("api-version=", StringComparison.OrdinalIgnoreCase))
-        {
-            return new Uri(endpoint);
-        }
-
-        var separator = endpoint.Contains('?', StringComparison.Ordinal) ? "&" : "?";
-        return new Uri($"{endpoint}{separator}api-version={Uri.EscapeDataString(options.ApiVersion)}");
+        return AzureFoundryInvocationService.BuildEndpointUri(options);
     }
 
     private static string Trim(string value)
@@ -315,13 +309,18 @@ public sealed class InfraHealthController : ControllerBase
         return trimmed.Length <= 500 ? trimmed : $"{trimmed[..500]}...";
     }
 
-    private static string DescribeAuthMode(FoundryAuthenticationMode mode)
+    private static string DescribeConnectionMode(AzureFoundryArchitectureAgentOptions options, FoundryAuthenticationMode mode)
     {
+        if (options.UseLegacyAgentEndpoint)
+        {
+            return "legacy agent endpoint + API key";
+        }
+
         return mode switch
         {
-            FoundryAuthenticationMode.ManagedIdentity => "DefaultAzureCredential / managed identity",
-            FoundryAuthenticationMode.StaticBearer => "explicit bearer token",
-            FoundryAuthenticationMode.ApiKey => "API key fallback",
+            FoundryAuthenticationMode.ManagedIdentity => "project endpoint + DefaultAzureCredential / managed identity",
+            FoundryAuthenticationMode.StaticBearer => "project endpoint + explicit bearer token",
+            FoundryAuthenticationMode.ApiKey => "project endpoint + API key fallback",
             _ => "no auth",
         };
     }

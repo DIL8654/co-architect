@@ -47,6 +47,8 @@ static string TrimWrappingQuotes(string value)
 
 var foundryOptions = new AzureFoundryArchitectureAgentOptions
 {
+    EndpointMode = ReadSetting(configuration, "ArchitectureAgent:EndpointMode", "ArchitectureAgent__EndpointMode") ?? "LegacyAgent",
+    LegacyAgentEndpoint = ReadSetting(configuration, "AZURE_AI_FOUNDRY_LEGACY_AGENT_ENDPOINT", "AzureFoundry:LegacyAgentEndpoint", "AzureFoundry__LegacyAgentEndpoint"),
     ProjectEndpoint = ReadSetting(configuration, "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT", "AzureFoundry:ProjectEndpoint", "AzureFoundry__ProjectEndpoint"),
     AgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_AGENT_ID", "AzureFoundry:AgentId", "AzureFoundry__AgentId"),
     ModelDeployment = ReadSetting(configuration, "AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT", "AzureFoundry:ModelDeployment", "AzureFoundry__ModelDeployment"),
@@ -61,7 +63,7 @@ var foundryOptions = new AzureFoundryArchitectureAgentOptions
 builder.Services.AddSingleton(foundryOptions);
 builder.Services.AddSingleton(new FoundryIqOptions
 {
-    Provider = ReadSetting(configuration, "FoundryIq:Provider", "FoundryIq__Provider") ?? "Hybrid",
+    Provider = ReadSetting(configuration, "FoundryIq:Provider", "FoundryIq__Provider") ?? "Local",
     AgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_IQ_AGENT_ID", "FoundryIq:AgentId", "FoundryIq__AgentId"),
 });
 builder.Services.AddSingleton(new AzureFoundryAgentExperimentOptions

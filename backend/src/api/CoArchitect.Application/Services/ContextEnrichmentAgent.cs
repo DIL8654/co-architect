@@ -116,7 +116,12 @@ public sealed class ContextEnrichmentAgent : IContextEnrichmentAgent
 
     private static string BuildSummary(FoundryIqContextBundle bundle, IList<string> principles, IList<string> tradeoffs)
     {
-        return $"Retrieved {bundle.FrameworkGuidanceItems.Count} framework and governance guidance items, {bundle.PrincipleItems.Count} principle notes, {bundle.TradeoffItems.Count} trade-off notes, {bundle.ComplianceItems.Count} compliance notes, and {bundle.WorkspaceMemoryItems.Count} workspace memory signals. Primary principles: {string.Join(", ", principles.Take(3))}. Primary trade-offs: {string.Join(", ", tradeoffs.Take(3))}.";
+        var provider = string.IsNullOrWhiteSpace(bundle.RetrievalProvider) ? "Foundry IQ" : bundle.RetrievalProvider;
+        var fallbackNote = bundle.FallbackUsed && !string.IsNullOrWhiteSpace(bundle.FallbackReason)
+            ? $" Fallback reason: {bundle.FallbackReason}."
+            : string.Empty;
+
+        return $"Retrieved {bundle.FrameworkGuidanceItems.Count} framework and governance guidance items, {bundle.PrincipleItems.Count} principle notes, {bundle.TradeoffItems.Count} trade-off notes, {bundle.ComplianceItems.Count} compliance notes, and {bundle.WorkspaceMemoryItems.Count} workspace memory signals via {provider}. Primary principles: {string.Join(", ", principles.Take(3))}. Primary trade-offs: {string.Join(", ", tradeoffs.Take(3))}.{fallbackNote}";
     }
 
     private static HashSet<string> MapWeightCategories(IReadOnlyCollection<QualityAttributeWeight> weights)

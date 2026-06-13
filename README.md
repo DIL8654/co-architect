@@ -124,6 +124,7 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 * 🔄 Agent workflow visualization (pipeline-style)
 * 📄 ADR generation with version history
 * 📚 Knowledge base grounding (Foundry IQ)
+* 🔁 Hybrid Foundry IQ retrieval with local knowledge-base fallback
 * 🚀 Demo-ready seeded architecture scenarios
 * 🛡️ Lightweight per-IP AI analysis rate limiting for the public MVP
 
@@ -160,7 +161,7 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 * **Backend:** .NET 10 (Clean Architecture)
 * **Storage:** TiDB + Azure Blob Storage
 * **AI Layer:** Azure AI Foundry Agent Service
-* **Fallback:** Mock provider (no Azure required)
+* **Fallback:** Mock provider and local Foundry IQ knowledge base (no Azure required)
 
 📚 Docs:
 
@@ -182,6 +183,16 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
    * trade-offs
    * recommendations
 6. ADRs are created automatically
+
+### Foundry IQ runtime modes
+
+CoArchitect now supports:
+
+* **Local**: repo-backed `docs/knowledge-base/`
+* **AzureFoundry**: managed Foundry IQ retrieval through a dedicated Foundry retrieval agent
+* **Hybrid**: prefer managed Foundry IQ and fall back to the repo knowledge base automatically
+
+The current stable default is **hybrid first**.
 
 ---
 
@@ -218,6 +229,7 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 
 * Application-led orchestration
 * Limited evaluation coverage
+* Hybrid multi-agent prompt-agent mode is optional and still experimental
 
 ---
 

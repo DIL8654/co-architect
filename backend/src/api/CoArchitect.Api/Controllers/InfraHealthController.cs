@@ -18,6 +18,8 @@ public sealed class InfraHealthController : ControllerBase
     private readonly DataStoreOptions _dataStoreOptions;
     private readonly ArchitectureStorageOptions _storageOptions;
     private readonly AzureFoundryArchitectureAgentOptions _foundryOptions;
+    private readonly FoundryIqOptions _foundryIqOptions;
+    private readonly AzureFoundryAgentExperimentOptions _experimentOptions;
     private readonly IAiFoundrySettingsRepository _foundrySettingsRepository;
     private readonly KnowledgeBaseCatalogLoader _knowledgeBaseCatalogLoader;
 
@@ -27,6 +29,8 @@ public sealed class InfraHealthController : ControllerBase
         IConfiguration configuration,
         ArchitectureStorageOptions storageOptions,
         AzureFoundryArchitectureAgentOptions foundryOptions,
+        FoundryIqOptions foundryIqOptions,
+        AzureFoundryAgentExperimentOptions experimentOptions,
         IAiFoundrySettingsRepository foundrySettingsRepository,
         KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader)
     {
@@ -35,6 +39,8 @@ public sealed class InfraHealthController : ControllerBase
         _dataStoreOptions = configuration.GetSection("DataStore").Get<DataStoreOptions>() ?? new DataStoreOptions();
         _storageOptions = storageOptions;
         _foundryOptions = foundryOptions;
+        _foundryIqOptions = foundryIqOptions;
+        _experimentOptions = experimentOptions;
         _foundrySettingsRepository = foundrySettingsRepository;
         _knowledgeBaseCatalogLoader = knowledgeBaseCatalogLoader;
     }
@@ -47,6 +53,8 @@ public sealed class InfraHealthController : ControllerBase
             await CheckDatabaseAsync(cancellationToken),
             await CheckBlobStorageAsync(cancellationToken),
             await CheckFoundryAsync(cancellationToken),
+            await CheckManagedFoundryIqAsync(cancellationToken),
+            CheckAgentMode(),
             CheckFoundryIqCatalog(),
         };
 
@@ -185,6 +193,73 @@ public sealed class InfraHealthController : ControllerBase
             "foundryIqCatalog",
             "LocalKnowledgeBase",
             $"Foundry IQ catalog was not found at {_knowledgeBaseCatalogLoader.CatalogPath}. Live analysis will fall back to minimal baseline guidance.");
+    }
+
+    private async Task<InfraHealthCheck> CheckManagedFoundryIqAsync(CancellationToken cancellationToken)
+    {
+        if (_foundryIqOptions.UseLocalOnly)
+        {
+            return InfraHealthCheck.Healthy("managedFoundryIq", "LocalFallback", "Managed Foundry IQ is disabled; local knowledge base is the active source.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_foundryIqOptions.AgentId))
+        {
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ provider is enabled, but no retrieval agent id is configured.");
+        }
+
+        var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
+        if (!foundryOptions.IsConfigured)
+        {
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ requires the base Azure Foundry endpoint, agent, and model configuration.");
+        }
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
+            if (!string.IsNullOrWhiteSpace(foundryOptions.ApiKey))
+            {
+                request.Headers.Add("api-key", foundryOptions.ApiKey);
+            }
+
+            if (!string.IsNullOrWhiteSpace(foundryOptions.BearerToken))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", foundryOptions.BearerToken);
+            }
+
+            request.Content = JsonContent.Create(new
+            {
+                model = foundryOptions.ModelDeployment,
+                input = "Return a short plain-text confirmation that the managed knowledge base is reachable.",
+                metadata = new Dictionary<string, string>
+                {
+                    ["agent_id"] = _foundryIqOptions.AgentId
+                }
+            });
+
+            using var response = await client.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ retrieval agent accepted a request.");
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", Trim($"Managed retrieval returned {(int)response.StatusCode} {response.ReasonPhrase}. {body}"));
+        }
+        catch (Exception ex)
+        {
+            return InfraHealthCheck.Unhealthy("managedFoundryIq", "AzureFoundryIQ", Trim(ex.Message));
+        }
+    }
+
+    private InfraHealthCheck CheckAgentMode()
+    {
+        if (_experimentOptions.UseHybridPromptAgents)
+        {
+            return InfraHealthCheck.Healthy("architectureAgentMode", "AzureFoundry", "Architecture analysis is configured for the hybrid prompt-agent experiment with planner, reviewer, and critic/composer agents.");
+        }
+
+        return InfraHealthCheck.Healthy("architectureAgentMode", "AzureFoundry", "Architecture analysis is using the stable single-expert mode.");
     }
 
     private static Uri BuildBlobUri(string containerSasUrl, string blobPath)

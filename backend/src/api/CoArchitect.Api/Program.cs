@@ -19,20 +19,58 @@ var builder = WebApplication.CreateBuilder(args);
 // Configuration
 var configuration = builder.Configuration;
 
+static string? ReadSetting(IConfiguration config, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        var value = config[key] ?? Environment.GetEnvironmentVariable(key);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return TrimWrappingQuotes(value.Trim());
+        }
+    }
+
+    return null;
+}
+
+static string TrimWrappingQuotes(string value)
+{
+    if (value.Length >= 2 &&
+        ((value.StartsWith('\"') && value.EndsWith('\"')) ||
+         (value.StartsWith('\'') && value.EndsWith('\''))))
+    {
+        return value[1..^1];
+    }
+
+    return value;
+}
+
 var foundryOptions = new AzureFoundryArchitectureAgentOptions
 {
-    ProjectEndpoint = configuration["AZURE_AI_FOUNDRY_PROJECT_ENDPOINT"],
-    AgentId = configuration["AZURE_AI_FOUNDRY_AGENT_ID"],
-    ModelDeployment = configuration["AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT"],
-    ApiVersion = configuration["AZURE_AI_FOUNDRY_API_VERSION"],
-    ApiKey = configuration["AZURE_AI_FOUNDRY_API_KEY"] ?? configuration["AZURE_OPENAI_API_KEY"],
-    BearerToken = configuration["AZURE_AI_FOUNDRY_BEARER_TOKEN"],
-    ClientId = configuration["AZURE_CLIENT_ID"],
-    ClientSecret = configuration["AZURE_CLIENT_SECRET"],
-    TenantId = configuration["AZURE_TENANT_ID"]
+    ProjectEndpoint = ReadSetting(configuration, "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT", "AzureFoundry:ProjectEndpoint", "AzureFoundry__ProjectEndpoint"),
+    AgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_AGENT_ID", "AzureFoundry:AgentId", "AzureFoundry__AgentId"),
+    ModelDeployment = ReadSetting(configuration, "AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT", "AzureFoundry:ModelDeployment", "AzureFoundry__ModelDeployment"),
+    ApiVersion = ReadSetting(configuration, "AZURE_AI_FOUNDRY_API_VERSION", "AzureFoundry:ApiVersion", "AzureFoundry__ApiVersion"),
+    ApiKey = ReadSetting(configuration, "AZURE_AI_FOUNDRY_API_KEY", "AZURE_OPENAI_API_KEY", "AzureFoundry:ApiKey", "AzureFoundry__ApiKey"),
+    BearerToken = ReadSetting(configuration, "AZURE_AI_FOUNDRY_BEARER_TOKEN", "AzureFoundry:BearerToken", "AzureFoundry__BearerToken"),
+    ClientId = ReadSetting(configuration, "AZURE_CLIENT_ID"),
+    ClientSecret = ReadSetting(configuration, "AZURE_CLIENT_SECRET"),
+    TenantId = ReadSetting(configuration, "AZURE_TENANT_ID")
 };
 
 builder.Services.AddSingleton(foundryOptions);
+builder.Services.AddSingleton(new FoundryIqOptions
+{
+    Provider = ReadSetting(configuration, "FoundryIq:Provider", "FoundryIq__Provider") ?? "Hybrid",
+    AgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_IQ_AGENT_ID", "FoundryIq:AgentId", "FoundryIq__AgentId"),
+});
+builder.Services.AddSingleton(new AzureFoundryAgentExperimentOptions
+{
+    Mode = ReadSetting(configuration, "ArchitectureAgent:Mode", "ArchitectureAgent__Mode") ?? "SingleExpert",
+    PlannerAgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_PLANNER_AGENT_ID", "ArchitectureAgent:PlannerAgentId", "ArchitectureAgent__PlannerAgentId"),
+    ReviewerAgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_REVIEWER_AGENT_ID", "ArchitectureAgent:ReviewerAgentId", "ArchitectureAgent__ReviewerAgentId"),
+    CriticComposerAgentId = ReadSetting(configuration, "AZURE_AI_FOUNDRY_CRITIC_AGENT_ID", "ArchitectureAgent:CriticComposerAgentId", "ArchitectureAgent__CriticComposerAgentId"),
+});
 
 var dataStoreOptions = configuration.GetSection("DataStore").Get<DataStoreOptions>() ?? new DataStoreOptions();
 var storageOptions = configuration.GetSection("ArchitectureStorage").Get<ArchitectureStorageOptions>() ?? new ArchitectureStorageOptions();
@@ -118,6 +156,9 @@ builder.Services.AddScoped<IArchitectureIntelligenceScoreService, ArchitectureIn
 builder.Services.AddScoped<IFrameworkSelectionService, FrameworkSelectionService>();
 builder.Services.AddSingleton<KnowledgeBaseCatalogLoader>();
 builder.Services.AddScoped<FileSystemFoundryIqProvider>();
+builder.Services.AddHttpClient<AzureFoundryInvocationService>();
+builder.Services.AddScoped<AzureFoundryIqProvider>();
+builder.Services.AddScoped<IFoundryIqKnowledgeProvider, HybridFoundryIqKnowledgeProvider>();
 builder.Services.AddScoped<IFoundryIqProvider, CompositeFoundryIqProvider>();
 builder.Services.AddScoped<IContextEnrichmentAgent, ContextEnrichmentAgent>();
 builder.Services.AddScoped<IMultiAgentArchitectureAnalysisService, MultiAgentArchitectureAnalysisService>();
@@ -169,7 +210,7 @@ var architectureAgentProvider = configuration["ArchitectureAgent:Provider"];
 if (string.Equals(architectureAgentProvider, "AzureFoundry", StringComparison.OrdinalIgnoreCase) ||
     (!string.Equals(architectureAgentProvider, "Mock", StringComparison.OrdinalIgnoreCase) && foundryOptions.IsConfigured))
 {
-    builder.Services.AddHttpClient<IArchitectureAgentService, AzureFoundryArchitectureAgentService>();
+    builder.Services.AddScoped<IArchitectureAgentService, AzureFoundryArchitectureAgentService>();
 }
 else
 {

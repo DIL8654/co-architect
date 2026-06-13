@@ -9,6 +9,12 @@
     <ProjectReference Include="../CoArchitect.Infrastructure/CoArchitect.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="../../../../docs/**/*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>docs/%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 </Project>

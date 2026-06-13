@@ -1,5 +1,3 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using CoArchitect.Application.Interfaces;
 using CoArchitect.Domain.Enums;
@@ -12,104 +10,142 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly AzureFoundryArchitectureAgentOptions _options;
-    private readonly HttpClient _httpClient;
-    private readonly IAiFoundrySettingsRepository _settingsRepository;
+    private readonly AzureFoundryInvocationService _invocationService;
+    private readonly AzureFoundryAgentExperimentOptions _experimentOptions;
 
     public AzureFoundryArchitectureAgentService(
-        AzureFoundryArchitectureAgentOptions options,
-        HttpClient httpClient,
-        IAiFoundrySettingsRepository settingsRepository)
+        AzureFoundryInvocationService invocationService,
+        AzureFoundryAgentExperimentOptions experimentOptions)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _settingsRepository = settingsRepository ?? throw new ArgumentNullException(nameof(settingsRepository));
+        _invocationService = invocationService ?? throw new ArgumentNullException(nameof(invocationService));
+        _experimentOptions = experimentOptions ?? throw new ArgumentNullException(nameof(experimentOptions));
     }
 
     public async Task<AgentAnalysisResult> AnalyzeAsync(Guid architectureDiagramId, string diagramContent, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (_experimentOptions.UseHybridPromptAgents)
+        {
+            var multiAgentResult = await TryAnalyzeWithPromptAgentsAsync(architectureDiagramId, diagramContent, cancellationToken);
+            if (multiAgentResult is not null)
+            {
+                return multiAgentResult;
+            }
+        }
+
+        return await AnalyzeWithSingleExpertAsync(architectureDiagramId, diagramContent, cancellationToken);
+    }
+
+    private async Task<AgentAnalysisResult> AnalyzeWithSingleExpertAsync(Guid architectureDiagramId, string diagramContent, CancellationToken cancellationToken)
+    {
+        var effectiveOptions = await _invocationService.GetEffectiveOptionsAsync(cancellationToken);
+        if (!effectiveOptions.IsConfigured)
+        {
+            return CreateFallbackResult(architectureDiagramId, diagramContent, "Azure AI Foundry configuration is incomplete.");
+        }
+
+        var invocation = await _invocationService.InvokeAsync(BuildPrompt(diagramContent), effectiveOptions.AgentId!, cancellationToken);
+        if (!invocation.Succeeded || string.IsNullOrWhiteSpace(invocation.OutputText))
+        {
+            return CreateFallbackResult(
+                architectureDiagramId,
+                diagramContent,
+                invocation.FailureReason ?? "Azure Foundry returned no text output.");
+        }
+
         try
         {
-            var options = await GetEffectiveOptionsAsync(cancellationToken);
-            if (!options.IsConfigured)
-            {
-                return CreateFallbackResult(architectureDiagramId, diagramContent, "Azure AI Foundry configuration is incomplete.");
-            }
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildEndpointUri(options));
-            AddAuthenticationHeaders(request, options);
-            request.Content = JsonContent.Create(new
-            {
-                model = options.ModelDeployment,
-                input = BuildPrompt(diagramContent),
-                metadata = new Dictionary<string, string>
-                {
-                    ["agent_id"] = options.AgentId!
-                }
-            });
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return CreateFallbackResult(
-                    architectureDiagramId,
-                    diagramContent,
-                    $"Azure Foundry returned {(int)response.StatusCode} {response.ReasonPhrase}. {TrimForEvidence(responseBody)}");
-            }
-
-            var outputText = ExtractOutputText(responseBody);
-            if (string.IsNullOrWhiteSpace(outputText))
-            {
-                return CreateFallbackResult(architectureDiagramId, diagramContent, "Azure Foundry returned no text output.");
-            }
-
-            var parsed = ParseAgentJson(outputText);
-            return parsed?.ToAgentAnalysisResult(architectureDiagramId)
+            return ParseStructuredResult(invocation.OutputText, architectureDiagramId)
                 ?? CreateFallbackResult(architectureDiagramId, diagramContent, "Azure Foundry output could not be parsed as structured JSON.");
         }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
+        catch (JsonException ex)
         {
-            return CreateFallbackResult(architectureDiagramId, diagramContent, $"Azure Foundry call failed: {ex.Message}");
+            return CreateFallbackResult(architectureDiagramId, diagramContent, $"Azure Foundry output could not be parsed as structured JSON. {ex.Message}");
         }
     }
 
-    private async Task<AzureFoundryArchitectureAgentOptions> GetEffectiveOptionsAsync(CancellationToken cancellationToken)
+    private async Task<AgentAnalysisResult?> TryAnalyzeWithPromptAgentsAsync(Guid architectureDiagramId, string diagramContent, CancellationToken cancellationToken)
     {
-        var saved = await _settingsRepository.GetAsync(cancellationToken);
-        return new AzureFoundryArchitectureAgentOptions
+        if (string.IsNullOrWhiteSpace(_experimentOptions.PlannerAgentId) ||
+            string.IsNullOrWhiteSpace(_experimentOptions.ReviewerAgentId) ||
+            string.IsNullOrWhiteSpace(_experimentOptions.CriticComposerAgentId))
         {
-            ProjectEndpoint = First(saved?.ProjectEndpoint, _options.ProjectEndpoint),
-            AgentId = First(saved?.AgentId, _options.AgentId),
-            ModelDeployment = First(saved?.ModelDeployment, _options.ModelDeployment),
-            ApiVersion = First(saved?.ApiVersion, _options.ApiVersion),
-            ApiKey = First(saved?.ApiKey, _options.ApiKey),
-            BearerToken = _options.BearerToken,
-            ClientId = _options.ClientId,
-            ClientSecret = _options.ClientSecret,
-            TenantId = _options.TenantId,
-        };
-    }
-
-    private static void AddAuthenticationHeaders(HttpRequestMessage request, AzureFoundryArchitectureAgentOptions options)
-    {
-        if (!string.IsNullOrWhiteSpace(options.ApiKey))
-        {
-            request.Headers.Add("api-key", options.ApiKey);
+            return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(options.BearerToken))
+        var traces = new List<AgentExecutionTrace>();
+        try
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.BearerToken);
-        }
-    }
+            var plannerStartedAt = DateTime.UtcNow;
+            var plannerResponse = await _invocationService.InvokeAsync(
+                BuildPlannerPrompt(diagramContent),
+                _experimentOptions.PlannerAgentId!,
+                cancellationToken);
 
-    private static string? First(params string?[] values)
-    {
-        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            if (!plannerResponse.Succeeded || string.IsNullOrWhiteSpace(plannerResponse.OutputText))
+            {
+                return null;
+            }
+
+            var plannerText = plannerResponse.OutputText.Trim();
+            traces.Add(CreateFoundryTrace(
+                "Foundry Intake and Context Planner",
+                "Managed Foundry prompt agent that extracts architecture cues and review focus areas.",
+                plannerStartedAt,
+                "Prepared architecture cues, risk focus, and suggested review emphasis before the main standards review.",
+                plannerText));
+
+            var reviewerStartedAt = DateTime.UtcNow;
+            var reviewerResponse = await _invocationService.InvokeAsync(
+                BuildReviewerPrompt(diagramContent, plannerText),
+                _experimentOptions.ReviewerAgentId!,
+                cancellationToken);
+
+            if (!reviewerResponse.Succeeded || string.IsNullOrWhiteSpace(reviewerResponse.OutputText))
+            {
+                return null;
+            }
+
+            var reviewerText = reviewerResponse.OutputText.Trim();
+            traces.Add(CreateFoundryTrace(
+                "Foundry Standards and Framework Reviewer",
+                "Managed Foundry prompt agent that runs the structured standards review.",
+                reviewerStartedAt,
+                "Generated the first structured grounded review across frameworks and selected standards.",
+                reviewerText));
+
+            var criticStartedAt = DateTime.UtcNow;
+            var criticResponse = await _invocationService.InvokeAsync(
+                BuildCriticPrompt(diagramContent, plannerText, reviewerText),
+                _experimentOptions.CriticComposerAgentId!,
+                cancellationToken);
+
+            var finalText = criticResponse.Succeeded && !string.IsNullOrWhiteSpace(criticResponse.OutputText)
+                ? criticResponse.OutputText.Trim()
+                : reviewerText;
+
+            traces.Add(CreateFoundryTrace(
+                "Foundry Critic and ADR Composer",
+                "Managed Foundry prompt agent that validates the review and sharpens decision-oriented output.",
+                criticStartedAt,
+                criticResponse.Succeeded
+                    ? "Validated the structured review and returned a polished final result."
+                    : "Critic step was unavailable, so the review fell back to the standards reviewer output.",
+                finalText));
+
+            var parsed = ParseStructuredResult(finalText, architectureDiagramId);
+            if (parsed is null)
+            {
+                return null;
+            }
+
+            return parsed.WithTrace(traces);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static string BuildPrompt(string diagramContent)
@@ -142,82 +178,88 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
         """;
     }
 
-    private static Uri BuildEndpointUri(AzureFoundryArchitectureAgentOptions options)
+    private static string BuildPlannerPrompt(string diagramContent)
     {
-        var endpoint = options.ProjectEndpoint!;
-        if (string.IsNullOrWhiteSpace(options.ApiVersion) ||
-            endpoint.Contains("api-version=", StringComparison.OrdinalIgnoreCase))
-        {
-            return new Uri(endpoint);
-        }
+        return $$"""
+        You are CoArchitect AI's intake and context planner.
 
-        var separator = endpoint.Contains('?', StringComparison.Ordinal) ? "&" : "?";
-        return new Uri($"{endpoint}{separator}api-version={Uri.EscapeDataString(options.ApiVersion)}");
+        Read the architecture review request below and return a short plain-text planning brief with:
+        - key architecture cues
+        - likely risk areas
+        - likely frameworks and standards to emphasize
+        - any missing evidence that should be called out
+
+        Keep it concise and decision-oriented.
+
+        Architecture review request:
+        {{diagramContent}}
+        """;
     }
 
-    private static string? ExtractOutputText(string responseBody)
+    private static string BuildReviewerPrompt(string diagramContent, string plannerNotes)
     {
-        using var document = JsonDocument.Parse(responseBody);
-        var root = document.RootElement;
+        return $$"""
+        You are CoArchitect AI's standards and framework reviewer.
 
-        if (root.TryGetProperty("output_text", out var outputText))
+        Use these planner notes:
+        {{plannerNotes}}
+
+        Analyze the architecture and return only valid JSON with this shape:
         {
-            return outputText.GetString();
+          "evidence": [{"summary": "...", "details": "..."}],
+          "missingControls": [{"name": "...", "description": "...", "dimension": "Security"}],
+          "recommendations": [{"description": "...", "severity": "High"}],
+          "tradeoffs": [{"summary": "...", "pros": ["..."], "cons": ["..."]}],
+          "dimensionMaturitySuggestions": [{"dimension": "Security", "currentMaturity": 2, "suggestedMaturity": 4, "reason": "..."}]
         }
 
-        if (root.TryGetProperty("output", out var output) && output.ValueKind == JsonValueKind.Array)
-        {
-            var fragments = new List<string>();
-            foreach (var item in output.EnumerateArray())
-            {
-                if (!item.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
-                {
-                    continue;
-                }
-
-                foreach (var contentItem in content.EnumerateArray())
-                {
-                    if (contentItem.TryGetProperty("text", out var text))
-                    {
-                        fragments.Add(text.GetString() ?? string.Empty);
-                    }
-                }
-            }
-
-            return string.Join(Environment.NewLine, fragments.Where(fragment => !string.IsNullOrWhiteSpace(fragment)));
-        }
-
-        return responseBody;
+        Architecture:
+        {{diagramContent}}
+        """;
     }
 
-    private static string TrimForEvidence(string value)
+    private static string BuildCriticPrompt(string diagramContent, string plannerNotes, string reviewerJson)
     {
-        var trimmed = value.ReplaceLineEndings(" ").Trim();
-        return trimmed.Length <= 500 ? trimmed : $"{trimmed[..500]}...";
+        return $$"""
+        You are CoArchitect AI's critic and ADR composer.
+
+        Review the planner notes and structured review below. Correct weak or unsupported recommendations, keep the response grounded in the architecture evidence, and return only valid JSON in the same schema.
+
+        Planner notes:
+        {{plannerNotes}}
+
+        Current review JSON:
+        {{reviewerJson}}
+
+        Architecture:
+        {{diagramContent}}
+        """;
     }
 
-    private static FoundryStructuredResult? ParseAgentJson(string outputText)
+    private static AgentExecutionTrace CreateFoundryTrace(string agentName, string role, DateTime startedAt, string summary, string rawOutput)
     {
-        var json = outputText.Trim();
-        var fenceStart = json.IndexOf("```", StringComparison.Ordinal);
-        if (fenceStart >= 0)
+        return new AgentExecutionTrace
         {
-            var firstLineEnd = json.IndexOf('\n', fenceStart);
-            var fenceEnd = json.LastIndexOf("```", StringComparison.Ordinal);
-            if (firstLineEnd >= 0 && fenceEnd > firstLineEnd)
-            {
-                json = json[(firstLineEnd + 1)..fenceEnd].Trim();
-            }
-        }
+            AgentName = agentName,
+            Role = role,
+            Status = "Completed",
+            Summary = summary,
+            Highlights = rawOutput
+                .ReplaceLineEndings("\n")
+                .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Take(4)
+                .ToList(),
+            UsedFoundry = true,
+            StartedAt = startedAt,
+            CompletedAt = DateTime.UtcNow,
+        };
+    }
 
-        var objectStart = json.IndexOf('{');
-        var objectEnd = json.LastIndexOf('}');
-        if (objectStart >= 0 && objectEnd > objectStart)
-        {
-            json = json[objectStart..(objectEnd + 1)];
-        }
-
-        return JsonSerializer.Deserialize<FoundryStructuredResult>(json, JsonOptions);
+    private static AgentAnalysisResult? ParseStructuredResult(string outputText, Guid diagramId)
+    {
+        var json = AzureFoundryInvocationService.ExtractJsonPayload(outputText);
+        var parsed = JsonSerializer.Deserialize<FoundryStructuredResult>(json, JsonOptions);
+        return parsed?.ToAgentAnalysisResult(diagramId);
     }
 
     private static AgentAnalysisResult CreateFallbackResult(Guid architectureDiagramId, string diagramContent, string reason)
@@ -408,5 +450,31 @@ public sealed class AzureFoundryArchitectureAgentService : IArchitectureAgentSer
         where TEnum : struct
     {
         return Enum.TryParse<TEnum>(value, ignoreCase: true, out var parsed) ? parsed : fallback;
+    }
+}
+
+file static class AgentAnalysisResultExtensions
+{
+    public static AgentAnalysisResult WithTrace(this AgentAnalysisResult result, IList<AgentExecutionTrace> traces)
+    {
+        return new AgentAnalysisResult
+        {
+            Id = result.Id,
+            ArchitectureDiagramId = result.ArchitectureDiagramId,
+            RequestedAt = result.RequestedAt,
+            CompletedAt = result.CompletedAt,
+            ExecutiveSummary = result.ExecutiveSummary,
+            ResolvedFrameworkSelection = result.ResolvedFrameworkSelection,
+            ResolvedQualityAttributeWeights = result.ResolvedQualityAttributeWeights,
+            OpenQuestions = result.OpenQuestions,
+            CriticNotes = result.CriticNotes,
+            FoundryIqContext = result.FoundryIqContext,
+            AgentTrace = traces.ToList(),
+            Evidence = result.Evidence,
+            MissingControls = result.MissingControls,
+            Recommendations = result.Recommendations,
+            Tradeoffs = result.Tradeoffs,
+            DimensionMaturitySuggestions = result.DimensionMaturitySuggestions,
+        };
     }
 }

@@ -5,20 +5,20 @@ namespace CoArchitect.Infrastructure.Services;
 
 public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
 {
-    private readonly FileSystemFoundryIqProvider _fileSystemProvider;
+    private readonly IFoundryIqKnowledgeProvider _knowledgeProvider;
     private readonly IDiagramRepository _diagramRepository;
     private readonly IAgentAnalysisRunRepository _analysisRunRepository;
     private readonly IDiagramCommentRepository _commentRepository;
     private readonly IAdrRepository _adrRepository;
 
     public CompositeFoundryIqProvider(
-        FileSystemFoundryIqProvider fileSystemProvider,
+        IFoundryIqKnowledgeProvider knowledgeProvider,
         IDiagramRepository diagramRepository,
         IAgentAnalysisRunRepository analysisRunRepository,
         IDiagramCommentRepository commentRepository,
         IAdrRepository adrRepository)
     {
-        _fileSystemProvider = fileSystemProvider;
+        _knowledgeProvider = knowledgeProvider;
         _diagramRepository = diagramRepository;
         _analysisRunRepository = analysisRunRepository;
         _commentRepository = commentRepository;
@@ -27,7 +27,7 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
 
     public async Task<FoundryIqContextBundle> RetrieveContextAsync(FoundryIqQuery query, CancellationToken cancellationToken)
     {
-        var bundle = await _fileSystemProvider.RetrieveContextAsync(query, cancellationToken);
+        var bundle = await _knowledgeProvider.RetrieveContextAsync(query, cancellationToken);
         var diagrams = (await _diagramRepository.GetByWorkspaceIdAsync(query.WorkspaceId, cancellationToken)).ToList();
 
         var previousReviewSummaries = new List<string>();
@@ -65,6 +65,7 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
                     Content = run.Result.ExecutiveSummary,
                     SourceType = "analysis-run",
                     SourceLabel = $"{diagram.Name} analysis",
+                    SourceProvider = "WorkspaceMemory",
                     WorkspaceScoped = true,
                     AnalysisRunId = run.Id,
                 });
@@ -81,6 +82,7 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
                         Content = control.Description,
                         SourceType = "analysis-run",
                         SourceLabel = $"{diagram.Name} finding",
+                        SourceProvider = "WorkspaceMemory",
                         WorkspaceScoped = true,
                         AnalysisRunId = run.Id,
                     });
@@ -109,6 +111,7 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
                     Content = comment.Content,
                     SourceType = "comment",
                     SourceLabel = $"{diagram.Name} comment",
+                    SourceProvider = "WorkspaceMemory",
                     WorkspaceScoped = true,
                 });
             }
@@ -133,6 +136,7 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
                         Content = version.Markdown,
                         SourceType = "adr-version",
                         SourceLabel = $"{diagram.Name} ADR v{version.VersionNumber}",
+                        SourceProvider = "WorkspaceMemory",
                         WorkspaceScoped = true,
                         AdrId = adr.Id,
                     });
@@ -148,6 +152,9 @@ public sealed class CompositeFoundryIqProvider : IFoundryIqProvider
 
         return new FoundryIqContextBundle
         {
+            RetrievalProvider = bundle.RetrievalProvider,
+            FallbackUsed = bundle.FallbackUsed,
+            FallbackReason = bundle.FallbackReason,
             FrameworkGuidanceItems = bundle.FrameworkGuidanceItems,
             PrincipleItems = bundle.PrincipleItems,
             TradeoffItems = bundle.TradeoffItems,

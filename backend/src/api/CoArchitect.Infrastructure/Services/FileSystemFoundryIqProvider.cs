@@ -3,7 +3,7 @@ using CoArchitect.Domain.Models;
 
 namespace CoArchitect.Infrastructure.Services;
 
-public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
+public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowledgeProvider
 {
     private static readonly string[] CloudNeutralBaselineFrameworks = ["Iso25010", "OwaspAsvs"];
     private static readonly string[] DefaultTradeoffIds =
@@ -73,6 +73,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 
         return Task.FromResult(new FoundryIqContextBundle
         {
+            RetrievalProvider = "LocalKnowledgeBase",
             FrameworkGuidanceItems = frameworkItems,
             PrincipleItems = principleItems,
             TradeoffItems = tradeoffItems,
@@ -111,6 +112,9 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
         var citations = new List<string> { $"Foundry IQ catalog unavailable at {_catalogLoader.CatalogPath}" };
         return new FoundryIqContextBundle
         {
+            RetrievalProvider = "LocalKnowledgeBase",
+            FallbackUsed = true,
+            FallbackReason = $"Foundry IQ catalog unavailable at {_catalogLoader.CatalogPath}",
             FrameworkGuidanceItems = frameworkItems,
             ComplianceItems = complianceItems,
             PrincipleItems = principleItems,
@@ -136,6 +140,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             Content = summary,
             SourceType = sourceType,
             SourceLabel = "Foundry IQ fallback baseline",
+            SourceProvider = "FallbackBaseline",
             StandardKey = standardKey,
             UseCaseTags = new List<string> { category },
             WhyItMatters = "Grounding should remain visible even when the local catalog path is misconfigured.",
@@ -571,6 +576,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             Content = item.Guidance,
             SourceType = "knowledge-base-catalog",
             SourceLabel = string.IsNullOrWhiteSpace(item.SourceLabel) ? item.Title : item.SourceLabel,
+            SourceProvider = "LocalKnowledgeBase",
             SourceUri = string.IsNullOrWhiteSpace(item.SourceUri) ? null : item.SourceUri,
             StandardKey = item.StandardKey,
             UseCaseTags = item.UseCaseTags.ToList(),

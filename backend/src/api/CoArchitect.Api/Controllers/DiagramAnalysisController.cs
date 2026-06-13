@@ -339,6 +339,9 @@ public class DiagramAnalysisController : ControllerBase
     {
         return new FoundryIqContextBundleResponse
         {
+            RetrievalProvider = bundle.RetrievalProvider,
+            FallbackUsed = bundle.FallbackUsed,
+            FallbackReason = bundle.FallbackReason,
             FrameworkGuidanceItems = bundle.FrameworkGuidanceItems.Select(MapContextItem).ToList(),
             PrincipleItems = bundle.PrincipleItems.Select(MapContextItem).ToList(),
             TradeoffItems = bundle.TradeoffItems.Select(MapContextItem).ToList(),
@@ -371,6 +374,7 @@ public class DiagramAnalysisController : ControllerBase
             Content = item.Content,
             SourceType = item.SourceType,
             SourceLabel = item.SourceLabel,
+            SourceProvider = item.SourceProvider,
             SourceUri = item.SourceUri,
             WorkspaceScoped = item.WorkspaceScoped,
             StandardKey = item.StandardKey,

@@ -95,7 +95,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             "Foundry IQ Retrieval",
             "Assemble framework knowledge, ADR patterns, trade-off guidance, and workspace memory into a shared context bundle.",
             retrievalStartedAt,
-            $"Retrieved {enrichment.ContextBundle.FrameworkGuidanceItems.Count} framework and governance items, {enrichment.ContextBundle.ComplianceItems.Count} compliance items, {enrichment.ContextBundle.PrincipleItems.Count} principles, {enrichment.ContextBundle.TradeoffItems.Count} trade-offs, and {enrichment.ContextBundle.WorkspaceMemoryItems.Count} workspace signals.",
+            BuildRetrievalSummary(enrichment.ContextBundle),
             enrichment.ContextBundle.CitationRefs.Take(4),
             usedFoundry: true,
             grounding: BuildGrounding(
@@ -111,20 +111,27 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             diagram.Id,
             BuildExpertPrompt(diagram, facts, selectedFrameworks, selectedStandards, effectiveWeights, enrichment),
             cancellationToken);
-        traces.Add(CreateTrace(
-            "Foundry Expert",
-            "Single cost-aware external AI call used as expert context.",
-            expertStartedAt,
-            "Collected one external expert analysis to ground the orchestration without multiplying token cost.",
-            expertBaseline.Evidence.Take(3).Select(item => item.Summary),
-            usedFoundry: true,
-            grounding: BuildGrounding(
-                selectedFrameworks.Select(item => item.ToString()),
-                selectedStandards.Select(item => ToStandardLabel(item)),
-                enrichment.ApplicablePrinciples,
-                enrichment.ApplicableTradeoffs,
-                enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
-                enrichment.ContextBundle.CitationRefs)));
+        if (expertBaseline.AgentTrace.Count > 0)
+        {
+            traces.AddRange(expertBaseline.AgentTrace);
+        }
+        else
+        {
+            traces.Add(CreateTrace(
+                "Foundry Expert",
+                "Single cost-aware external AI call used as expert context.",
+                expertStartedAt,
+                "Collected one external expert analysis to ground the orchestration without multiplying token cost.",
+                expertBaseline.Evidence.Take(3).Select(item => item.Summary),
+                usedFoundry: true,
+                grounding: BuildGrounding(
+                    selectedFrameworks.Select(item => item.ToString()),
+                    selectedStandards.Select(item => ToStandardLabel(item)),
+                    enrichment.ApplicablePrinciples,
+                    enrichment.ApplicableTradeoffs,
+                    enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
+                    enrichment.ContextBundle.CitationRefs)));
+        }
 
         var specialistOutputs = new List<SpecialistOutput>();
         foreach (var framework in selectedFrameworks)
@@ -1028,6 +1035,16 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
     private static string ToStandardLabel(ReviewStandard standard)
     {
         return ReviewStandardCatalog.ToDisplayLabel(standard);
+    }
+
+    private static string BuildRetrievalSummary(FoundryIqContextBundle bundle)
+    {
+        var provider = string.IsNullOrWhiteSpace(bundle.RetrievalProvider) ? "Foundry IQ" : bundle.RetrievalProvider;
+        var fallbackSuffix = bundle.FallbackUsed && !string.IsNullOrWhiteSpace(bundle.FallbackReason)
+            ? $" Local fallback reason: {bundle.FallbackReason}"
+            : string.Empty;
+
+        return $"Retrieved {bundle.FrameworkGuidanceItems.Count} framework and governance items, {bundle.ComplianceItems.Count} compliance items, {bundle.PrincipleItems.Count} principles, {bundle.TradeoffItems.Count} trade-offs, and {bundle.WorkspaceMemoryItems.Count} workspace signals via {provider}.{fallbackSuffix}";
     }
 
     private FrameworkDecision ResolveFrameworkDecision(

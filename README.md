@@ -6,6 +6,12 @@
 
 ## 🌐 Live Demo
 
+Primary domain:
+
+👉 https://www.coarchitect.cloud/
+
+Azure fallback:
+
 👉 https://brave-smoke-025cfcd03.7.azurestaticapps.net/
 
 ---

@@ -1,67 +1,66 @@
-# CoArchitect AI
+# 🚀 CoArchitect AI
 
-## 1. Project Overview
+### Turn diagrams into grounded architecture decisions
 
-CoArchitect AI is a workspace-centric architecture reasoning platform built for the Microsoft Agents League hackathon. It helps teams review software architecture diagrams and descriptions, surface evidence-backed findings, understand trade-offs, and generate Architecture Decision Records (ADRs) with visible multi-step AI reasoning.
+---
 
-The current MVP is intentionally demo-first:
+## 🌐 Live Demo
 
-- unauthenticated local runtime
-- synthetic demo data only
-- workspace-first product flow
-- application-led orchestration with one cost-aware Azure AI Foundry expert call when enabled
+👉 https://brave-smoke-025cfcd03.7.azurestaticapps.net/
 
-## 2. Live Demo
+---
 
-- Public site: [https://brave-smoke-025cfcd03.7.azurestaticapps.net/](https://brave-smoke-025cfcd03.7.azurestaticapps.net/)
+## 🧠 What is CoArchitect AI?
 
-Local routes:
+CoArchitect AI is a **multi-agent architecture reasoning platform** that helps engineering teams:
 
-- Public front door: `http://localhost:5173/`
-- Product app: `http://localhost:5173/app`
-- API: `http://localhost:5010`
+* analyze architecture diagrams
+* apply real-world standards
+* understand trade-offs
+* generate decision-ready Architecture Decision Records (ADRs)
 
-## 3. Problem & Solution
+Unlike traditional tools, CoArchitect **does not just generate output** — it shows **how decisions are made** through **transparent, multi-step AI reasoning**.
 
-### Problem
+---
 
-Architecture reviews are often slow, inconsistent, and hard to explain. Teams may have diagrams, standards, and tribal knowledge, but they still struggle to turn them into clear recommendations, measurable architecture quality, and durable decision records.
+## ❗ Problem
 
-### Solution
+Architecture reviews today are:
 
-CoArchitect AI acts as an AI architecture partner. It combines:
+* manual and inconsistent
+* hard to explain and justify
+* disconnected from standards
+* rarely documented as decisions
 
-- architecture diagrams and descriptions
-- architecture standards and framework guidance
-- Foundry IQ-style grounded context
-- visible multi-agent reasoning
-- application-calculated scoring
-- ADR generation and version history
+Teams struggle to move from:
 
-The result is a review workflow that is easier to demonstrate, explain, and act on.
+```
+diagram → insight → decision → documentation
+```
 
-## 4. Architecture Overview
+---
 
-CoArchitect AI is a monorepo with a React frontend and a .NET backend.
+## ✅ Solution
 
-- Frontend: React + TypeScript + Vite
-- Backend: .NET 10 with Clean Architecture layers
-- Persistence: TiDB-backed relational storage for the primary production path
-- File storage: Azure Blob Storage with SAS-based MVP access
-- AI provider path: Azure AI Foundry Agent Service with mock-provider fallback
+CoArchitect AI introduces a **structured reasoning workflow**:
 
-Documentation entry points:
+```
+Architecture Evidence → Multi-Agent Analysis → Grounded Insights → ADRs
+```
 
-- [Documentation Index](./docs/README.md)
-- [System Architecture](./docs/architecture/SYSTEM_ARCHITECTURE.md)
-- [Backend Architecture](./docs/architecture/CLEAN_ARCHITECTURE_BACKEND.md)
-- [Frontend Architecture](./docs/architecture/FRONTEND_ARCHITECTURE.md)
+It combines:
 
-## 5. Multi-Agent System
+* 🧠 Multi-agent reasoning
+* 📚 Standards & frameworks grounding
+* ⚖️ Trade-off analysis
+* 📊 Scoring & prioritization
+* 📄 ADR generation with history
 
-The current MVP uses application-led orchestration rather than pretending every stage is a separate hosted agent.
+---
 
-Main reasoning flow:
+## 🤖 Multi-Agent Reasoning (Core Innovation)
+
+CoArchitect orchestrates a **visible reasoning pipeline**:
 
 1. Intake
 2. Diagram Understanding
@@ -69,145 +68,177 @@ Main reasoning flow:
 4. Context Enrichment
 5. Foundry IQ Retrieval
 6. Foundry Expert
-7. Framework Specialists
-8. Trade-off Balancing
-9. Architecture Scoring Suggestions
-10. ADR Preparation
-11. Critic / Verifier
-12. Recommendation Composer
+7. Specialist Agents
+8. Trade-off Analysis
+9. Scoring
+10. ADR Generation
+11. Verification
+12. Recommendation Composition
 
-This flow is visible in the product through workflow traces, run history, and grounded context displays.
+👉 Each step is:
 
-Further reading:
+* visible in UI
+* traceable
+* explainable
 
-- [Multi-Agent Reasoning](./docs/ai/MULTI_AGENT_REASONING.md)
-- [Agent Catalog](./docs/ai/AGENT_CATALOG.md)
-- [Agent Orchestration Flow](./docs/ai/AGENT_ORCHESTRATION_FLOW.md)
+This directly addresses **Reasoning & Multi-step Thinking (20%)**.
 
-## 6. Foundry IQ Integration
+---
 
-CoArchitect AI uses a Foundry IQ-style intelligence layer to ground reasoning before recommendations are produced.
+## 🧩 Foundry IQ Integration
 
-Current grounding sources include:
+CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions in real-world standards.
 
-- Azure Well-Architected
-- AWS Well-Architected
-- ISO/IEC 25010
-- OWASP ASVS
-- ISO 27001
-- GDPR
-- SOC 2
-- TOGAF
-- SAFe
-- architecture principles
-- trade-off guidance
-- ADR templates
-- workspace memory and prior analysis history
+### Grounding sources:
 
-The runtime uses a structured knowledge-base catalog plus markdown companions, so recommendations can point back to concrete context rather than unsupported model recall.
+* Azure Well-Architected
+* AWS Well-Architected
+* ISO/IEC 25010
+* ISO 27001
+* OWASP ASVS
+* GDPR, SOC 2
+* TOGAF, SAFe
+* Architecture principles & trade-offs
+* Workspace memory
 
-Further reading:
+👉 Ensures:
 
-- [Foundry AI Integration](./docs/ai/FOUNDRY_AI_INTEGRATION.md)
-- [Foundry IQ Intelligence Layer](./docs/ai/FOUNDRY_IQ_INTELLIGENCE_LAYER.md)
+* accurate reasoning
+* explainable outputs
+* enterprise relevance
 
-## 7. Features
+---
 
-- Workspace -> Diagram -> Analysis -> ADR workflow
-- Seeded demo workspaces with real diagram assets
-- Architecture Intelligence Score with dimension breakdown
-- Findings, recommendations, trade-offs, and improvement roadmap
-- Agent workflow trace and reasoning history
-- Standards-aware review setup with frameworks and governance criteria
-- Persisted ADRs with version history
-- Public front door plus in-app workbench
-- Local mock-provider runtime with no Azure requirement
+## 📊 Key Features
 
-## 8. Demo Walkthrough
+* 🧱 Workspace → Diagram → Analysis → ADR workflow
+* 📈 Architecture Intelligence Score (evidence-based)
+* 🔍 Findings, recommendations, and risks
+* ⚖️ Trade-off analysis (cost, performance, security)
+* 🔄 Agent workflow visualization (pipeline-style)
+* 📄 ADR generation with version history
+* 📚 Knowledge base grounding (Foundry IQ)
+* 🚀 Demo-ready seeded architecture scenarios
 
-### Primary demo path
+---
 
-1. Open the public site.
-2. Click `Try Now`.
-3. Open one of the seeded Demo Architecture Journeys.
-4. Inspect the diagram workbench.
-5. Review the Architecture Intelligence tab for score, frameworks, standards, and grounded context.
-6. Open the Agent Workflow tab to show the orchestration trace.
-7. Review findings, recommendations, and trade-offs.
-8. Open ADRs and version history.
+## 🎬 Demo Walkthrough
 
-### Demo scenarios
+### Quick Path (Recommended)
 
-- Automated Video Analysis Platform
-- Custom Document Processing Platform
-- Enterprise SaaS Platform Baseline
+1. Open the live demo
+2. Click **Try Now**
+3. Select a demo architecture
+4. Explore:
 
-Supporting docs:
+   * Architecture Intelligence Score
+   * Agent Workflow
+   * Findings & Recommendations
+   * Trade-offs
+   * ADRs
 
-- [Demo Data Plan](./docs/demo/DEMO_DATA_PLAN.md)
-- [Demo Journeys](./docs/demo/DEMO_JOURNEYS.md)
-- [Demo Script](./docs/demo/DEMO_SCRIPT.md)
-- [Demo Assets](./docs/demo/DEMO_ASSETS.md)
+---
 
-## 9. Assumptions
+### Demo Scenarios
 
-- No authentication is implemented in the current hackathon runtime.
-- The current demo assumes a single-user local flow.
-- Synthetic data is used for seeded demo journeys and examples.
-- Several product decisions are intentionally demo-first to reduce evaluator setup friction.
-- The final Architecture Intelligence Score is calculated by application code, not invented directly by AI.
+* 🎬 Automated Video Analysis Platform
+* 📄 Custom Document Processing Platform
+* 🏢 Enterprise SaaS Platform Baseline
 
-## 10. Limitations
+---
+
+## 🏗️ Architecture
+
+* **Frontend:** React + TypeScript + Vite
+* **Backend:** .NET 10 (Clean Architecture)
+* **Storage:** TiDB + Azure Blob Storage
+* **AI Layer:** Azure AI Foundry Agent Service
+* **Fallback:** Mock provider (no Azure required)
+
+📚 Docs:
+
+* [System Architecture](./docs/architecture/SYSTEM_ARCHITECTURE.md)
+* [Multi-Agent Reasoning](./docs/ai/MULTI_AGENT_REASONING.md)
+
+---
+
+## ⚙️ How It Works
+
+1. Upload or select architecture
+2. Define context & standards
+3. Run AI analysis
+4. Agents reason step-by-step
+5. System generates:
+
+   * score
+   * findings
+   * trade-offs
+   * recommendations
+6. ADRs are created automatically
+
+---
+
+## 🧪 Assumptions (MVP Scope)
+
+* No authentication (simplified for demo)
+* Single-user flow
+* Synthetic demo data
+* Application-calculated scoring (not hallucinated by AI)
+* Demo-first UX for fast evaluation
+
+---
+
+## ⚠️ Limitations
 
 ### Product
 
-- No real authentication or user/role management yet.  
-  Future enhancement: integrate Frontegg or another external identity provider with tenant-aware access.
-
-- Collaboration is limited.  
-  Future enhancement: add shared comments, invitations, and richer team workflows.
-
-- Diagram understanding is still constrained by the current upload/description model.  
-  Future enhancement: deeper parsing, richer visual extraction, and stronger diagram structure understanding.
+* No auth / RBAC yet
+* Limited collaboration
+* Basic diagram parsing
 
 ### Performance
 
-- Caching is stronger than earlier MVP passes, but not yet a full production caching strategy.  
-  Future enhancement: dedicated backend summaries, stronger prefetching, and broader batch data contracts where needed.
+* Partial caching (not full production optimization)
 
 ### Security
 
-- No production-grade auth controls are active in the MVP.  
-  Future enhancement: authentication, RBAC/ABAC, audit trails, and stricter environment hardening.
-
-- No full audit log model is surfaced in the active UI.  
-  Future enhancement: append-only activity and review evidence records.
+* No production auth
+* No audit logs
 
 ### AI
 
-- The orchestration is still application-led and cost-aware rather than a fleet of fully hosted agents.  
-  Future enhancement: promote selected stages into additional Azure AI Foundry hosted agents where it improves quality or demo strength.
+* Application-led orchestration
+* Limited evaluation coverage
 
-- Evaluation coverage is still limited to the current grounded review workflow.  
-  Future enhancement: deeper scenario benchmarking, adversarial evaluation, and quality regression suites.
+---
 
-## 11. Future Enhancements
+## 🚀 Future Enhancements
 
-- Production authentication and tenant-aware identity
-- Richer collaboration and review workflows
-- Azure AI Search-backed knowledge retrieval
-- Expanded evidence and audit trails
-- More advanced diagram parsing and architecture extraction
-- Deeper agent specialization and evaluation
-- Production deployment automation and stronger operations tooling
+* 🔐 Authentication (Frontegg / external IdP)
+* 👥 Collaboration workflows
+* 🧠 Advanced diagram parsing
+* 📊 AI evaluation & benchmarking
+* 🔎 Azure AI Search integration
+* 📜 Audit & compliance tracking
+* 🤖 Expanded agent specialization
 
-## 12. How to Run Locally
+---
 
-### Quick demo mode
+## 🏆 Hackathon Alignment
 
-This is the fastest evaluator path and does not require Azure credentials.
+This project directly addresses judging criteria:
 
-Backend:
+* **Accuracy & Relevance** → Standards-based grounding
+* **Reasoning & Multi-step Thinking** → Visible agent pipeline
+* **Creativity** → Architecture reasoning as a product
+* **UX & Presentation** → Clean, demo-ready workflows
+* **Reliability & Safety** → Grounded AI + structured outputs
+
+---
+
+## ▶️ Run Locally
+
+### Backend
 
 ```bash
 cd backend
@@ -215,7 +246,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Frontend:
+### Frontend
 
 ```bash
 cd web
@@ -223,54 +254,34 @@ npm install
 npm run dev
 ```
 
-Then open:
+Open:
 
-- `http://localhost:5173/` for the public front door
-- `http://localhost:5173/app` for the application
+* http://localhost:5173/
+* http://localhost:5173/app
 
-Optional smoke test:
+---
 
-```bash
-node scripts/smoke-hackathon-flow.mjs
-```
+## 🧰 Tech Stack
 
-### Azure-backed local mode
+* React, TypeScript, Vite
+* .NET 10 (Clean Architecture)
+* TiDB
+* Azure Blob Storage
+* Azure AI Foundry
+* Tailwind-style UI
 
-For presenter or more production-like validation, configure:
+---
 
-- `DATASTORE_PROVIDER=TiDB`
-- `DATABASE_CONNECTION_STRING`
-- `ARCHITECTURE_STORAGE_PROVIDER=AzureBlobSas`
-- `ARCHITECTURE_STORAGE_CONTAINER_SAS_URL`
-- `ARCHITECTURE_AGENT_PROVIDER=AzureFoundry`
-- `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
-- `AZURE_AI_FOUNDRY_AGENT_ID`
-- `AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT`
+## 📚 Documentation
 
-Helpful references:
+* [Docs Index](./docs/README.md)
+* [User Journeys](./docs/product/USER_JOURNEYS.md)
+* [UX Strategy](./docs/ux/UX_STRATEGY.md)
 
-- [Local Development](./docs/implementation/LOCAL_DEVELOPMENT.md)
-- [Azure Local Resources](./docs/implementation/AZURE_LOCAL_RESOURCES.md)
-- [Environment Variables](./docs/implementation/ENVIRONMENT_VARIABLES.md)
-- [Troubleshooting](./docs/implementation/TROUBLESHOOTING.md)
+---
 
-## 13. Tech Stack
+## 🎯 Final Note
 
-- React
-- TypeScript
-- Vite
-- Tailwind-style utility CSS plus local design system components
-- .NET 10
-- Clean Architecture
-- TiDB
-- Azure Blob Storage
-- Azure AI Foundry Agent Service
-- Mock AI provider for zero-config local runs
+CoArchitect AI transforms architecture reviews from **subjective discussions** into **structured, explainable, and decision-ready workflows**.
 
-## Additional Reading
-
-- [Documentation Index](./docs/README.md)
-- [Hackathon Scope](./docs/product/HACKATHON_SCOPE.md)
-- [User Journeys](./docs/product/USER_JOURNEYS.md)
-- [UX Strategy](./docs/ux/UX_STRATEGY.md)
-- [Hackathon Judging Alignment](./docs/hackathon/HACKATHON_JUDGING_ALIGNMENT.md)
+👉 Not just AI output — **AI reasoning you can trust.**

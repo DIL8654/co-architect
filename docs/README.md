@@ -39,6 +39,7 @@ The runtime is intentionally unauthenticated for evaluator usability. A fixed lo
 ### Architecture
 
 - [SYSTEM_ARCHITECTURE.md](architecture/SYSTEM_ARCHITECTURE.md)
+- [SOLUTION_ARCHITECTURE_DIAGRAM.md](architecture/SOLUTION_ARCHITECTURE_DIAGRAM.md)
 - [CLEAN_ARCHITECTURE_BACKEND.md](architecture/CLEAN_ARCHITECTURE_BACKEND.md)
 - [FRONTEND_ARCHITECTURE.md](architecture/FRONTEND_ARCHITECTURE.md)
 - [DATA_MODEL.md](architecture/DATA_MODEL.md)

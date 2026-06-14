@@ -220,6 +220,7 @@ public sealed class PerformanceReadModelService
         }
 
         var latestRuns = await _analysisRunRepository.GetLatestByDiagramIdsAsync(diagrams.Select(item => item.Id), cancellationToken);
+        var adrCounts = await _adrRepository.GetCountsByDiagramIdsAsync(diagrams.Select(item => item.Id), cancellationToken);
         var scores = await BuildScoresByDiagramAsync(latestRuns, cancellationToken);
 
         return diagrams
@@ -239,6 +240,7 @@ public sealed class PerformanceReadModelService
                     Description = diagram.Description,
                     UploadedAt = diagram.UploadedAt,
                     ArchitectureScore = scores.TryGetValue(diagram.Id, out var resolvedScore) ? resolvedScore : null,
+                    AdrCount = adrCounts.TryGetValue(diagram.Id, out var adrCount) ? adrCount : 0,
                     LatestRunId = latestRun?.Id,
                     LatestAnalysisStatus = latestRun?.Status.ToString(),
                     LastAnalyzedAt = latestRun?.CompletedAt ?? latestRun?.RequestedAt,

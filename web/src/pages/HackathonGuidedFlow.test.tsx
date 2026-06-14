@@ -111,6 +111,6 @@ describe('hackathon guided flow', () => {
     expect(await screen.findByDisplayValue(SAMPLE_DIAGRAM_NAME)).toBeTruthy();
     const description = screen.getByPlaceholderText('Describe the architecture, integrations, trust boundaries, constraints, and current gaps...') as HTMLTextAreaElement;
     expect(description.value).toBe(SAMPLE_ARCHITECTURE_DESCRIPTION);
-    expect(screen.getByDisplayValue('SaaS')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Business Domain' }).textContent).toContain('SaaS');
   });
 });

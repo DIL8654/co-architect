@@ -28,6 +28,7 @@ public sealed class AzureFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowl
             return BuildUnavailableBundle("Azure Foundry IQ retrieval is not configured.");
         }
 
+        var cloudConstraint = CloudProviderConstraint.Resolve(query.ReviewContext.CloudProviderPreference, ParseFrameworks(query.SuggestedFrameworks));
         var invocation = await _invocationService.InvokeAsync(BuildPrompt(query), _options.AgentId!, cancellationToken);
         if (!invocation.Succeeded || string.IsNullOrWhiteSpace(invocation.OutputText))
         {
@@ -41,7 +42,10 @@ public sealed class AzureFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowl
             var bundle = new FoundryIqContextBundle
             {
                 RetrievalProvider = "AzureFoundryIQ",
-                FrameworkGuidanceItems = parsed.FrameworkGuidanceItems.Select(item => item.ToDomainItem("framework-guidance")).ToList(),
+                FrameworkGuidanceItems = parsed.FrameworkGuidanceItems
+                    .Select(item => item.ToDomainItem("framework-guidance"))
+                    .Where(item => cloudConstraint.AllowsFrameworkKey(item.Framework ?? item.StandardKey))
+                    .ToList(),
                 PrincipleItems = parsed.PrincipleItems.Select(item => item.ToDomainItem("architecture-principle")).ToList(),
                 TradeoffItems = parsed.TradeoffItems.Select(item => item.ToDomainItem("tradeoff-guidance")).ToList(),
                 ComplianceItems = parsed.ComplianceItems.Select(item => item.ToDomainItem("compliance-guidance")).ToList(),
@@ -74,6 +78,8 @@ public sealed class AzureFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowl
     private static string BuildPrompt(FoundryIqQuery query)
     {
         var weights = string.Join(", ", query.QualityAttributeWeights.Select(item => $"{item.Label}:{item.Weight}%"));
+        var cloudConstraint = CloudProviderConstraint.Resolve(query.ReviewContext.CloudProviderPreference, ParseFrameworks(query.SuggestedFrameworks));
+        var promptGuardrails = string.Join("\n", cloudConstraint.BuildPromptGuardrails());
         return $$"""
         You are CoArchitect AI's Foundry IQ retrieval agent.
 
@@ -94,6 +100,7 @@ public sealed class AzureFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowl
         - Include compliance/governance guidance for selected standards when available.
         - Include principles and trade-offs relevant to the architecture and weighted priorities.
         - Include source labels and citations.
+        {{promptGuardrails}}
 
         Review purpose: {{query.AnalysisPurpose}}
         Diagram: {{query.DiagramName}}
@@ -109,6 +116,17 @@ public sealed class AzureFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowl
         Compliance needs: {{query.ReviewContext.ComplianceNeeds}}
         Current pain points: {{query.ReviewContext.CurrentPainPoints}}
         """;
+    }
+
+    private static IEnumerable<CoArchitect.Domain.Enums.ReviewFramework> ParseFrameworks(IEnumerable<string> frameworks)
+    {
+        foreach (var framework in frameworks)
+        {
+            if (Enum.TryParse<CoArchitect.Domain.Enums.ReviewFramework>(framework, ignoreCase: true, out var parsed))
+            {
+                yield return parsed;
+            }
+        }
     }
 
     private static FoundryIqContextBundle BuildUnavailableBundle(string reason)

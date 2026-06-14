@@ -56,6 +56,7 @@ export interface ArchitectureDiagram {
   description?: string;
   uploadedAt: string;
   architectureScore?: number;
+  adrCount?: number;
   latestRunId?: string;
   latestAnalysisStatus?: string;
   lastAnalyzedAt?: string;

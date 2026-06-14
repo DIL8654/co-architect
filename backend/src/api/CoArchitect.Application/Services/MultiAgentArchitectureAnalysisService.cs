@@ -35,7 +35,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             : _frameworkSelectionService.GetDefaultWeights().ToList();
 
         var frameworkDecision = ResolveFrameworkDecision(diagram, effectiveWeights);
-        var selectedFrameworks = frameworkDecision.SelectedFrameworks.ToList();
+        var cloudConstraint = CloudProviderConstraint.Resolve(diagram.ReviewContext.CloudProviderPreference, frameworkDecision.SelectedFrameworks);
+        var selectedFrameworks = cloudConstraint.FilterFrameworks(frameworkDecision.SelectedFrameworks);
         var selectedStandards = frameworkDecision.SelectedStandards.ToList();
 
         var intakeStartedAt = DateTime.UtcNow;
@@ -67,12 +68,13 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             "Framework Selection Agent",
             "Select review frameworks using architecture cues and stored review preferences.",
             frameworkSelectionStartedAt,
-            BuildPlannerSummary(diagram, facts, frameworkDecision),
+            BuildPlannerSummary(diagram, facts, frameworkDecision, cloudConstraint),
             frameworkDecision.SelectionRationale.Concat(new[] { $"Framework source: {frameworkDecision.Source}" }),
             grounding: BuildGrounding(selectedFrameworks.Select(item => item.ToString()), selectedStandards.Select(item => ToStandardLabel(item)), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())));
 
         var enrichmentStartedAt = DateTime.UtcNow;
         var enrichment = await _contextEnrichmentAgent.EnrichAsync(diagram, selectedFrameworks, selectedStandards, effectiveWeights, cancellationToken);
+        enrichment = ApplyCloudGuardrail(enrichment, cloudConstraint);
         traces.Add(CreateTrace(
             "Context Enrichment Agent",
             "Retrieve shared architecture intelligence, principles, trade-offs, and workspace memory before specialist reasoning.",
@@ -109,8 +111,9 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         var expertStartedAt = DateTime.UtcNow;
         var expertBaseline = await _expertAgentService.AnalyzeAsync(
             diagram.Id,
-            BuildExpertPrompt(diagram, facts, selectedFrameworks, selectedStandards, effectiveWeights, enrichment),
+            BuildExpertPrompt(diagram, facts, selectedFrameworks, selectedStandards, effectiveWeights, enrichment, cloudConstraint),
             cancellationToken);
+        expertBaseline = ApplyCloudGuardrail(expertBaseline, cloudConstraint, selectedFrameworks, selectedStandards, enrichment);
         if (expertBaseline.AgentTrace.Count > 0)
         {
             traces.AddRange(expertBaseline.AgentTrace);
@@ -156,7 +159,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         }
 
         var tradeoffStartedAt = DateTime.UtcNow;
-        var tradeoffOutput = BuildTradeoffOutput(diagram, facts, specialistOutputs, expertBaseline, enrichment);
+        var tradeoffOutput = BuildTradeoffOutput(diagram, facts, specialistOutputs, expertBaseline, enrichment, cloudConstraint);
         traces.Add(CreateTrace(
             "Trade-off Balancing Agent",
             "Balance architecture priorities, risks, and delivery constraints.",
@@ -171,7 +174,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
                 enrichment.ContextBundle.CitationRefs)));
 
-        var combined = CombineResults(diagram.Id, expertBaseline, specialistOutputs, tradeoffOutput, enrichment);
+        var combined = CombineResults(diagram.Id, expertBaseline, specialistOutputs, tradeoffOutput, enrichment, selectedFrameworks, selectedStandards);
 
         var scoringStartedAt = DateTime.UtcNow;
         traces.Add(CreateTrace(
@@ -244,7 +247,9 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             ResolvedFrameworkSelection = new FrameworkSelectionResult
             {
                 Mode = frameworkDecision.Source == "stored review setup" ? diagram.FrameworkSelection.Mode : FrameworkSelectionMode.AutoDetect,
-                DetectedCloudProvider = diagram.FrameworkSelection.DetectedCloudProvider ?? InferDetectedCloudProvider(selectedFrameworks, facts),
+                DetectedCloudProvider = !cloudConstraint.IsCloudNeutral
+                    ? cloudConstraint.DisplayLabel
+                    : diagram.FrameworkSelection.DetectedCloudProvider ?? InferDetectedCloudProvider(selectedFrameworks, facts, cloudConstraint),
                 ConfidenceScore = diagram.FrameworkSelection.ConfidenceScore > 0
                     ? diagram.FrameworkSelection.ConfidenceScore
                     : InferConfidence(selectedFrameworks, facts),
@@ -275,7 +280,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         IReadOnlyCollection<ReviewFramework> frameworks,
         IReadOnlyCollection<ReviewStandard> standards,
         IReadOnlyCollection<QualityAttributeWeight> effectiveWeights,
-        ContextEnrichmentResult enrichment)
+        ContextEnrichmentResult enrichment,
+        CloudProviderConstraint cloudConstraint)
     {
         var builder = new StringBuilder();
 
@@ -286,6 +292,10 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
 
         builder.AppendLine();
         builder.AppendLine($"Frameworks: {string.Join(", ", frameworks)}");
+        foreach (var guardrail in cloudConstraint.BuildPromptGuardrails())
+        {
+            builder.AppendLine(guardrail);
+        }
         if (standards.Count > 0)
         {
             builder.AppendLine($"Additional standards: {string.Join(", ", standards.Select(ToStandardLabel))}");
@@ -369,7 +379,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         return $"Detected technologies and control cues included {string.Join(", ", facts.Technologies.Take(5))}. Missing signals will be treated as review questions rather than assumed controls.";
     }
 
-    private static string BuildPlannerSummary(ArchitectureDiagram diagram, ArchitectureFacts facts, FrameworkDecision decision)
+    private static string BuildPlannerSummary(ArchitectureDiagram diagram, ArchitectureFacts facts, FrameworkDecision decision, CloudProviderConstraint cloudConstraint)
     {
         var summaryParts = new List<string>
         {
@@ -389,6 +399,11 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         if (diagram.QualityAttributeWeights.Any())
         {
             summaryParts.Add($"Highest-weight priorities are {string.Join(", ", GetTopWeights(diagram.QualityAttributeWeights))}.");
+        }
+
+        if (!cloudConstraint.IsCloudNeutral)
+        {
+            summaryParts.Add($"Strict {cloudConstraint.DisplayLabel}-only cloud guardrails were applied before retrieval and expert reasoning.");
         }
 
         return string.Join(" ", summaryParts);
@@ -560,7 +575,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         ArchitectureFacts facts,
         IReadOnlyCollection<SpecialistOutput> specialistOutputs,
         AgentAnalysisResult expertBaseline,
-        ContextEnrichmentResult enrichment)
+        ContextEnrichmentResult enrichment,
+        CloudProviderConstraint cloudConstraint)
     {
         var highlights = new List<string>();
         var tradeoffs = expertBaseline.Tradeoffs
@@ -573,8 +589,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
                 Grounding = item.Grounding.FrameworkRefs.Count > 0
                     ? item.Grounding
                     : BuildGrounding(
-                        diagram.FrameworkSelection.SelectedFrameworks.Select(item => item.ToString()),
-                        diagram.FrameworkSelection.SelectedStandards.Select(ToStandardLabel),
+                        expertBaseline.ResolvedFrameworkSelection.SelectedFrameworks.Select(item => item.ToString()),
+                        expertBaseline.ResolvedFrameworkSelection.SelectedStandards.Select(ToStandardLabel),
                         enrichment.ApplicablePrinciples,
                         enrichment.ApplicableTradeoffs,
                         enrichment.ContextBundle.WorkspaceMemory.PriorRecommendations,
@@ -623,7 +639,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             highlights.Add("Simplicity vs scalability");
         }
 
-        if (facts.CloudSignals.Count > 1 || specialistOutputs.Any(item => item.Framework is ReviewFramework.AzureWellArchitected or ReviewFramework.AwsWellArchitected))
+        if (cloudConstraint.IsCloudNeutral &&
+            (facts.CloudSignals.Count > 1 || specialistOutputs.Any(item => item.Framework is ReviewFramework.AzureWellArchitected or ReviewFramework.AwsWellArchitected)))
         {
             tradeoffs.Add(new Tradeoff
             {
@@ -652,11 +669,13 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         AgentAnalysisResult expertBaseline,
         IReadOnlyCollection<SpecialistOutput> specialistOutputs,
         TradeoffOutput tradeoffOutput,
-        ContextEnrichmentResult enrichment)
+        ContextEnrichmentResult enrichment,
+        IReadOnlyCollection<ReviewFramework> selectedFrameworks,
+        IReadOnlyCollection<ReviewStandard> selectedStandards)
     {
         var expertGrounding = BuildGrounding(
-            expertBaseline.ResolvedFrameworkSelection.SelectedFrameworks.Select(item => item.ToString()),
-            expertBaseline.ResolvedFrameworkSelection.SelectedStandards.Select(ToStandardLabel),
+            selectedFrameworks.Select(item => item.ToString()),
+            selectedStandards.Select(ToStandardLabel),
             enrichment.ApplicablePrinciples,
             enrichment.ApplicableTradeoffs,
             enrichment.ContextBundle.WorkspaceMemory.PreviousReviewSummaries.Take(2),
@@ -883,6 +902,170 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             .Take(4);
     }
 
+    private static ContextEnrichmentResult ApplyCloudGuardrail(ContextEnrichmentResult enrichment, CloudProviderConstraint cloudConstraint)
+    {
+        var filteredBundle = FilterContextBundle(enrichment.ContextBundle, cloudConstraint);
+        return new ContextEnrichmentResult
+        {
+            ContextBundle = filteredBundle,
+            ApplicablePrinciples = enrichment.ApplicablePrinciples.ToList(),
+            ApplicableTradeoffs = enrichment.ApplicableTradeoffs
+                .Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item))
+                .ToList(),
+            MissingContextNotes = enrichment.MissingContextNotes.ToList(),
+            ConfirmedFrameworks = cloudConstraint.FilterFrameworks(enrichment.ConfirmedFrameworks),
+            ConfirmedStandards = enrichment.ConfirmedStandards.ToList(),
+            Summary = enrichment.Summary,
+        };
+    }
+
+    private static AgentAnalysisResult ApplyCloudGuardrail(
+        AgentAnalysisResult baseline,
+        CloudProviderConstraint cloudConstraint,
+        IReadOnlyCollection<ReviewFramework> selectedFrameworks,
+        IReadOnlyCollection<ReviewStandard> selectedStandards,
+        ContextEnrichmentResult enrichment)
+    {
+        return new AgentAnalysisResult
+        {
+            Id = baseline.Id,
+            ArchitectureDiagramId = baseline.ArchitectureDiagramId,
+            RequestedAt = baseline.RequestedAt,
+            CompletedAt = baseline.CompletedAt,
+            ExecutiveSummary = cloudConstraint.ContainsForbiddenCloudReference(baseline.ExecutiveSummary)
+                ? string.Empty
+                : baseline.ExecutiveSummary,
+            ResolvedFrameworkSelection = new FrameworkSelectionResult
+            {
+                Mode = baseline.ResolvedFrameworkSelection.Mode,
+                DetectedCloudProvider = baseline.ResolvedFrameworkSelection.DetectedCloudProvider,
+                ConfidenceScore = baseline.ResolvedFrameworkSelection.ConfidenceScore,
+                RequestedFrameworks = baseline.ResolvedFrameworkSelection.RequestedFrameworks.ToList(),
+                SelectedFrameworks = cloudConstraint.FilterFrameworks(selectedFrameworks),
+                RequestedStandards = baseline.ResolvedFrameworkSelection.RequestedStandards.ToList(),
+                SelectedStandards = selectedStandards.ToList(),
+                SelectionRationale = baseline.ResolvedFrameworkSelection.SelectionRationale.ToList(),
+            },
+            ResolvedQualityAttributeWeights = baseline.ResolvedQualityAttributeWeights.ToList(),
+            OpenQuestions = baseline.OpenQuestions.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item)).ToList(),
+            CriticNotes = baseline.CriticNotes.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item)).ToList(),
+            FoundryIqContext = FilterContextBundle(enrichment.ContextBundle, cloudConstraint),
+            AgentTrace = baseline.AgentTrace
+                .Where(item => string.IsNullOrWhiteSpace(item.Framework) || cloudConstraint.AllowsFrameworkKey(item.Framework))
+                .Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item.Summary))
+                .Select(item => new AgentExecutionTrace
+                {
+                    AgentName = item.AgentName,
+                    Role = item.Role,
+                    Framework = item.Framework,
+                    Status = item.Status,
+                    Summary = item.Summary,
+                    Highlights = item.Highlights.Where(highlight => !cloudConstraint.ContainsForbiddenCloudReference(highlight)).ToList(),
+                    Grounding = FilterGrounding(item.Grounding, cloudConstraint),
+                    UsedFoundry = item.UsedFoundry,
+                    StartedAt = item.StartedAt,
+                    CompletedAt = item.CompletedAt,
+                })
+                .ToList(),
+            Evidence = baseline.Evidence.Where(item => IsAllowedEvidence(item, cloudConstraint)).Select(item => new EvidenceItem
+            {
+                Id = item.Id,
+                Summary = item.Summary,
+                Details = item.Details,
+                Grounding = FilterGrounding(item.Grounding, cloudConstraint),
+            }).ToList(),
+            MissingControls = baseline.MissingControls.Where(item => IsAllowedMissingControl(item, cloudConstraint)).Select(item => new MissingControl
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Description = item.Description,
+                Dimension = item.Dimension,
+                Grounding = FilterGrounding(item.Grounding, cloudConstraint),
+            }).ToList(),
+            Recommendations = baseline.Recommendations.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item.Description)).Select(item => new Recommendation
+            {
+                Id = item.Id,
+                Description = item.Description,
+                Severity = item.Severity,
+                Grounding = FilterGrounding(item.Grounding, cloudConstraint),
+            }).ToList(),
+            Tradeoffs = baseline.Tradeoffs.Where(item => IsAllowedTradeoff(item, cloudConstraint)).Select(item => new Tradeoff
+            {
+                Id = item.Id,
+                Summary = item.Summary,
+                Pros = item.Pros.Where(pro => !cloudConstraint.ContainsForbiddenCloudReference(pro)).ToList(),
+                Cons = item.Cons.Where(con => !cloudConstraint.ContainsForbiddenCloudReference(con)).ToList(),
+                Grounding = FilterGrounding(item.Grounding, cloudConstraint),
+            }).ToList(),
+            DimensionMaturitySuggestions = baseline.DimensionMaturitySuggestions.ToList(),
+        };
+    }
+
+    private static FoundryIqContextBundle FilterContextBundle(FoundryIqContextBundle bundle, CloudProviderConstraint cloudConstraint)
+    {
+        return new FoundryIqContextBundle
+        {
+            RetrievalProvider = bundle.RetrievalProvider,
+            FallbackUsed = bundle.FallbackUsed,
+            FallbackReason = bundle.FallbackReason,
+            FrameworkGuidanceItems = bundle.FrameworkGuidanceItems
+                .Where(item => cloudConstraint.AllowsFrameworkKey(item.Framework ?? item.StandardKey))
+                .Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item.Title) &&
+                               !cloudConstraint.ContainsForbiddenCloudReference(item.Summary) &&
+                               !cloudConstraint.ContainsForbiddenCloudReference(item.Content))
+                .ToList(),
+            PrincipleItems = bundle.PrincipleItems.ToList(),
+            TradeoffItems = bundle.TradeoffItems
+                .Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item.Title) &&
+                               !cloudConstraint.ContainsForbiddenCloudReference(item.Summary) &&
+                               !cloudConstraint.ContainsForbiddenCloudReference(item.Content))
+                .ToList(),
+            ComplianceItems = bundle.ComplianceItems
+                .Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item.Title) &&
+                               !cloudConstraint.ContainsForbiddenCloudReference(item.Summary) &&
+                               !cloudConstraint.ContainsForbiddenCloudReference(item.Content))
+                .ToList(),
+            AdrTemplateItems = bundle.AdrTemplateItems.ToList(),
+            WorkspaceMemoryItems = bundle.WorkspaceMemoryItems.ToList(),
+            RelatedFindingItems = bundle.RelatedFindingItems.ToList(),
+            RelatedAdrHistoryItems = bundle.RelatedAdrHistoryItems.ToList(),
+            CitationRefs = bundle.CitationRefs.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item)).ToList(),
+            WorkspaceMemory = bundle.WorkspaceMemory,
+        };
+    }
+
+    private static GroundingReferenceSet FilterGrounding(GroundingReferenceSet grounding, CloudProviderConstraint cloudConstraint)
+    {
+        return new GroundingReferenceSet
+        {
+            FrameworkRefs = grounding.FrameworkRefs.Where(cloudConstraint.AllowsFrameworkKey).ToList(),
+            StandardRefs = grounding.StandardRefs.ToList(),
+            PrincipleRefs = grounding.PrincipleRefs.ToList(),
+            TradeoffRefs = grounding.TradeoffRefs.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item)).ToList(),
+            HistoryRefs = grounding.HistoryRefs.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item)).ToList(),
+            CitationRefs = grounding.CitationRefs.Where(item => !cloudConstraint.ContainsForbiddenCloudReference(item)).ToList(),
+        };
+    }
+
+    private static bool IsAllowedEvidence(EvidenceItem item, CloudProviderConstraint cloudConstraint)
+    {
+        return !cloudConstraint.ContainsForbiddenCloudReference(item.Summary) &&
+               !cloudConstraint.ContainsForbiddenCloudReference(item.Details);
+    }
+
+    private static bool IsAllowedMissingControl(MissingControl item, CloudProviderConstraint cloudConstraint)
+    {
+        return !cloudConstraint.ContainsForbiddenCloudReference(item.Name) &&
+               !cloudConstraint.ContainsForbiddenCloudReference(item.Description);
+    }
+
+    private static bool IsAllowedTradeoff(Tradeoff item, CloudProviderConstraint cloudConstraint)
+    {
+        return !cloudConstraint.ContainsForbiddenCloudReference(item.Summary) &&
+               item.Pros.All(pro => !cloudConstraint.ContainsForbiddenCloudReference(pro)) &&
+               item.Cons.All(con => !cloudConstraint.ContainsForbiddenCloudReference(con));
+    }
+
     private static DimensionMaturitySuggestion CreateMaturity(
         ArchitectureDimension dimension,
         int current,
@@ -1002,8 +1185,18 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         };
     }
 
-    private static string InferDetectedCloudProvider(IReadOnlyCollection<ReviewFramework> frameworks, ArchitectureFacts facts)
+    private static string InferDetectedCloudProvider(IReadOnlyCollection<ReviewFramework> frameworks, ArchitectureFacts facts, CloudProviderConstraint? cloudConstraint = null)
     {
+        if (cloudConstraint?.IsExclusiveAzure == true)
+        {
+            return "Azure";
+        }
+
+        if (cloudConstraint?.IsExclusiveAws == true)
+        {
+            return "AWS";
+        }
+
         if (facts.CloudSignals.Contains("AZURE", StringComparer.OrdinalIgnoreCase) || frameworks.Contains(ReviewFramework.AzureWellArchitected))
         {
             return "Azure";
@@ -1053,6 +1246,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
     {
         var existing = diagram.FrameworkSelection.SelectedFrameworks.Distinct().ToList();
         var existingStandards = diagram.FrameworkSelection.SelectedStandards.Distinct().ToList();
+        var cloudConstraint = CloudProviderConstraint.Resolve(diagram.ReviewContext.CloudProviderPreference, existing);
         var shouldExpandLegacyFrameworks =
             existing.Count == 0 ||
             (diagram.FrameworkSelection.Mode == FrameworkSelectionMode.AutoDetect &&
@@ -1061,7 +1255,7 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
         if (!shouldExpandLegacyFrameworks)
         {
             return new FrameworkDecision(
-                existing,
+                cloudConstraint.FilterFrameworks(existing),
                 existingStandards,
                 "stored review setup",
                 diagram.FrameworkSelection.SelectionRationale.ToList());
@@ -1083,6 +1277,8 @@ public sealed class MultiAgentArchitectureAnalysisService : IMultiAgentArchitect
             .Concat(inferred.SelectedStandards)
             .Distinct()
             .ToList();
+
+        expanded = cloudConstraint.FilterFrameworks(expanded);
 
         if (expanded.Count == 0)
         {

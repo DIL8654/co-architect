@@ -4,6 +4,8 @@ import {
   Badge,
   Breadcrumbs,
   Button,
+  CompactMultiSelectField,
+  CompactSelectField,
   ErrorState,
   ReviewSetupSummary,
   UploadIcon,
@@ -18,6 +20,16 @@ import {
   type ReviewStandard,
 } from '../api/diagrams';
 import { useUploadDiagram } from '../hooks/useDiagrams';
+import {
+  BUSINESS_DOMAIN_OPTIONS,
+  CLOUD_PROVIDER_OPTIONS,
+  COMPLIANCE_OPTIONS,
+  DATA_SENSITIVITY_OPTIONS,
+  EXPECTED_TRAFFIC_OPTIONS,
+  TARGET_USER_OPTIONS,
+  parseMultiValueSelection,
+  serializeMultiValueSelection,
+} from '../lib/reviewSetupOptions';
 import { SAMPLE_ARCHITECTURE_DESCRIPTION, SAMPLE_DIAGRAM_NAME, SAMPLE_REVIEW_CONTEXT } from '../lib/sampleArchitecture';
 
 const SUPPORTED_FORMATS = ['png', 'jpg', 'jpeg', 'svg'];
@@ -36,12 +48,6 @@ const STANDARD_OPTIONS: Array<{ value: ReviewStandard; label: string; summary: s
   { value: 'Togaf', label: 'TOGAF', summary: 'Architecture governance, capability planning, roadmap thinking, and enterprise change coordination.' },
   { value: 'Safe', label: 'SAFe', summary: 'Value streams, platform-team coordination, release alignment, and scaled delivery architecture guidance.' },
 ];
-
-const BUSINESS_DOMAIN_OPTIONS = ['SaaS', 'FinTech', 'Healthcare', 'Media', 'E-commerce', 'Enterprise Platform'] as const;
-const TARGET_USER_OPTIONS = ['External customers', 'Enterprise tenants', 'Internal employees', 'Operations and admins', 'Partners and integrators'] as const;
-const EXPECTED_TRAFFIC_OPTIONS = ['Low / steady', 'Moderate', 'High', 'Bursty', 'Global / multi-region'] as const;
-const DATA_SENSITIVITY_OPTIONS = ['Public', 'Internal', 'Confidential', 'PII / regulated'] as const;
-const COMPLIANCE_OPTIONS = ['None', 'GDPR', 'SOC 2', 'ISO 27001', 'Audit logging / retention'] as const;
 
 const DEFAULT_WEIGHTS: QualityAttributeWeight[] = [
   { key: 'security', label: 'Security', weight: 25 },
@@ -81,12 +87,12 @@ export function UploadDiagramPage() {
   const [frameworkSelectionMode, setFrameworkSelectionMode] = useState<FrameworkSelectionMode>('AutoDetect');
   const [requestedFrameworks, setRequestedFrameworks] = useState<ReviewFramework[]>([]);
   const [requestedStandards, setRequestedStandards] = useState<ReviewStandard[]>([]);
-  const [businessDomain, setBusinessDomain] = useState('');
+  const [businessDomain, setBusinessDomain] = useState<string[]>([]);
   const [targetUsers, setTargetUsers] = useState('');
   const [expectedTraffic, setExpectedTraffic] = useState('');
-  const [dataSensitivity, setDataSensitivity] = useState('');
-  const [cloudProviderPreference, setCloudProviderPreference] = useState('');
-  const [complianceNeeds, setComplianceNeeds] = useState('');
+  const [dataSensitivity, setDataSensitivity] = useState<string[]>([]);
+  const [cloudProviderPreference, setCloudProviderPreference] = useState<string[]>([]);
+  const [complianceNeeds, setComplianceNeeds] = useState<string[]>([]);
   const [currentPainPoints, setCurrentPainPoints] = useState('');
   const [qualityAttributeWeights, setQualityAttributeWeights] = useState<QualityAttributeWeight[]>(DEFAULT_WEIGHTS);
   const [preview, setPreview] = useState<DiagramReviewSetup>(INITIAL_PREVIEW);
@@ -102,12 +108,12 @@ export function UploadDiagramPage() {
     sampleAppliedRef.current = true;
     setDiagramName(SAMPLE_DIAGRAM_NAME);
     setDescription(SAMPLE_ARCHITECTURE_DESCRIPTION);
-    setBusinessDomain(SAMPLE_REVIEW_CONTEXT.businessDomain);
+    setBusinessDomain(parseMultiValueSelection(SAMPLE_REVIEW_CONTEXT.businessDomain));
     setTargetUsers(SAMPLE_REVIEW_CONTEXT.targetUsers);
     setExpectedTraffic(SAMPLE_REVIEW_CONTEXT.expectedTraffic);
-    setDataSensitivity(SAMPLE_REVIEW_CONTEXT.dataSensitivity);
-    setCloudProviderPreference(SAMPLE_REVIEW_CONTEXT.cloudProviderPreference);
-    setComplianceNeeds(SAMPLE_REVIEW_CONTEXT.complianceNeeds);
+    setDataSensitivity(parseMultiValueSelection(SAMPLE_REVIEW_CONTEXT.dataSensitivity));
+    setCloudProviderPreference(parseMultiValueSelection(SAMPLE_REVIEW_CONTEXT.cloudProviderPreference));
+    setComplianceNeeds(parseMultiValueSelection(SAMPLE_REVIEW_CONTEXT.complianceNeeds));
     setCurrentPainPoints(SAMPLE_REVIEW_CONTEXT.currentPainPoints);
     setFrameworkSelectionMode('AutoDetect');
     setRequestedFrameworks([]);
@@ -127,17 +133,17 @@ export function UploadDiagramPage() {
       } catch {
         setPreview({
           reviewContext: {
-            businessDomain: businessDomain || undefined,
+            businessDomain: businessDomain.length ? serializeMultiValueSelection(businessDomain) : undefined,
             targetUsers: targetUsers || undefined,
             expectedTraffic: expectedTraffic || undefined,
-            dataSensitivity: dataSensitivity || undefined,
-            cloudProviderPreference: cloudProviderPreference || undefined,
-            complianceNeeds: complianceNeeds || undefined,
+            dataSensitivity: dataSensitivity.length ? serializeMultiValueSelection(dataSensitivity) : undefined,
+            cloudProviderPreference: cloudProviderPreference.length ? serializeMultiValueSelection(cloudProviderPreference) : undefined,
+            complianceNeeds: complianceNeeds.length ? serializeMultiValueSelection(complianceNeeds) : undefined,
             currentPainPoints: currentPainPoints.trim() || undefined,
           },
           frameworkSelection: {
             mode: frameworkSelectionMode,
-            detectedCloudProvider: cloudProviderPreference || undefined,
+            detectedCloudProvider: cloudProviderPreference.length ? serializeMultiValueSelection(cloudProviderPreference) : undefined,
             confidenceScore: 0,
             requestedFrameworks,
             requestedStandards,
@@ -174,12 +180,12 @@ export function UploadDiagramPage() {
 
   function buildReviewSetup(): DiagramReviewSetupInput {
     return {
-      businessDomain: businessDomain || undefined,
+      businessDomain: businessDomain.length ? serializeMultiValueSelection(businessDomain) : undefined,
       targetUsers: targetUsers || undefined,
       expectedTraffic: expectedTraffic || undefined,
-      dataSensitivity: dataSensitivity || undefined,
-      cloudProviderPreference: cloudProviderPreference || undefined,
-      complianceNeeds: complianceNeeds || undefined,
+      dataSensitivity: dataSensitivity.length ? serializeMultiValueSelection(dataSensitivity) : undefined,
+      cloudProviderPreference: cloudProviderPreference.length ? serializeMultiValueSelection(cloudProviderPreference) : undefined,
+      complianceNeeds: complianceNeeds.length ? serializeMultiValueSelection(complianceNeeds) : undefined,
       currentPainPoints: currentPainPoints.trim() || undefined,
       frameworkSelectionMode,
       requestedFrameworks,
@@ -328,12 +334,12 @@ export function UploadDiagramPage() {
             <div className="panel-header">Review Criteria</div>
             <div className="panel-body space-y-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <SelectField label="Business Domain" value={businessDomain} onChange={setBusinessDomain} options={BUSINESS_DOMAIN_OPTIONS} placeholder="Select domain" />
-                <SelectField label="Target Users" value={targetUsers} onChange={setTargetUsers} options={TARGET_USER_OPTIONS} placeholder="Select users" />
-                <SelectField label="Expected Traffic" value={expectedTraffic} onChange={setExpectedTraffic} options={EXPECTED_TRAFFIC_OPTIONS} placeholder="Select traffic" />
-                <SelectField label="Data Sensitivity" value={dataSensitivity} onChange={setDataSensitivity} options={DATA_SENSITIVITY_OPTIONS} placeholder="Select sensitivity" />
-                <SelectField label="Cloud Provider Preference" value={cloudProviderPreference} onChange={setCloudProviderPreference} options={['Azure', 'AWS', 'Cloud-neutral']} placeholder="No preference" />
-                <SelectField label="Compliance Needs" value={complianceNeeds} onChange={setComplianceNeeds} options={COMPLIANCE_OPTIONS} placeholder="Select compliance" />
+                <CompactMultiSelectField label="Business Domain" values={businessDomain} onChange={setBusinessDomain} options={BUSINESS_DOMAIN_OPTIONS} />
+                <CompactSelectField label="Target Users" value={targetUsers} onChange={setTargetUsers} options={TARGET_USER_OPTIONS} placeholder="Select users" idPrefix="upload-review" />
+                <CompactSelectField label="Expected Traffic" value={expectedTraffic} onChange={setExpectedTraffic} options={EXPECTED_TRAFFIC_OPTIONS} placeholder="Select traffic" idPrefix="upload-review" />
+                <CompactMultiSelectField label="Data Sensitivity" values={dataSensitivity} onChange={setDataSensitivity} options={DATA_SENSITIVITY_OPTIONS} />
+                <CompactMultiSelectField label="Cloud Provider Preference" values={cloudProviderPreference} onChange={setCloudProviderPreference} options={CLOUD_PROVIDER_OPTIONS} />
+                <CompactMultiSelectField label="Compliance Needs" values={complianceNeeds} onChange={setComplianceNeeds} options={COMPLIANCE_OPTIONS} />
               </div>
 
               <div className="space-y-2">
@@ -604,36 +610,6 @@ export function UploadDiagramPage() {
           <ReviewSetupSummary reviewSetup={preview} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: readonly string[];
-  placeholder: string;
-}) {
-  const fieldId = `review-criteria-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={fieldId} className="form-label">{label}</label>
-      <select id={fieldId} value={value} onChange={(e) => onChange(e.target.value)} className="form-select h-9 py-1.5 text-sm">
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }

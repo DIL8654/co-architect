@@ -11,6 +11,7 @@ public sealed class ArchitectureDiagramResponse
     public string? Description { get; init; }
     public DateTime UploadedAt { get; init; }
     public decimal? ArchitectureScore { get; init; }
+    public int AdrCount { get; init; }
     public Guid? LatestRunId { get; init; }
     public string? LatestAnalysisStatus { get; init; }
     public DateTime? LastAnalyzedAt { get; init; }

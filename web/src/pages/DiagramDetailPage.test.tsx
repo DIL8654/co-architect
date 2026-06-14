@@ -15,6 +15,7 @@ vi.mock('../hooks/useDiagrams', () => ({
       fileUrl: '/payments.png',
       description: 'A sample architecture description.',
       uploadedAt: '2026-06-11T10:00:00Z',
+      adrCount: 3,
       reviewSetup: {
         reviewContext: {},
         frameworkSelection: {
@@ -186,13 +187,12 @@ describe('DiagramDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Payments Architecture' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Diagram' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Architecture Intelligence' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Summary' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Findings/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Recommendations/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Trade-offs/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Analysis Runs/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Agent Workflow/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /ADRs/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'ADRs (3)' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Detailed Result' })).toBeNull();
     expect(screen.getAllByText('Production Candidate').length).toBeGreaterThan(0);
     expect(screen.getByText('64.2')).toBeTruthy();

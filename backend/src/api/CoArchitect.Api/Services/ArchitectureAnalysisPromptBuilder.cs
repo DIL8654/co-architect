@@ -1,5 +1,6 @@
 using System.Text;
 using CoArchitect.Domain.Entities;
+using CoArchitect.Domain.Models;
 
 namespace CoArchitect.Api.Services;
 
@@ -52,6 +53,12 @@ public static class ArchitectureAnalysisPromptBuilder
         if (diagram.FrameworkSelection.SelectedFrameworks.Count > 0)
         {
             builder.AppendLine($"Selected review frameworks: {string.Join(", ", diagram.FrameworkSelection.SelectedFrameworks)}");
+        }
+
+        var cloudConstraint = CloudProviderConstraint.Resolve(diagram.ReviewContext.CloudProviderPreference, diagram.FrameworkSelection.SelectedFrameworks);
+        foreach (var guardrail in cloudConstraint.BuildPromptGuardrails())
+        {
+            builder.AppendLine(guardrail);
         }
 
         if (diagram.QualityAttributeWeights.Count > 0)

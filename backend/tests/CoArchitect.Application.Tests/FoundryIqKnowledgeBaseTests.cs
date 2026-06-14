@@ -108,6 +108,29 @@ public class FoundryIqKnowledgeBaseTests
     }
 
     [Fact]
+    public async Task Provider_excludes_azure_framework_guidance_when_review_is_aws_only()
+    {
+        var provider = new FileSystemFoundryIqProvider(new KnowledgeBaseCatalogLoader());
+        var result = await provider.RetrieveContextAsync(new FoundryIqQuery
+        {
+            WorkspaceId = Guid.NewGuid(),
+            DiagramId = Guid.NewGuid(),
+            DiagramName = "AWS event pipeline",
+            ArchitectureDescription = "An AWS workload with S3, Lambda, and RDS that still references Azure migration history notes.",
+            ReviewContext = new ArchitectureReviewContext
+            {
+                CloudProviderPreference = "AWS",
+                ComplianceNeeds = "SOC 2",
+            },
+            SuggestedFrameworks = [nameof(ReviewFramework.AwsWellArchitected), nameof(ReviewFramework.AzureWellArchitected)],
+            SuggestedStandards = [nameof(ReviewStandard.Soc2)],
+        }, CancellationToken.None);
+
+        Assert.Contains(result.FrameworkGuidanceItems, item => item.StandardKey == nameof(ReviewFramework.AwsWellArchitected));
+        Assert.DoesNotContain(result.FrameworkGuidanceItems, item => item.StandardKey == nameof(ReviewFramework.AzureWellArchitected));
+    }
+
+    [Fact]
     public async Task Provider_returns_governance_and_scaling_guidance_from_architecture_cues()
     {
         var provider = new FileSystemFoundryIqProvider(new KnowledgeBaseCatalogLoader());

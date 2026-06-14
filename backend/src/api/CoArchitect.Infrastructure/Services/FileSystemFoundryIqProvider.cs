@@ -27,9 +27,11 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider, IFoundryIq
 
         var items = _catalogLoader.GetItems();
         var normalizedText = BuildNormalizedText(query);
-        var selectedFrameworks = query.SuggestedFrameworks
+        var cloudConstraint = CloudProviderConstraint.Resolve(query.ReviewContext.CloudProviderPreference, ParseFrameworks(query.SuggestedFrameworks));
+        var selectedFrameworks = cloudConstraint.FilterFrameworkKeys(query.SuggestedFrameworks
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var selectedStandards = query.SuggestedStandards
             .Where(item => !string.IsNullOrWhiteSpace(item))
@@ -39,9 +41,18 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider, IFoundryIq
 
         if (selectedFrameworks.Count == 0)
         {
-            foreach (var framework in CloudNeutralBaselineFrameworks)
+            var baselineFrameworks = cloudConstraint.IsExclusiveAws
+                ? new[] { nameof(CoArchitect.Domain.Enums.ReviewFramework.AwsWellArchitected) }
+                : cloudConstraint.IsExclusiveAzure
+                    ? new[] { nameof(CoArchitect.Domain.Enums.ReviewFramework.AzureWellArchitected) }
+                    : CloudNeutralBaselineFrameworks;
+
+            foreach (var framework in baselineFrameworks)
             {
-                selectedFrameworks.Add(framework);
+                if (cloudConstraint.AllowsFrameworkKey(framework))
+                {
+                    selectedFrameworks.Add(framework);
+                }
             }
         }
 
@@ -180,6 +191,17 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider, IFoundryIq
             .Where(item => item is not null)
             .Cast<FoundryIqContextItem>()
             .ToList();
+    }
+
+    private static IEnumerable<CoArchitect.Domain.Enums.ReviewFramework> ParseFrameworks(IEnumerable<string> frameworks)
+    {
+        foreach (var framework in frameworks)
+        {
+            if (Enum.TryParse<CoArchitect.Domain.Enums.ReviewFramework>(framework, ignoreCase: true, out var parsed))
+            {
+                yield return parsed;
+            }
+        }
     }
 
     private static List<FoundryIqContextItem> SelectPrincipleItems(

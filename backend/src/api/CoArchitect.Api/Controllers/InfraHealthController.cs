@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using CoArchitect.Application.Interfaces;
+using CoArchitect.Api.Services;
 using CoArchitect.Domain.Entities;
 using CoArchitect.Infrastructure.Persistence;
 using CoArchitect.Infrastructure.Services;
@@ -23,6 +24,7 @@ public sealed class InfraHealthController : ControllerBase
     private readonly IAiFoundrySettingsRepository _foundrySettingsRepository;
     private readonly KnowledgeBaseCatalogLoader _knowledgeBaseCatalogLoader;
     private readonly AzureFoundryInvocationService _foundryInvocationService;
+    private readonly CorsConfigurationDiagnostics _corsDiagnostics;
 
     public InfraHealthController(
         IServiceProvider services,
@@ -34,7 +36,8 @@ public sealed class InfraHealthController : ControllerBase
         AzureFoundryAgentExperimentOptions experimentOptions,
         IAiFoundrySettingsRepository foundrySettingsRepository,
         KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader,
-        AzureFoundryInvocationService foundryInvocationService)
+        AzureFoundryInvocationService foundryInvocationService,
+        CorsConfigurationDiagnostics corsDiagnostics)
     {
         _services = services;
         _httpClientFactory = httpClientFactory;
@@ -46,6 +49,7 @@ public sealed class InfraHealthController : ControllerBase
         _foundrySettingsRepository = foundrySettingsRepository;
         _knowledgeBaseCatalogLoader = knowledgeBaseCatalogLoader;
         _foundryInvocationService = foundryInvocationService;
+        _corsDiagnostics = corsDiagnostics;
     }
 
     [HttpGet]
@@ -60,6 +64,7 @@ public sealed class InfraHealthController : ControllerBase
             await CheckManagedFoundryIqAsync(cancellationToken),
             CheckAgentMode(),
             CheckFoundryIqCatalog(),
+            CheckCorsConfiguration(),
         };
 
         var status = checks.Any(check => check.Status == "unhealthy")
@@ -285,6 +290,19 @@ public sealed class InfraHealthController : ControllerBase
         }
 
         return InfraHealthCheck.Healthy("architectureAgentMode", "AzureFoundry", "Architecture analysis is using the stable single-expert mode.");
+    }
+
+    private InfraHealthCheck CheckCorsConfiguration()
+    {
+        var mode = _corsDiagnostics.HasExplicitConfiguredOrigins ? "explicit" : "fallback";
+        var origins = _corsDiagnostics.ResolvedOrigins.Length == 0
+            ? "none"
+            : string.Join(", ", _corsDiagnostics.ResolvedOrigins);
+
+        return InfraHealthCheck.Healthy(
+            "corsConfig",
+            "Cors",
+            $"CORS is using {mode} origins. Resolved {_corsDiagnostics.ResolvedOrigins.Length} origin(s): {origins}");
     }
 
     private static Uri BuildBlobUri(string containerSasUrl, string blobPath)

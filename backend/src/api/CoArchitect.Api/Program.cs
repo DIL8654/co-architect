@@ -46,6 +46,21 @@ static string TrimWrappingQuotes(string value)
     return value;
 }
 
+static string[] ResolveCorsOrigins(IConfiguration config)
+{
+    var configuredOrigins = config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    var normalizedOrigins = configuredOrigins
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Select(origin => TrimWrappingQuotes(origin.Trim()))
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    return normalizedOrigins.Length > 0
+        ? normalizedOrigins
+        : ["http://localhost:5173", "http://127.0.0.1:5173", "http://[::1]:5173"];
+}
+
 var foundryOptions = new AzureFoundryArchitectureAgentOptions
 {
     EndpointMode = ReadSetting(configuration, "ArchitectureAgent:EndpointMode", "ArchitectureAgent__EndpointMode") ?? "LegacyAgent",
@@ -80,8 +95,18 @@ var storageOptions = configuration.GetSection("ArchitectureStorage").Get<Archite
 builder.Services.AddSingleton(storageOptions);
 
 // CORS
-var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5173", "http://127.0.0.1:5173", "http://[::1]:5173" };
+var configuredCorsOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var allowedOrigins = ResolveCorsOrigins(configuration);
+var hasExplicitCorsOrigins = configuredCorsOrigins
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(origin => TrimWrappingQuotes(origin.Trim()))
+    .Any(origin => !string.IsNullOrWhiteSpace(origin));
+
+builder.Services.AddSingleton(new CorsConfigurationDiagnostics
+{
+    HasExplicitConfiguredOrigins = hasExplicitCorsOrigins,
+    ResolvedOrigins = allowedOrigins,
+});
 
 builder.Services.AddCors(options =>
 {
@@ -227,6 +252,13 @@ else
 builder.Services.AddScoped<IArchitectureAnalyzer, MockArchitectureAgentService>();
 
 var app = builder.Build();
+
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("CoArchitect.Api.Startup");
+startupLogger.LogInformation(
+    "Resolved CORS origins ({Count}): {Origins}. Explicit production/app-service configuration present: {HasExplicitOrigins}",
+    allowedOrigins.Length,
+    string.Join(", ", allowedOrigins),
+    hasExplicitCorsOrigins);
 
 app.Use(async (context, next) =>
 {

@@ -89,6 +89,12 @@ The backend should allow:
 - `http://localhost:5173`
 - `http://127.0.0.1:5173`
 
+For Azure-hosted testing, configure explicit app settings instead of relying on the localhost fallback:
+
+- `Cors__AllowedOrigins__0=https://www.coarchitect.cloud`
+- `Cors__AllowedOrigins__1=https://coarchitect.cloud`
+- `Cors__AllowedOrigins__2=https://brave-smoke-025cfcd03.7.azurestaticapps.net`
+
 ## Hackathon Smoke Test
 
 After the backend is running, validate the end-to-end API flow:

@@ -71,6 +71,76 @@ public sealed class TidbDiagramRepository : IDiagramRepository
             .OrderByDescending(item => item.UploadedAt);
     }
 
+    public async Task<IEnumerable<ArchitectureDiagram>> GetByWorkspaceIdsAsync(IEnumerable<Guid> workspaceIds, CancellationToken cancellationToken)
+    {
+        await _schemaInitializer.EnsureSchemaAsync(cancellationToken);
+        var ids = workspaceIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var items = new List<ArchitectureDiagram>();
+        await using (var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken))
+        await using (var command = connection.CreateCommand())
+        {
+            var parameterNames = ids.Select((id, index) => AddGuidParameter(command, $"@workspaceId{index}", id)).ToList();
+            command.CommandText = $"""
+                select id, workspace_id, uploaded_by_user_id, name, original_file_name, file_url, description, review_context, framework_selection, quality_attribute_weights, uploaded_at
+                from coarchitect_diagrams
+                where workspace_id in ({string.Join(", ", parameterNames)})
+                order by uploaded_at desc
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(Map(reader));
+            }
+        }
+
+        var legacy = await _legacyStore.GetAllAsync<ArchitectureDiagram>(LegacyKind, cancellationToken);
+        var workspaceIdSet = ids.ToHashSet();
+        return Merge(items, legacy)
+            .Where(item => workspaceIdSet.Contains(item.WorkspaceId))
+            .OrderByDescending(item => item.UploadedAt);
+    }
+
+    public async Task<IDictionary<Guid, int>> GetDiagramCountsByWorkspaceIdsAsync(IEnumerable<Guid> workspaceIds, CancellationToken cancellationToken)
+    {
+        await _schemaInitializer.EnsureSchemaAsync(cancellationToken);
+        var ids = workspaceIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var counts = new Dictionary<Guid, int>();
+        await using (var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken))
+        await using (var command = connection.CreateCommand())
+        {
+            var parameterNames = ids.Select((id, index) => AddGuidParameter(command, $"@workspaceId{index}", id)).ToList();
+            command.CommandText = $"""
+                select workspace_id, count(*)
+                from coarchitect_diagrams
+                where workspace_id in ({string.Join(", ", parameterNames)})
+                group by workspace_id
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                counts[ParseGuid(reader.GetValue(0))] = reader.GetInt32(1);
+            }
+        }
+
+        var legacy = await _legacyStore.GetAllAsync<ArchitectureDiagram>(LegacyKind, cancellationToken);
+        foreach (var group in legacy.Where(item => ids.Contains(item.WorkspaceId)).GroupBy(item => item.WorkspaceId))
+        {
+            counts[group.Key] = Math.Max(counts.GetValueOrDefault(group.Key), group.Count());
+        }
+
+        return counts;
+    }
+
     public async Task<IEnumerable<ArchitectureDiagram>> GetAllAsync(CancellationToken cancellationToken)
     {
         await _schemaInitializer.EnsureSchemaAsync(cancellationToken);
@@ -189,6 +259,12 @@ public sealed class TidbDiagramRepository : IDiagramRepository
         parameter.ParameterName = name;
         parameter.Value = value ?? DBNull.Value;
         command.Parameters.Add(parameter);
+    }
+
+    private static string AddGuidParameter(DbCommand command, string name, Guid value)
+    {
+        AddParameter(command, name, value.ToString());
+        return name;
     }
 
     private static Guid ParseGuid(object value) => value switch

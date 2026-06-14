@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-06-13T19:48:06.398Z",
+  "source": "docs/knowledge-base",
+  "fileCount": 20,
+  "files": [
+    "knowledge-base/adr-template.md",
+    "knowledge-base/architecture-tradeoff-principles.md",
+    "knowledge-base/aws-well-architected-summary.md",
+    "knowledge-base/azure-well-architected-summary.md",
+    "knowledge-base/catalog/foundry-iq-catalog.json",
+    "knowledge-base/frameworks/aws-well-architected-summary.md",
+    "knowledge-base/frameworks/azure-well-architected-summary.md",
+    "knowledge-base/frameworks/gdpr-summary.md",
+    "knowledge-base/frameworks/iso-25010-summary.md",
+    "knowledge-base/frameworks/iso-27001-summary.md",
+    "knowledge-base/frameworks/owasp-asvs-summary.md",
+    "knowledge-base/frameworks/safe-summary.md",
+    "knowledge-base/frameworks/soc2-summary.md",
+    "knowledge-base/frameworks/togaf-summary.md",
+    "knowledge-base/iso-25010-summary.md",
+    "knowledge-base/owasp-asvs-summary.md",
+    "knowledge-base/principles/architecture-principles.md",
+    "knowledge-base/reasoning-agent-rubric.md",
+    "knowledge-base/synthetic-architecture-examples.md",
+    "knowledge-base/tradeoffs/tradeoff-catalog.md"
+  ]
+}

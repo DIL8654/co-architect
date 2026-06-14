@@ -70,4 +70,43 @@ public class FrameworkSelectionServiceTests
         Assert.Contains(ReviewStandard.Soc2, result.SelectedStandards);
         Assert.Equal(0.99, result.ConfidenceScore);
     }
+
+    [Fact]
+    public void AutoDetect_RespectsAwsOnlyPreference_WhenDescriptionContainsAzureTerms()
+    {
+        var result = _service.Select(
+            "Azure Blob Storage is mentioned in migration notes, but the target runtime is AWS with Lambda, S3, and RDS.",
+            new ArchitectureReviewContext
+            {
+                CloudProviderPreference = "AWS, Cloud-neutral",
+                DataSensitivity = "Confidential",
+            },
+            FrameworkSelectionMode.AutoDetect,
+            [],
+            [],
+            _service.GetDefaultWeights());
+
+        Assert.Contains(ReviewFramework.AwsWellArchitected, result.SelectedFrameworks);
+        Assert.DoesNotContain(ReviewFramework.AzureWellArchitected, result.SelectedFrameworks);
+        Assert.Equal("AWS", result.DetectedCloudProvider);
+    }
+
+    [Fact]
+    public void ManualSelection_RemovesProviderFrameworks_ThatConflictWithExclusiveCloudPreference()
+    {
+        var result = _service.Select(
+            "Architecture review",
+            new ArchitectureReviewContext
+            {
+                CloudProviderPreference = "AWS",
+            },
+            FrameworkSelectionMode.Manual,
+            [ReviewFramework.AzureWellArchitected, ReviewFramework.Iso25010],
+            [ReviewStandard.Iso27001],
+            _service.GetDefaultWeights());
+
+        Assert.DoesNotContain(ReviewFramework.AzureWellArchitected, result.SelectedFrameworks);
+        Assert.Contains(ReviewFramework.Iso25010, result.SelectedFrameworks);
+        Assert.Contains(result.SelectionRationale, item => item.Contains("conflicted", StringComparison.OrdinalIgnoreCase));
+    }
 }

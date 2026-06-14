@@ -9,6 +9,7 @@ public sealed class FoundryIqContextItem
     public string Content { get; init; } = string.Empty;
     public string SourceType { get; init; } = string.Empty;
     public string SourceLabel { get; init; } = string.Empty;
+    public string SourceProvider { get; init; } = "LocalKnowledgeBase";
     public string? SourceUri { get; init; }
     public bool WorkspaceScoped { get; init; }
     public string? StandardKey { get; init; }

@@ -12,9 +12,19 @@ The current MVP uses one cost-aware Azure AI Foundry expert call inside an appli
 
 ```text
 ArchitectureAgent__Provider=AzureFoundry
-AZURE_AI_FOUNDRY_PROJECT_ENDPOINT
+ArchitectureAgent__EndpointMode=LegacyAgent
+AZURE_AI_FOUNDRY_LEGACY_AGENT_ENDPOINT
+AZURE_AI_FOUNDRY_API_KEY
 AZURE_AI_FOUNDRY_AGENT_ID
 AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT
+```
+
+Experimental project-endpoint mode remains available with:
+
+```text
+ArchitectureAgent__EndpointMode=ProjectEndpoint
+AZURE_AI_FOUNDRY_PROJECT_ENDPOINT
+AZURE_AI_FOUNDRY_BEARER_TOKEN or managed identity
 ```
 
 ## Current Design
@@ -22,6 +32,8 @@ AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT
 - one external Foundry expert call per analysis run
 - local specialist reasoning in application code around grounded context
 - fallback to mock provider if Azure configuration is incomplete or intentionally disabled
+- stable hackathon mode uses the legacy expert-agent endpoint with API-key authentication
+- newer project-endpoint auth and managed retrieval stay opt-in until Azure RBAC is validated cleanly
 
 ## Why This Design Is Cost-Aware
 

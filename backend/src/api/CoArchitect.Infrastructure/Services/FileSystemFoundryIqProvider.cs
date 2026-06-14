@@ -3,7 +3,7 @@ using CoArchitect.Domain.Models;
 
 namespace CoArchitect.Infrastructure.Services;
 
-public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
+public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider, IFoundryIqKnowledgeProvider
 {
     private static readonly string[] CloudNeutralBaselineFrameworks = ["Iso25010", "OwaspAsvs"];
     private static readonly string[] DefaultTradeoffIds =
@@ -27,9 +27,11 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 
         var items = _catalogLoader.GetItems();
         var normalizedText = BuildNormalizedText(query);
-        var selectedFrameworks = query.SuggestedFrameworks
+        var cloudConstraint = CloudProviderConstraint.Resolve(query.ReviewContext.CloudProviderPreference, ParseFrameworks(query.SuggestedFrameworks));
+        var selectedFrameworks = cloudConstraint.FilterFrameworkKeys(query.SuggestedFrameworks
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var selectedStandards = query.SuggestedStandards
             .Where(item => !string.IsNullOrWhiteSpace(item))
@@ -39,9 +41,18 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 
         if (selectedFrameworks.Count == 0)
         {
-            foreach (var framework in CloudNeutralBaselineFrameworks)
+            var baselineFrameworks = cloudConstraint.IsExclusiveAws
+                ? new[] { nameof(CoArchitect.Domain.Enums.ReviewFramework.AwsWellArchitected) }
+                : cloudConstraint.IsExclusiveAzure
+                    ? new[] { nameof(CoArchitect.Domain.Enums.ReviewFramework.AzureWellArchitected) }
+                    : CloudNeutralBaselineFrameworks;
+
+            foreach (var framework in baselineFrameworks)
             {
-                selectedFrameworks.Add(framework);
+                if (cloudConstraint.AllowsFrameworkKey(framework))
+                {
+                    selectedFrameworks.Add(framework);
+                }
             }
         }
 
@@ -73,6 +84,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
 
         return Task.FromResult(new FoundryIqContextBundle
         {
+            RetrievalProvider = "LocalKnowledgeBase",
             FrameworkGuidanceItems = frameworkItems,
             PrincipleItems = principleItems,
             TradeoffItems = tradeoffItems,
@@ -111,6 +123,9 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
         var citations = new List<string> { $"Foundry IQ catalog unavailable at {_catalogLoader.CatalogPath}" };
         return new FoundryIqContextBundle
         {
+            RetrievalProvider = "LocalKnowledgeBase",
+            FallbackUsed = true,
+            FallbackReason = $"Foundry IQ catalog unavailable at {_catalogLoader.CatalogPath}",
             FrameworkGuidanceItems = frameworkItems,
             ComplianceItems = complianceItems,
             PrincipleItems = principleItems,
@@ -136,6 +151,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             Content = summary,
             SourceType = sourceType,
             SourceLabel = "Foundry IQ fallback baseline",
+            SourceProvider = "FallbackBaseline",
             StandardKey = standardKey,
             UseCaseTags = new List<string> { category },
             WhyItMatters = "Grounding should remain visible even when the local catalog path is misconfigured.",
@@ -175,6 +191,17 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             .Where(item => item is not null)
             .Cast<FoundryIqContextItem>()
             .ToList();
+    }
+
+    private static IEnumerable<CoArchitect.Domain.Enums.ReviewFramework> ParseFrameworks(IEnumerable<string> frameworks)
+    {
+        foreach (var framework in frameworks)
+        {
+            if (Enum.TryParse<CoArchitect.Domain.Enums.ReviewFramework>(framework, ignoreCase: true, out var parsed))
+            {
+                yield return parsed;
+            }
+        }
     }
 
     private static List<FoundryIqContextItem> SelectPrincipleItems(
@@ -571,6 +598,7 @@ public sealed class FileSystemFoundryIqProvider : IFoundryIqProvider
             Content = item.Guidance,
             SourceType = "knowledge-base-catalog",
             SourceLabel = string.IsNullOrWhiteSpace(item.SourceLabel) ? item.Title : item.SourceLabel,
+            SourceProvider = "LocalKnowledgeBase",
             SourceUri = string.IsNullOrWhiteSpace(item.SourceUri) ? null : item.SourceUri,
             StandardKey = item.StandardKey,
             UseCaseTags = item.UseCaseTags.ToList(),

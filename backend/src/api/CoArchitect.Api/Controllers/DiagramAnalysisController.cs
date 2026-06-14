@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using CoArchitect.Api.DTOs;
 using CoArchitect.Api.Services;
 using CoArchitect.Application.Interfaces;
@@ -18,6 +19,7 @@ public class DiagramAnalysisController : ControllerBase
     private readonly IWorkspaceRepository _workspaceRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IFrameworkSelectionService _frameworkSelectionService;
+    private readonly PerformanceCacheService _performanceCacheService;
     private readonly ILogger<DiagramAnalysisController> _logger;
 
     public DiagramAnalysisController(
@@ -28,6 +30,7 @@ public class DiagramAnalysisController : ControllerBase
         IWorkspaceRepository workspaceRepository,
         ICurrentUserService currentUserService,
         IFrameworkSelectionService frameworkSelectionService,
+        PerformanceCacheService performanceCacheService,
         ILogger<DiagramAnalysisController> logger)
     {
         _analysisRepository = analysisRepository;
@@ -37,6 +40,7 @@ public class DiagramAnalysisController : ControllerBase
         _workspaceRepository = workspaceRepository;
         _currentUserService = currentUserService;
         _frameworkSelectionService = frameworkSelectionService;
+        _performanceCacheService = performanceCacheService;
         _logger = logger;
     }
 
@@ -140,6 +144,7 @@ public class DiagramAnalysisController : ControllerBase
 
     [HttpPost("{diagramId}/analysis")]
     [HttpPost("/api/workspaces/{workspaceId:guid}/diagrams/{diagramId:guid}/analysis-runs")]
+    [EnableRateLimiting(AnalysisRateLimiting.PolicyName)]
     public async Task<ActionResult<ArchitectureAnalysisResponse>> RunAnalysis(
         [FromRoute] Guid? workspaceId,
         [FromRoute] Guid diagramId,
@@ -187,6 +192,7 @@ public class DiagramAnalysisController : ControllerBase
 
         await _analysisRepository.AddAsync(analysisRun, cancellationToken);
         await _analysisRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(workspace.TenantId, workspace.Id, diagramId);
 
         var response = await MapToResponseAsync(analysisRun, diagram, agentResult, cancellationToken);
         return Ok(response);
@@ -337,6 +343,9 @@ public class DiagramAnalysisController : ControllerBase
     {
         return new FoundryIqContextBundleResponse
         {
+            RetrievalProvider = bundle.RetrievalProvider,
+            FallbackUsed = bundle.FallbackUsed,
+            FallbackReason = bundle.FallbackReason,
             FrameworkGuidanceItems = bundle.FrameworkGuidanceItems.Select(MapContextItem).ToList(),
             PrincipleItems = bundle.PrincipleItems.Select(MapContextItem).ToList(),
             TradeoffItems = bundle.TradeoffItems.Select(MapContextItem).ToList(),
@@ -369,6 +378,7 @@ public class DiagramAnalysisController : ControllerBase
             Content = item.Content,
             SourceType = item.SourceType,
             SourceLabel = item.SourceLabel,
+            SourceProvider = item.SourceProvider,
             SourceUri = item.SourceUri,
             WorkspaceScoped = item.WorkspaceScoped,
             StandardKey = item.StandardKey,

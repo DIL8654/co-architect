@@ -22,13 +22,24 @@ Run frontend commands inside `web/`, not the repository root.
 
 ### CORS errors
 
-- confirm frontend is on `5173`
-- confirm backend allows `localhost:5173`
-- restart both services after env changes
+- for local runs, confirm the backend allows `http://localhost:5173`
+- for Azure/App Service runs, set indexed app settings such as:
+  - `Cors__AllowedOrigins__0=https://www.coarchitect.cloud`
+  - `Cors__AllowedOrigins__1=https://coarchitect.cloud`
+  - `Cors__AllowedOrigins__2=https://brave-smoke-025cfcd03.7.azurestaticapps.net`
+- restart or redeploy the API after changing CORS settings
+- test from the actual browser origin, not only from a direct API curl
+- check `/api/infra-health` and confirm the `corsConfig` line shows the expected resolved origins
 
 ### Azure AI Foundry not configured
 
 Use `ArchitectureAgent__Provider=Mock`.
+
+### `429 Too Many Requests` when running architecture review
+
+- the public MVP limits AI analysis requests to **5 runs per IP per minute**
+- wait about a minute and try again
+- this safeguard protects service availability and Azure Foundry cost during public demos
 
 ### Diagram view fails on older analysis data
 

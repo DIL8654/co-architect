@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { diagramApi, type DiagramReviewSetupInput } from '../api/diagrams';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { diagramApi, type ArchitectureDiagram, type DiagramReviewSetupInput } from '../api/diagrams';
 
 export function useUploadDiagram() {
   return useMutation({
@@ -20,6 +20,8 @@ export function useDiagrams(workspaceId?: string) {
 }
 
 export function useDiagram(diagramId: string) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ['diagram', diagramId],
     queryFn: () => diagramApi.getDiagram(diagramId),
@@ -27,6 +29,17 @@ export function useDiagram(diagramId: string) {
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
+    initialData: () => {
+      const cachedLists = queryClient.getQueriesData<ArchitectureDiagram[]>({ queryKey: ['diagrams'] });
+      for (const [, diagrams] of cachedLists) {
+        const match = diagrams?.find((item) => item.id === diagramId);
+        if (match) {
+          return match;
+        }
+      }
+
+      return undefined;
+    },
   });
 }
 

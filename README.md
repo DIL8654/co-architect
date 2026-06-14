@@ -6,6 +6,12 @@
 
 ## 🌐 Live Demo
 
+Primary domain:
+
+👉 https://www.coarchitect.cloud/
+
+Azure fallback:
+
 👉 https://brave-smoke-025cfcd03.7.azurestaticapps.net/
 
 ---
@@ -118,7 +124,9 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 * 🔄 Agent workflow visualization (pipeline-style)
 * 📄 ADR generation with version history
 * 📚 Knowledge base grounding (Foundry IQ)
+* 🔁 Hybrid Foundry IQ retrieval with local knowledge-base fallback
 * 🚀 Demo-ready seeded architecture scenarios
+* 🛡️ Lightweight per-IP AI analysis rate limiting for the public MVP
 
 ---
 
@@ -153,7 +161,7 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 * **Backend:** .NET 10 (Clean Architecture)
 * **Storage:** TiDB + Azure Blob Storage
 * **AI Layer:** Azure AI Foundry Agent Service
-* **Fallback:** Mock provider (no Azure required)
+* **Fallback:** Mock provider and local Foundry IQ knowledge base (no Azure required)
 
 📚 Docs:
 
@@ -176,6 +184,16 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
    * recommendations
 6. ADRs are created automatically
 
+### Foundry IQ runtime modes
+
+CoArchitect now supports:
+
+* **Local**: repo-backed `docs/knowledge-base/`
+* **AzureFoundry**: managed Foundry IQ retrieval through a dedicated Foundry retrieval agent
+* **Hybrid**: prefer managed Foundry IQ and fall back to the repo knowledge base automatically
+
+The current stable hackathon default is **Local**. Managed Foundry IQ remains available as an explicit experimental upgrade path.
+
 ---
 
 ## 🧪 Assumptions (MVP Scope)
@@ -185,6 +203,8 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 * Synthetic demo data
 * Application-calculated scoring (not hallucinated by AI)
 * Demo-first UX for fast evaluation
+* Public AI analysis is limited per client IP to protect cost and availability
+* Stable Azure mode uses API key plus a legacy agent endpoint instead of Managed Identity
 
 ---
 
@@ -204,11 +224,13 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 
 * No production auth
 * No audit logs
+* Public MVP uses API-level analysis throttling instead of full edge security
 
 ### AI
 
 * Application-led orchestration
 * Limited evaluation coverage
+* Hybrid multi-agent prompt-agent mode is optional and still experimental
 
 ---
 

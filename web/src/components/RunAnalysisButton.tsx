@@ -1,8 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ChevronDownIcon, ChevronRightIcon, Modal, SparkIcon } from './index';
+import { Button, ChevronDownIcon, ChevronRightIcon, CompactMultiSelectField, CompactSelectField, Modal, SparkIcon } from './index';
 import type { ArchitectureAnalysisResult } from '../api/analysis';
+import { getErrorMessage, getHttpStatus, getRetryAfterSeconds } from '../api/axios';
 import type { DiagramReviewSetup, DiagramReviewSetupInput, ReviewFramework, ReviewStandard } from '../api/diagrams';
+import {
+  BUSINESS_DOMAIN_OPTIONS,
+  CLOUD_PROVIDER_OPTIONS,
+  COMPLIANCE_OPTIONS,
+  DATA_SENSITIVITY_OPTIONS,
+  EXPECTED_TRAFFIC_OPTIONS,
+  parseMultiValueSelection,
+  serializeMultiValueSelection,
+} from '../lib/reviewSetupOptions';
 import { formatScoreBandLabel } from '../lib/scoreBands';
 
 interface AnalysisStep {
@@ -182,7 +192,16 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
         setAnalysisResult(result);
         onAnalysisComplete?.(result);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to run analysis');
+        const status = getHttpStatus(err);
+        if (status === 429) {
+          const retryAfterSeconds = getRetryAfterSeconds(err);
+          const retryHint = retryAfterSeconds
+            ? ` Try again in about ${retryAfterSeconds} seconds.`
+            : ' Please wait a minute before starting another review.';
+          setError(`Architecture review is temporarily limited. This public MVP uses cost-sensitive AI analysis to stay available for everyone.${retryHint}`);
+        } else {
+          setError(getErrorMessage(err));
+        }
         setErrorStepIndex(activeStepIndexRef.current ?? 0);
       } finally {
         setIsRunning(false);
@@ -237,10 +256,38 @@ export const RunAnalysisButton = React.forwardRef<HTMLButtonElement, RunAnalysis
                     onToggle={() => setOpenSections((current) => ({ ...current, context: !current.context }))}
                   >
                     <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-                      <CompactField label="Business domain" value={setup.businessDomain ?? ''} onChange={(value) => setSetup({ ...setup, businessDomain: value })} />
-                      <CompactField label="Data sensitivity" value={setup.dataSensitivity ?? ''} onChange={(value) => setSetup({ ...setup, dataSensitivity: value })} />
-                      <CompactField label="Expected traffic" value={setup.expectedTraffic ?? ''} onChange={(value) => setSetup({ ...setup, expectedTraffic: value })} />
-                      <CompactField label="Compliance needs" value={setup.complianceNeeds ?? ''} onChange={(value) => setSetup({ ...setup, complianceNeeds: value })} />
+                      <CompactMultiSelectField
+                        label="Business Domain"
+                        values={parseMultiValueSelection(setup.businessDomain)}
+                        onChange={(values) => setSetup({ ...setup, businessDomain: serializeMultiValueSelection(values) })}
+                        options={BUSINESS_DOMAIN_OPTIONS}
+                      />
+                      <CompactMultiSelectField
+                        label="Data Sensitivity"
+                        values={parseMultiValueSelection(setup.dataSensitivity)}
+                        onChange={(values) => setSetup({ ...setup, dataSensitivity: serializeMultiValueSelection(values) })}
+                        options={DATA_SENSITIVITY_OPTIONS}
+                      />
+                      <CompactSelectField
+                        label="Expected Traffic"
+                        value={setup.expectedTraffic ?? ''}
+                        onChange={(value) => setSetup({ ...setup, expectedTraffic: value })}
+                        options={EXPECTED_TRAFFIC_OPTIONS}
+                        placeholder="Select traffic"
+                        idPrefix="run-review"
+                      />
+                      <CompactMultiSelectField
+                        label="Cloud Provider Preference"
+                        values={parseMultiValueSelection(setup.cloudProviderPreference)}
+                        onChange={(values) => setSetup({ ...setup, cloudProviderPreference: serializeMultiValueSelection(values) })}
+                        options={CLOUD_PROVIDER_OPTIONS}
+                      />
+                      <CompactMultiSelectField
+                        label="Compliance Needs"
+                        values={parseMultiValueSelection(setup.complianceNeeds)}
+                        onChange={(values) => setSetup({ ...setup, complianceNeeds: serializeMultiValueSelection(values) })}
+                        options={COMPLIANCE_OPTIONS}
+                      />
                     </div>
                     <div className="mt-2.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">Current pain points</label>
@@ -381,19 +428,6 @@ function toInput(setup?: DiagramReviewSetup): DiagramReviewSetupInput {
       : setup?.frameworkSelection.selectedStandards ?? [],
     qualityAttributeWeights: setup?.qualityAttributeWeights?.length ? setup.qualityAttributeWeights : DEFAULT_WEIGHTS,
   };
-}
-
-function CompactField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="flex min-w-0 flex-col">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">{label}</span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-1 h-8 w-full rounded-lg border border-[#dde1e6] bg-white px-2.5 text-sm text-secondary-950 outline-none focus:border-primary-500 dark:border-white/10 dark:bg-[#08101d] dark:text-white"
-      />
-    </label>
-  );
 }
 
 function CheckboxGroup<T extends string>({

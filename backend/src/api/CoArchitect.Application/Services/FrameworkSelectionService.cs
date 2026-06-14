@@ -40,41 +40,64 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
         var requestedStandardList = requestedStandards.Distinct().ToList();
         var normalizedText = BuildNormalizedText(architectureDescription, reviewContext);
         var weights = qualityAttributeWeights.Any() ? qualityAttributeWeights.ToList() : GetDefaultWeights().ToList();
+        var cloudConstraint = CloudProviderConstraint.Resolve(reviewContext.CloudProviderPreference, requested);
 
         if (mode == FrameworkSelectionMode.Manual && (requested.Count > 0 || requestedStandardList.Count > 0))
         {
+            var filteredRequested = cloudConstraint.FilterFrameworks(requested);
+            var manualRationale = new List<string>
+            {
+                "Review frameworks and standards were selected manually by the user.",
+                "The system will preserve the chosen review lenses and still show detected cloud and governance context for transparency.",
+            };
+
+            if (filteredRequested.Count != requested.Count)
+            {
+                manualRationale.Add($"Frameworks that conflicted with the selected {cloudConstraint.DisplayLabel} cloud preference were removed.");
+            }
+
             return new FrameworkSelectionResult
             {
                 Mode = mode,
                 RequestedFrameworks = requested,
-                SelectedFrameworks = requested,
+                SelectedFrameworks = filteredRequested,
                 RequestedStandards = requestedStandardList,
                 SelectedStandards = requestedStandardList,
-                DetectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext),
+                DetectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext, filteredRequested),
                 ConfidenceScore = 0.99,
-                SelectionRationale = new List<string>
-                {
-                    "Review frameworks and standards were selected manually by the user.",
-                    "The system will preserve the chosen review lenses and still show detected cloud and governance context for transparency.",
-                },
+                SelectionRationale = manualRationale,
             };
         }
 
         var selected = new List<ReviewFramework>();
         var selectedStandards = new List<ReviewStandard>();
         var rationale = new List<string>();
-        var detectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext);
+        var detectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext, requested);
 
-        if (ContainsAny(normalizedText, AzureKeywords) || string.Equals(reviewContext.CloudProviderPreference, "Azure", StringComparison.OrdinalIgnoreCase))
+        if (cloudConstraint.AllowsAzure &&
+            (ContainsAny(normalizedText, AzureKeywords) || detectedCloudProvider.Equals("Azure", StringComparison.OrdinalIgnoreCase)))
         {
             selected.Add(ReviewFramework.AzureWellArchitected);
             rationale.Add("Azure Well-Architected was prioritized because Azure services or an Azure cloud preference were detected.");
         }
 
-        if (ContainsAny(normalizedText, AwsKeywords) || string.Equals(reviewContext.CloudProviderPreference, "AWS", StringComparison.OrdinalIgnoreCase))
+        if (cloudConstraint.AllowsAws &&
+            (ContainsAny(normalizedText, AwsKeywords) || detectedCloudProvider.Equals("AWS", StringComparison.OrdinalIgnoreCase)))
         {
             selected.Add(ReviewFramework.AwsWellArchitected);
             rationale.Add("AWS Well-Architected was prioritized because AWS services or an AWS cloud preference were detected.");
+        }
+
+        if (cloudConstraint.IsExclusiveAzure && !selected.Contains(ReviewFramework.AzureWellArchitected))
+        {
+            selected.Add(ReviewFramework.AzureWellArchitected);
+            rationale.Add("Azure Well-Architected was retained because the review setup explicitly selected Azure as the only cloud provider.");
+        }
+
+        if (cloudConstraint.IsExclusiveAws && !selected.Contains(ReviewFramework.AwsWellArchitected))
+        {
+            selected.Add(ReviewFramework.AwsWellArchitected);
+            rationale.Add("AWS Well-Architected was retained because the review setup explicitly selected AWS as the only cloud provider.");
         }
 
         if (ShouldIncludeIso(normalizedText, weights))
@@ -119,6 +142,8 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
             rationale.Add("SAFe was included because the architecture appears to involve platform coordination, value streams, or multi-team delivery alignment.");
         }
 
+        selected = cloudConstraint.FilterFrameworks(selected);
+
         if (selected.Count == 0)
         {
             selected.Add(ReviewFramework.Iso25010);
@@ -147,7 +172,7 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
             SelectedFrameworks = selected.Distinct().ToList(),
             RequestedStandards = requestedStandardList,
             SelectedStandards = selectedStandards.Distinct().ToList(),
-            DetectedCloudProvider = detectedCloudProvider,
+            DetectedCloudProvider = DetectCloudProvider(normalizedText, reviewContext, selected),
             ConfidenceScore = CalculateConfidence(selected, detectedCloudProvider, normalizedText),
             SelectionRationale = rationale,
         };
@@ -307,16 +332,26 @@ public sealed class FrameworkSelectionService : IFrameworkSelectionService
                ContainsAny(normalizedText, new[] { "platform", "shared service", "release", "coordination" });
     }
 
-    private static string DetectCloudProvider(string normalizedText, ArchitectureReviewContext reviewContext)
+    private static string DetectCloudProvider(string normalizedText, ArchitectureReviewContext reviewContext, IEnumerable<ReviewFramework>? selectedFrameworks = null)
     {
-        if (string.Equals(reviewContext.CloudProviderPreference, "Azure", StringComparison.OrdinalIgnoreCase) ||
-            ContainsAny(normalizedText, AzureKeywords))
+        var cloudConstraint = CloudProviderConstraint.Resolve(reviewContext.CloudProviderPreference, selectedFrameworks);
+
+        if (cloudConstraint.IsExclusiveAzure)
         {
             return "Azure";
         }
 
-        if (string.Equals(reviewContext.CloudProviderPreference, "AWS", StringComparison.OrdinalIgnoreCase) ||
-            ContainsAny(normalizedText, AwsKeywords))
+        if (cloudConstraint.IsExclusiveAws)
+        {
+            return "AWS";
+        }
+
+        if (ContainsAny(normalizedText, AzureKeywords) && !ContainsAny(normalizedText, AwsKeywords))
+        {
+            return "Azure";
+        }
+
+        if (ContainsAny(normalizedText, AwsKeywords) && !ContainsAny(normalizedText, AzureKeywords))
         {
             return "AWS";
         }

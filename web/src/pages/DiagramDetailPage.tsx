@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -34,22 +34,20 @@ import { useDiagram } from '../hooks/useDiagrams';
 
 type WorkbenchTab =
   | 'diagram'
-  | 'architecture-intelligence'
+  | 'summary'
   | 'findings'
   | 'recommendations'
   | 'trade-offs'
-  | 'analysis-runs'
   | 'agent-workflow'
   | 'adrs';
 type AdrTab = 'preview' | 'markdown' | 'html' | 'history';
 
 const VALID_TABS: WorkbenchTab[] = [
   'diagram',
-  'architecture-intelligence',
+  'summary',
   'findings',
   'recommendations',
   'trade-offs',
-  'analysis-runs',
   'agent-workflow',
   'adrs',
 ];
@@ -59,24 +57,37 @@ export function DiagramDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const activeTab: WorkbenchTab = VALID_TABS.includes(requestedTab as WorkbenchTab) ? (requestedTab as WorkbenchTab) : 'diagram';
+  const normalizedTab = requestedTab === 'architecture-intelligence' || requestedTab === 'analysis-runs' ? 'summary' : requestedTab;
+  const activeTab: WorkbenchTab = VALID_TABS.includes(normalizedTab as WorkbenchTab) ? (normalizedTab as WorkbenchTab) : 'diagram';
   const requestedRunId = searchParams.get('runId');
   const requestedAdrId = searchParams.get('adrId');
   const [activeAdrTab, setActiveAdrTab] = useSearchParamsState<AdrTab>(searchParams, setSearchParams, 'adrView', 'preview');
+  const shouldLoadAnalysisRuns = activeTab === 'summary' || activeTab === 'agent-workflow' || Boolean(requestedRunId);
+  const shouldLoadComments = activeTab === 'diagram';
+  const shouldLoadAdrs = activeTab === 'adrs' || Boolean(requestedAdrId);
 
   const { data: diagram, isLoading: isDiagramLoading, isError: isDiagramError } = useDiagram(diagramId!);
   const { data: latestAnalysis, refetch: refetchLatestAnalysis } = useDiagramAnalysis(diagramId!);
-  const { data: analysisRuns = [], refetch: refetchAnalysisRuns } = useAnalysisRuns(workspaceId!, diagramId!);
-  const { data: comments = [], refetch: refetchComments } = useDiagramComments(workspaceId!, diagramId!);
-  const { data: adrs = [], refetch: refetchAdrs } = useAdrs(workspaceId, diagramId);
+  const { data: analysisRuns = [], refetch: refetchAnalysisRuns, isLoading: isAnalysisRunsLoading } = useAnalysisRuns(
+    shouldLoadAnalysisRuns ? workspaceId! : '',
+    shouldLoadAnalysisRuns ? diagramId! : '',
+  );
+  const { data: comments = [], refetch: refetchComments, isLoading: isCommentsLoading } = useDiagramComments(
+    shouldLoadComments ? workspaceId! : '',
+    shouldLoadComments ? diagramId! : '',
+  );
+  const { data: adrs = [], refetch: refetchAdrs, isLoading: isAdrsLoading } = useAdrs(
+    shouldLoadAdrs ? workspaceId : undefined,
+    shouldLoadAdrs ? diagramId : undefined,
+  );
   const createCommentMutation = useCreateComment();
   const generateAdrMutation = useGenerateAdr();
   const regenerateAdrMutation = useRegenerateAdr();
   const deleteAdrMutation = useDeleteAdr();
 
   const defaultRunId = useMemo(
-    () => latestAnalysis?.id ?? analysisRuns.find((item) => item.status === 'Completed')?.id ?? analysisRuns[0]?.id ?? null,
-    [analysisRuns, latestAnalysis?.id],
+    () => latestAnalysis?.id ?? diagram?.latestRunId ?? analysisRuns.find((item) => item.status === 'Completed')?.id ?? analysisRuns[0]?.id ?? null,
+    [analysisRuns, diagram?.latestRunId, latestAnalysis?.id],
   );
 
   const effectiveRunId = requestedRunId ?? defaultRunId;
@@ -84,7 +95,7 @@ export function DiagramDetailPage() {
   const { data: selectedRunAnalysis, isLoading: isSelectedRunLoading } = useQuery({
     queryKey: ['diagram-workbench-analysis-run', workspaceId, diagramId, effectiveRunId],
     queryFn: () => analysisApi.getAnalysisRun(workspaceId!, diagramId!, effectiveRunId!),
-    enabled: !!workspaceId && !!diagramId && !!effectiveRunId && effectiveRunId !== latestAnalysis?.id,
+    enabled: shouldLoadAnalysisRuns && !!workspaceId && !!diagramId && !!effectiveRunId && effectiveRunId !== latestAnalysis?.id,
   });
 
   if (!workspaceId || !diagramId) {
@@ -143,12 +154,12 @@ export function DiagramDetailPage() {
     await refetchAnalysisRuns();
     await refetchAdrs();
     updateParams({
-      tab: 'architecture-intelligence',
+      tab: 'summary',
       runId: result.id,
     });
   };
 
-  const handleSelectRun = (runId: string, tab: WorkbenchTab = activeTab === 'agent-workflow' ? 'agent-workflow' : 'analysis-runs') => {
+  const handleSelectRun = (runId: string, tab: WorkbenchTab = activeTab === 'agent-workflow' ? 'agent-workflow' : 'summary') => {
     updateParams({
       tab,
       runId,
@@ -260,26 +271,25 @@ export function DiagramDetailPage() {
           <SegmentedTabs
             items={[
               { value: 'diagram', label: 'Diagram' },
-              { value: 'architecture-intelligence', label: 'Architecture Intelligence' },
+              { value: 'summary', label: 'Summary' },
               { value: 'findings', label: `Findings (${findingRows.length})` },
               { value: 'recommendations', label: `Recommendations (${activeAnalysis?.recommendations.length ?? 0})` },
               { value: 'trade-offs', label: `Trade-offs (${activeAnalysis?.tradeoffs.length ?? 0})` },
-              { value: 'analysis-runs', label: `Analysis Runs (${analysisRuns.length})` },
               { value: 'agent-workflow', label: `Agent Workflow (${activeAnalysis?.agentTrace.length ?? 0})` },
-              { value: 'adrs', label: `ADRs (${adrs.length})` },
+              { value: 'adrs', label: `ADRs (${adrs.length > 0 ? adrs.length : diagram.adrCount ?? 0})` },
             ]}
             activeValue={activeTab}
-            onChange={(value) => updateParams({ tab: value, runId: value === 'analysis-runs' ? activeRunId : requestedRunId })}
+            onChange={(value) => updateParams({ tab: value, runId: requestedRunId })}
           />
         </div>
 
-        <div className="p-5">
+        <div className="p-4 md:p-5">
           {activeTab === 'diagram' ? (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <section className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="flex items-center justify-between border-b border-[#e5e7eb] px-4 py-3 dark:border-white/10">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Architecture Evidence</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Diagram</p>
                     <h2 className="mt-1 text-lg font-semibold text-secondary-950 dark:text-white">
                       {diagram.originalFileName || 'Architecture Description'}
                     </h2>
@@ -301,42 +311,56 @@ export function DiagramDetailPage() {
                 </div>
               </section>
 
-              <CommentsSection comments={comments} onAddComment={handleAddComment} isLoading={createCommentMutation.isPending} />
+              <CommentsSection comments={comments} onAddComment={handleAddComment} isLoading={createCommentMutation.isPending || isCommentsLoading} />
             </div>
           ) : null}
 
-          {activeTab === 'architecture-intelligence' ? (
+          {activeTab === 'summary' ? (
             isLoadingSelectedAnalysis ? (
               <LoadingState message="Loading selected analysis..." />
             ) : activeAnalysis ? (
-              <div className="space-y-5">
-                <section className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Executive Summary</p>
-                  <p className="mt-2 text-sm leading-7 text-secondary-700 dark:text-secondary-200">{activeAnalysis.executiveSummary}</p>
+              <div className="space-y-4">
+                <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+                  <DecisionCard
+                    eyebrow="What matters most"
+                    title="Executive summary"
+                    body={activeAnalysis.executiveSummary}
+                  />
+                  <ReviewLensCard
+                    frameworks={frameworks}
+                    standards={standards}
+                    completedAt={activeAnalysis.completedAt ?? null}
+                    scoreLabel={scoreMeta.label}
+                  />
                 </section>
 
-                <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-                  <div className="overflow-hidden rounded-xl border border-[#e5e7eb] dark:border-white/10">
-                    <table className="w-full">
-                      <tbody>
-                        <MetricRow label="Architecture Intelligence Score" value={activeAnalysis.finalScore === null || activeAnalysis.finalScore === undefined ? 'Pending' : `${activeAnalysis.finalScore.toFixed(1)}/100`} />
-                        <MetricRow label="Score Band" value={scoreMeta.label} />
-                        <MetricRow label="Frameworks" value={frameworks.length ? frameworks.join(', ') : 'None selected'} />
-                        <MetricRow label="Standards Used" value={standards.length ? standards.map(formatStandardLabel).join(', ') : 'None selected'} />
-                        <MetricRow label="Completed" value={activeAnalysis.completedAt ? new Date(activeAnalysis.completedAt).toLocaleString() : 'Pending'} />
-                      </tbody>
-                    </table>
-                  </div>
-                  <AgentSummaryPanel items={activeAnalysis.agentTrace} />
+                <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <CompactInsightList
+                    eyebrow="What needs attention"
+                    title="Key findings"
+                    items={findingRows.slice(0, 4).map((row) => ({
+                      label: row.finding,
+                      detail: row.recommendation,
+                    }))}
+                    emptyTitle="No key findings"
+                  />
+                  <CompactInsightList
+                    eyebrow="What to do next"
+                    title="Priority moves"
+                    items={activeAnalysis.recommendations.slice(0, 4).map((row) => ({
+                      label: row.title,
+                      detail: `${row.priority} priority · ${row.estimatedEffort}`,
+                    }))}
+                    emptyTitle="No actions yet"
+                  />
                 </section>
 
                 <DimensionBreakdownTable breakdowns={activeAnalysis.dimensionBreakdowns ?? []} />
                 <FoundryIqContextPanel context={activeAnalysis.foundryIqContext} />
-                <RecommendationsTable rows={activeAnalysis.recommendations} compact />
-                <TradeoffCompactTable tradeoffs={activeAnalysis.tradeoffs} />
+                <AgentSummaryPanel items={activeAnalysis.agentTrace} />
               </div>
             ) : (
-              <EmptyPanel title="No analysis yet" description="Run architecture analysis to populate score, frameworks, grounded context, and agent summary." />
+              <EmptyPanel title="No summary yet" description="Run architecture analysis to generate the score, findings, and review context." />
             )
           ) : null}
 
@@ -374,16 +398,8 @@ export function DiagramDetailPage() {
             )
           ) : null}
 
-          {activeTab === 'analysis-runs' ? (
-            analysisRuns.length ? (
-              <AnalysisRunsTable items={analysisRuns} activeRunId={activeRunId} onSelectRun={(runId) => handleSelectRun(runId, 'analysis-runs')} />
-            ) : (
-              <EmptyPanel title="No analysis history yet" description="Completed analysis runs will appear here so the team can review changes over time." />
-            )
-          ) : null}
-
           {activeTab === 'agent-workflow' ? (
-            isLoadingSelectedAnalysis ? (
+            isAnalysisRunsLoading || isLoadingSelectedAnalysis ? (
               <LoadingState message="Loading selected workflow..." />
             ) : activeAnalysis ? (
               <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -396,6 +412,9 @@ export function DiagramDetailPage() {
           ) : null}
 
           {activeTab === 'adrs' ? (
+            isAdrsLoading ? (
+              <LoadingState message="Loading ADRs..." />
+            ) : (
             <div className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -465,6 +484,7 @@ export function DiagramDetailPage() {
                 <AdrHistoryPanel selectedAdr={selectedAdr} history={resolvedAdrDraft.history} />
               ) : null}
             </div>
+            )
           ) : null}
         </div>
       </section>
@@ -487,7 +507,7 @@ function ScoreHeroStrip({
     <section className="rounded-xl border border-[#dde1e6] bg-white p-4 dark:border-white/10 dark:bg-[#08101d]">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Architecture Intelligence</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Summary</p>
           <div className="mt-2 flex flex-wrap items-end gap-3">
             <span className="text-4xl font-bold text-secondary-950 dark:text-white">
               {analysis?.finalScore === null || analysis?.finalScore === undefined ? '—' : analysis.finalScore.toFixed(1)}
@@ -538,22 +558,17 @@ function AgentSummaryPanel({ items }: { items: AgentExecutionTrace[] }) {
       <div className="border-b border-[#e5e7eb] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Agent Summary</p>
       </div>
-      <table className="w-full">
-        <thead className="sr-only">
-          <tr>
-            <th>Agent</th>
-            <th>Summary</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.slice(0, 5).map((item) => (
-            <tr key={`${item.agentName}-${item.startedAt}`} className="border-b border-[#eef1f4] align-top last:border-0 dark:border-white/10">
-              <td className="px-4 py-3 text-sm font-medium text-secondary-950 dark:text-white">{item.agentName}</td>
-              <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{item.summary}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="divide-y divide-[#eef1f4] dark:divide-white/10">
+        {items.slice(0, 5).map((item) => (
+          <div key={`${item.agentName}-${item.startedAt}`} className="flex items-start justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.agentName}</p>
+              <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-200">{item.summary}</p>
+            </div>
+            <Badge variant={mapTraceStatus(item.status)}>{item.status}</Badge>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -596,39 +611,52 @@ function DimensionBreakdownTable({ breakdowns }: { breakdowns: DimensionBreakdow
 
 function FoundryIqContextPanel({ context }: { context: FoundryIqContextBundle }) {
   const sources = getGroundedSources(context);
+  const primarySources = sources.slice(0, 6);
 
   return (
     <section className="overflow-hidden rounded-xl border border-[#e5e7eb] dark:border-white/10">
       <div className="border-b border-[#e5e7eb] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-        <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Foundry IQ Context</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Foundry IQ Context</p>
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-secondary-500">
+            <span className="rounded-full bg-[#eef4ff] px-2.5 py-1 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-100">{context.retrievalProvider}</span>
+            {context.fallbackUsed ? <span className="rounded-full bg-warning-50 px-2.5 py-1 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">Fallback</span> : null}
+          </div>
+        </div>
+        {context.fallbackUsed && context.fallbackReason ? <p className="mt-2 text-xs text-secondary-600 dark:text-secondary-300">{context.fallbackReason}</p> : null}
       </div>
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
-        <div className="overflow-hidden rounded-lg border border-[#e5e7eb] dark:border-white/10">
-          <table className="w-full">
-            <thead className="border-b border-[#eef1f4] bg-white dark:border-white/10 dark:bg-[#08101d]">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Source</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Why used</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((item) => (
-                <tr key={item.id} className="border-b border-[#eef1f4] align-top last:border-0 dark:border-white/10">
-                  <td className="px-4 py-3 text-sm font-medium text-secondary-950 dark:text-white">{item.title}</td>
-                  <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{item.type}</td>
-                  <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{item.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {primarySources.map((item) => (
+            <div key={item.id} className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.title}</p>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary-500">{item.type}</span>
+              </div>
+              <p className="mt-2 text-sm text-secondary-700 dark:text-secondary-200">{item.reason}</p>
+            </div>
+          ))}
+          {sources.length > primarySources.length ? (
+            <details className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 dark:border-white/10 dark:bg-[#08101d]">
+              <summary className="cursor-pointer text-sm font-semibold text-primary-700 dark:text-cyan-200">View details</summary>
+              <div className="mt-3 space-y-3">
+                {sources.slice(primarySources.length).map((item) => (
+                  <div key={item.id} className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+                    <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.title}</p>
+                    <p className="mt-1 text-xs uppercase tracking-wide text-secondary-500">{item.type}</p>
+                    <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-200">{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
         <div className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
           <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Workspace Memory</p>
           <p className="mt-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">{context.workspaceMemory.architectureEvolutionSummary}</p>
           <ul className="mt-3 space-y-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">
-            {context.workspaceMemory.recurringFindings.slice(0, 4).map((item) => (
-              <li key={item}>{item}</li>
+            {context.workspaceMemory.recurringFindings.slice(0, 3).map((item) => (
+              <li key={item}>• {item}</li>
             ))}
             {context.workspaceMemory.recurringFindings.length === 0 ? <li>No recurring findings captured yet.</li> : null}
           </ul>
@@ -696,7 +724,7 @@ function RecommendationsTable({
   return (
     <section className="overflow-hidden rounded-xl border border-[#e5e7eb] dark:border-white/10">
       <div className="border-b border-[#e5e7eb] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-        <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{compact ? 'Recommendation Preview' : 'Recommendations'}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{compact ? 'Next actions' : 'Recommendations'}</p>
       </div>
       <table className="w-full">
         <thead className="border-b border-[#eef1f4] bg-white dark:border-white/10 dark:bg-[#08101d]">
@@ -743,52 +771,6 @@ function TradeoffCompactTable({ tradeoffs }: { tradeoffs: ArchitectureAnalysisRe
               <td className="px-4 py-3 text-sm font-medium text-secondary-950 dark:text-white">{tradeoff.scenario}</td>
               <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{tradeoff.pros.join(', ')}</td>
               <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{tradeoff.cons.join(', ')}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
-function AnalysisRunsTable({
-  items,
-  activeRunId,
-  onSelectRun,
-}: {
-  items: AnalysisRunTimelineItem[];
-  activeRunId: string | null;
-  onSelectRun: (runId: string) => void;
-}) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-[#e5e7eb] dark:border-white/10">
-      <table className="w-full">
-        <thead className="border-b border-[#e5e7eb] bg-[#f8f9fb] dark:border-white/10 dark:bg-white/[0.03]">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Run</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Score</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Score Band</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">Frameworks</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-secondary-500">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className={`border-b border-[#eef1f4] last:border-0 dark:border-white/10 ${item.id === activeRunId ? 'bg-primary-50 dark:bg-cyan-400/10' : ''}`}>
-              <td className="px-4 py-3">
-                <p className="text-sm font-medium text-secondary-950 dark:text-white">{new Date(item.createdAt).toLocaleString()}</p>
-                <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">{item.status}</p>
-              </td>
-              <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">
-                {item.finalScore === null || item.finalScore === undefined ? 'Pending' : `${item.finalScore.toFixed(1)}/100`}
-              </td>
-              <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{formatScoreBandLabel(item.scoreBand) || '—'}</td>
-              <td className="px-4 py-3 text-sm text-secondary-700 dark:text-secondary-200">{item.frameworks.join(', ') || 'No frameworks'}</td>
-              <td className="px-4 py-3 text-right">
-                <Button size="sm" variant={item.id === activeRunId ? 'secondary' : 'primary'} onClick={() => onSelectRun(item.id)}>
-                  {item.id === activeRunId ? 'Selected' : 'Open'}
-                </Button>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -844,6 +826,8 @@ function RunSelectorPanel({
 }
 
 function AgentWorkflowPipeline({ items }: { items: AgentExecutionTrace[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(items[0] ? `${items[0].agentName}-${items[0].startedAt}` : null);
+
   if (items.length === 0) {
     return <EmptyPanel title="No workflow captured" description="Agent workflow steps will appear after the review pipeline completes." />;
   }
@@ -860,7 +844,11 @@ function AgentWorkflowPipeline({ items }: { items: AgentExecutionTrace[] }) {
               {index < items.length - 1 ? <span className="absolute top-7 h-[calc(100%-12px)] w-px bg-[#d7dce2] dark:bg-white/10" /> : null}
               <span className={`relative z-10 mt-1 flex h-4 w-4 items-center justify-center rounded-full border-2 ${getWorkflowNodeTone(item.status)}`} />
             </div>
-            <div className="min-w-0 flex-1 rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <button
+              type="button"
+              onClick={() => setExpandedId((current) => (current === `${item.agentName}-${item.startedAt}` ? null : `${item.agentName}-${item.startedAt}`))}
+              className="min-w-0 flex-1 rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-4 text-left dark:border-white/10 dark:bg-white/[0.03]"
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.agentName}</p>
@@ -868,20 +856,20 @@ function AgentWorkflowPipeline({ items }: { items: AgentExecutionTrace[] }) {
                 </div>
                 <Badge variant={mapTraceStatus(item.status)}>{item.status}</Badge>
               </div>
-              <p className="mt-3 text-sm leading-6 text-secondary-700 dark:text-secondary-200">{item.summary}</p>
-              {item.highlights.length ? (
+              <p className="mt-2 text-sm text-secondary-700 dark:text-secondary-200">{item.summary}</p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-secondary-500 dark:text-secondary-400">
+                {item.framework ? <span className="rounded-full bg-white px-2.5 py-1 dark:bg-white/10">{item.framework}</span> : null}
+                {item.usedFoundry ? <span className="rounded-full bg-white px-2.5 py-1 dark:bg-white/10">Azure Foundry</span> : null}
+                {item.completedAt ? <span className="rounded-full bg-white px-2.5 py-1 dark:bg-white/10">{new Date(item.completedAt).toLocaleTimeString()}</span> : null}
+              </div>
+              {expandedId === `${item.agentName}-${item.startedAt}` && item.highlights.length ? (
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-secondary-700 dark:text-secondary-200">
                   {item.highlights.slice(0, 3).map((highlight) => (
                     <li key={highlight}>{highlight}</li>
                   ))}
                 </ul>
               ) : null}
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-secondary-500 dark:text-secondary-400">
-                {item.framework ? <span className="rounded-full bg-white px-2.5 py-1 dark:bg-white/10">{item.framework}</span> : null}
-                {item.usedFoundry ? <span className="rounded-full bg-white px-2.5 py-1 dark:bg-white/10">Azure Foundry</span> : null}
-                {item.completedAt ? <span className="rounded-full bg-white px-2.5 py-1 dark:bg-white/10">{new Date(item.completedAt).toLocaleTimeString()}</span> : null}
-              </div>
-            </div>
+            </button>
           </div>
         ))}
       </div>
@@ -968,15 +956,6 @@ function AdrHistoryPanel({
   );
 }
 
-function MetricRow({ label, value }: { label: string; value: string }) {
-  return (
-    <tr className="border-b border-[#eef1f4] last:border-0 dark:border-white/10">
-      <th className="w-[220px] bg-[#f8f9fb] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:bg-white/[0.03]">{label}</th>
-      <td className="px-4 py-3 text-sm text-secondary-950 dark:text-white">{value}</td>
-    </tr>
-  );
-}
-
 function ReviewFreshnessBadge({ freshness }: { freshness: ReviewFreshness }) {
   if (freshness === 'fresh') {
     return <span className="rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 dark:bg-success-500/10 dark:text-success-400">Fresh review</span>;
@@ -987,6 +966,109 @@ function ReviewFreshnessBadge({ freshness }: { freshness: ReviewFreshness }) {
   }
 
   return <span className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-xs font-semibold text-secondary-700 dark:bg-white/10 dark:text-secondary-300">Needs review</span>;
+}
+
+function DecisionCard({
+  eyebrow,
+  title,
+  body,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <section className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{eyebrow}</p>
+      <h2 className="mt-1 text-lg font-semibold text-secondary-950 dark:text-white">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-secondary-700 dark:text-secondary-200">{body}</p>
+    </section>
+  );
+}
+
+function ReviewLensCard({
+  frameworks,
+  standards,
+  completedAt,
+  scoreLabel,
+}: {
+  frameworks: string[];
+  standards: string[];
+  completedAt: string | null;
+  scoreLabel: string;
+}) {
+  return (
+    <section className="rounded-xl border border-[#e5e7eb] dark:border-white/10">
+      <div className="border-b border-[#e5e7eb] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Review lenses</p>
+      </div>
+      <div className="space-y-4 p-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Score band</p>
+          <p className="mt-1 text-sm font-semibold text-secondary-950 dark:text-white">{scoreLabel}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Frameworks</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {frameworks.length ? frameworks.map((item) => (
+              <span key={item} className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-xs font-semibold text-secondary-700 dark:bg-white/10 dark:text-secondary-200">
+                {item}
+              </span>
+            )) : <span className="text-sm text-secondary-600 dark:text-secondary-300">None selected</span>}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Standards used</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {standards.length ? standards.map((item) => (
+              <span key={item} className="rounded-full bg-[#eef4ff] px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-100">
+                {formatStandardLabel(item)}
+              </span>
+            )) : <span className="text-sm text-secondary-600 dark:text-secondary-300">None selected</span>}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">Last review</p>
+          <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-200">{completedAt ? new Date(completedAt).toLocaleString() : 'Pending'}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CompactInsightList({
+  eyebrow,
+  title,
+  items,
+  emptyTitle,
+}: {
+  eyebrow: string;
+  title: string;
+  items: { label: string; detail: string }[];
+  emptyTitle: string;
+}) {
+  return (
+    <section className="rounded-xl border border-[#e5e7eb] dark:border-white/10">
+      <div className="border-b border-[#e5e7eb] bg-[#f8f9fb] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">{eyebrow}</p>
+        <h3 className="mt-1 text-base font-semibold text-secondary-950 dark:text-white">{title}</h3>
+      </div>
+      <div className="p-4">
+        {items.length ? (
+          <ul className="space-y-3">
+            {items.map((item) => (
+              <li key={item.label} className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-sm font-semibold text-secondary-950 dark:text-white">{item.label}</p>
+                <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-200">{item.detail}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyPanel title={emptyTitle} description="This section will populate after a completed review." />
+        )}
+      </div>
+    </section>
+  );
 }
 
 function mapAdrRecordToDraft(adr: AdrRecord) {
@@ -1037,6 +1119,7 @@ function buildFindingRows(analysis: ArchitectureAnalysisResult | null): FindingR
 function getGroundedSources(context: FoundryIqContextBundle) {
   return [
     ...context.frameworkGuidanceItems,
+    ...context.complianceItems,
     ...context.principleItems,
     ...context.tradeoffItems,
     ...context.adrTemplateItems,
@@ -1044,7 +1127,7 @@ function getGroundedSources(context: FoundryIqContextBundle) {
   ].map((item) => ({
     id: item.id,
     title: item.title,
-    type: item.sourceType,
+    type: `${item.sourceType} · ${item.sourceProvider ?? 'LocalKnowledgeBase'}`,
     reason: item.summary,
   }));
 }

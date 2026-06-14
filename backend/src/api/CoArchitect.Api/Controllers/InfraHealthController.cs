@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using CoArchitect.Application.Interfaces;
+using CoArchitect.Api.Services;
 using CoArchitect.Domain.Entities;
 using CoArchitect.Infrastructure.Persistence;
 using CoArchitect.Infrastructure.Services;
@@ -18,8 +19,12 @@ public sealed class InfraHealthController : ControllerBase
     private readonly DataStoreOptions _dataStoreOptions;
     private readonly ArchitectureStorageOptions _storageOptions;
     private readonly AzureFoundryArchitectureAgentOptions _foundryOptions;
+    private readonly FoundryIqOptions _foundryIqOptions;
+    private readonly AzureFoundryAgentExperimentOptions _experimentOptions;
     private readonly IAiFoundrySettingsRepository _foundrySettingsRepository;
     private readonly KnowledgeBaseCatalogLoader _knowledgeBaseCatalogLoader;
+    private readonly AzureFoundryInvocationService _foundryInvocationService;
+    private readonly CorsConfigurationDiagnostics _corsDiagnostics;
 
     public InfraHealthController(
         IServiceProvider services,
@@ -27,16 +32,24 @@ public sealed class InfraHealthController : ControllerBase
         IConfiguration configuration,
         ArchitectureStorageOptions storageOptions,
         AzureFoundryArchitectureAgentOptions foundryOptions,
+        FoundryIqOptions foundryIqOptions,
+        AzureFoundryAgentExperimentOptions experimentOptions,
         IAiFoundrySettingsRepository foundrySettingsRepository,
-        KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader)
+        KnowledgeBaseCatalogLoader knowledgeBaseCatalogLoader,
+        AzureFoundryInvocationService foundryInvocationService,
+        CorsConfigurationDiagnostics corsDiagnostics)
     {
         _services = services;
         _httpClientFactory = httpClientFactory;
         _dataStoreOptions = configuration.GetSection("DataStore").Get<DataStoreOptions>() ?? new DataStoreOptions();
         _storageOptions = storageOptions;
         _foundryOptions = foundryOptions;
+        _foundryIqOptions = foundryIqOptions;
+        _experimentOptions = experimentOptions;
         _foundrySettingsRepository = foundrySettingsRepository;
         _knowledgeBaseCatalogLoader = knowledgeBaseCatalogLoader;
+        _foundryInvocationService = foundryInvocationService;
+        _corsDiagnostics = corsDiagnostics;
     }
 
     [HttpGet]
@@ -46,8 +59,12 @@ public sealed class InfraHealthController : ControllerBase
         {
             await CheckDatabaseAsync(cancellationToken),
             await CheckBlobStorageAsync(cancellationToken),
+            await CheckFoundryConfigurationAsync(cancellationToken),
             await CheckFoundryAsync(cancellationToken),
+            await CheckManagedFoundryIqAsync(cancellationToken),
+            CheckAgentMode(),
             CheckFoundryIqCatalog(),
+            CheckCorsConfiguration(),
         };
 
         var status = checks.Any(check => check.Status == "unhealthy")
@@ -121,22 +138,20 @@ public sealed class InfraHealthController : ControllerBase
         var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
         if (!foundryOptions.IsConfigured)
         {
-            return InfraHealthCheck.Degraded("azureFoundry", "AzureFoundry", "Foundry endpoint, agent id, or model deployment is missing.");
+            return InfraHealthCheck.Degraded("azureFoundry", "AzureFoundry", "Foundry endpoint, agent id, or model deployment is missing for the selected Azure mode.");
         }
 
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
-            if (!string.IsNullOrWhiteSpace(foundryOptions.ApiKey))
+            var auth = await _foundryInvocationService.BuildAuthenticationAsync(foundryOptions, cancellationToken);
+            if (auth.Mode == FoundryAuthenticationMode.Unavailable)
             {
-                request.Headers.Add("api-key", foundryOptions.ApiKey);
+                return InfraHealthCheck.Unhealthy("azureFoundry", "AzureFoundry", auth.Note ?? "No usable Foundry authentication was available.");
             }
 
-            if (!string.IsNullOrWhiteSpace(foundryOptions.BearerToken))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", foundryOptions.BearerToken);
-            }
+            var client = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
+            AzureFoundryInvocationService.ApplyAuthenticationHeaders(request, auth);
 
             request.Content = JsonContent.Create(new
             {
@@ -153,7 +168,7 @@ public sealed class InfraHealthController : ControllerBase
 
             if (response.IsSuccessStatusCode)
             {
-                return InfraHealthCheck.Healthy("azureFoundry", "AzureFoundry", "Foundry endpoint accepted a request.");
+                return InfraHealthCheck.Healthy("azureFoundry", "AzureFoundry", $"Foundry endpoint accepted a request using {DescribeConnectionMode(foundryOptions, auth.Mode)}.");
             }
 
             var status = response.StatusCode == System.Net.HttpStatusCode.BadRequest ? "degraded" : "unhealthy";
@@ -162,13 +177,38 @@ public sealed class InfraHealthController : ControllerBase
                 Name = "azureFoundry",
                 Provider = "AzureFoundry",
                 Status = status,
-                Message = Trim($"Foundry returned {(int)response.StatusCode} {response.ReasonPhrase}. {body}"),
+                Message = Trim($"Foundry returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeConnectionMode(foundryOptions, auth.Mode)}. {body}"),
             };
         }
         catch (Exception ex)
         {
             return InfraHealthCheck.Unhealthy("azureFoundry", "AzureFoundry", Trim(ex.Message));
         }
+    }
+
+    private async Task<InfraHealthCheck> CheckFoundryConfigurationAsync(CancellationToken cancellationToken)
+    {
+        var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
+        var mode = foundryOptions.UseLegacyAgentEndpoint ? "LegacyAgent" : "ProjectEndpoint";
+        var hasLegacyEndpoint = !string.IsNullOrWhiteSpace(foundryOptions.LegacyAgentEndpoint);
+        var hasProjectEndpoint = !string.IsNullOrWhiteSpace(foundryOptions.ProjectEndpoint);
+
+        var message =
+            $"Resolved endpoint mode: {mode}. " +
+            $"Legacy endpoint configured: {(hasLegacyEndpoint ? "yes" : "no")}. " +
+            $"Project endpoint configured: {(hasProjectEndpoint ? "yes" : "no")}.";
+
+        if (foundryOptions.UseLegacyAgentEndpoint && !hasLegacyEndpoint)
+        {
+            return InfraHealthCheck.Degraded("azureFoundryConfig", "AzureFoundry", message);
+        }
+
+        if (foundryOptions.UseProjectEndpoint && !hasProjectEndpoint)
+        {
+            return InfraHealthCheck.Degraded("azureFoundryConfig", "AzureFoundry", message);
+        }
+
+        return InfraHealthCheck.Healthy("azureFoundryConfig", "AzureFoundry", message);
     }
 
     private InfraHealthCheck CheckFoundryIqCatalog()
@@ -185,6 +225,84 @@ public sealed class InfraHealthController : ControllerBase
             "foundryIqCatalog",
             "LocalKnowledgeBase",
             $"Foundry IQ catalog was not found at {_knowledgeBaseCatalogLoader.CatalogPath}. Live analysis will fall back to minimal baseline guidance.");
+    }
+
+    private async Task<InfraHealthCheck> CheckManagedFoundryIqAsync(CancellationToken cancellationToken)
+    {
+        if (_foundryIqOptions.UseLocalOnly)
+        {
+            return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ is disabled in stable mode; the local knowledge base is the active grounding source.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_foundryIqOptions.AgentId))
+        {
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ provider is enabled, but no retrieval agent id is configured.");
+        }
+
+        var foundryOptions = await GetEffectiveFoundryOptionsAsync(cancellationToken);
+        if (!foundryOptions.IsConfigured)
+        {
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", "Managed Foundry IQ requires the base Azure Foundry endpoint, agent, and model configuration.");
+        }
+
+        try
+        {
+            var auth = await _foundryInvocationService.BuildAuthenticationAsync(foundryOptions, cancellationToken);
+            if (auth.Mode == FoundryAuthenticationMode.Unavailable)
+            {
+                return InfraHealthCheck.Unhealthy("managedFoundryIq", "AzureFoundryIQ", auth.Note ?? "No usable Foundry authentication was available.");
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildFoundryEndpointUri(foundryOptions));
+            AzureFoundryInvocationService.ApplyAuthenticationHeaders(request, auth);
+
+            request.Content = JsonContent.Create(new
+            {
+                model = foundryOptions.ModelDeployment,
+                input = "Return a short plain-text confirmation that the managed knowledge base is reachable.",
+                metadata = new Dictionary<string, string>
+                {
+                    ["agent_id"] = _foundryIqOptions.AgentId
+                }
+            });
+
+            using var response = await client.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                return InfraHealthCheck.Healthy("managedFoundryIq", "AzureFoundryIQ", $"Managed Foundry IQ retrieval agent accepted a request using {DescribeConnectionMode(foundryOptions, auth.Mode)}.");
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            return InfraHealthCheck.Degraded("managedFoundryIq", "AzureFoundryIQ", Trim($"Managed retrieval returned {(int)response.StatusCode} {response.ReasonPhrase} using {DescribeConnectionMode(foundryOptions, auth.Mode)}. {body}"));
+        }
+        catch (Exception ex)
+        {
+            return InfraHealthCheck.Unhealthy("managedFoundryIq", "AzureFoundryIQ", Trim(ex.Message));
+        }
+    }
+
+    private InfraHealthCheck CheckAgentMode()
+    {
+        if (_experimentOptions.UseHybridPromptAgents)
+        {
+            return InfraHealthCheck.Healthy("architectureAgentMode", "AzureFoundry", "Architecture analysis is configured for the hybrid prompt-agent experiment with planner, reviewer, and critic/composer agents.");
+        }
+
+        return InfraHealthCheck.Healthy("architectureAgentMode", "AzureFoundry", "Architecture analysis is using the stable single-expert mode.");
+    }
+
+    private InfraHealthCheck CheckCorsConfiguration()
+    {
+        var mode = _corsDiagnostics.HasExplicitConfiguredOrigins ? "explicit" : "fallback";
+        var origins = _corsDiagnostics.ResolvedOrigins.Length == 0
+            ? "none"
+            : string.Join(", ", _corsDiagnostics.ResolvedOrigins);
+
+        return InfraHealthCheck.Healthy(
+            "corsConfig",
+            "Cors",
+            $"CORS is using {mode} origins. Resolved {_corsDiagnostics.ResolvedOrigins.Length} origin(s): {origins}");
     }
 
     private static Uri BuildBlobUri(string containerSasUrl, string blobPath)
@@ -205,6 +323,8 @@ public sealed class InfraHealthController : ControllerBase
         var saved = await _foundrySettingsRepository.GetAsync(cancellationToken);
         return new AzureFoundryArchitectureAgentOptions
         {
+            EndpointMode = _foundryOptions.EndpointMode,
+            LegacyAgentEndpoint = First(_foundryOptions.LegacyAgentEndpoint, saved?.ProjectEndpoint),
             ProjectEndpoint = First(saved?.ProjectEndpoint, _foundryOptions.ProjectEndpoint),
             AgentId = First(saved?.AgentId, _foundryOptions.AgentId),
             ModelDeployment = First(saved?.ModelDeployment, _foundryOptions.ModelDeployment),
@@ -224,21 +344,29 @@ public sealed class InfraHealthController : ControllerBase
 
     private static Uri BuildFoundryEndpointUri(AzureFoundryArchitectureAgentOptions options)
     {
-        var endpoint = options.ProjectEndpoint!;
-        if (string.IsNullOrWhiteSpace(options.ApiVersion) ||
-            endpoint.Contains("api-version=", StringComparison.OrdinalIgnoreCase))
-        {
-            return new Uri(endpoint);
-        }
-
-        var separator = endpoint.Contains('?', StringComparison.Ordinal) ? "&" : "?";
-        return new Uri($"{endpoint}{separator}api-version={Uri.EscapeDataString(options.ApiVersion)}");
+        return AzureFoundryInvocationService.BuildEndpointUri(options);
     }
 
     private static string Trim(string value)
     {
         var trimmed = value.ReplaceLineEndings(" ").Trim();
         return trimmed.Length <= 500 ? trimmed : $"{trimmed[..500]}...";
+    }
+
+    private static string DescribeConnectionMode(AzureFoundryArchitectureAgentOptions options, FoundryAuthenticationMode mode)
+    {
+        if (options.UseLegacyAgentEndpoint)
+        {
+            return "legacy agent endpoint + API key";
+        }
+
+        return mode switch
+        {
+            FoundryAuthenticationMode.ManagedIdentity => "project endpoint + DefaultAzureCredential / managed identity",
+            FoundryAuthenticationMode.StaticBearer => "project endpoint + explicit bearer token",
+            FoundryAuthenticationMode.ApiKey => "project endpoint + API key fallback",
+            _ => "no auth",
+        };
     }
 }
 

@@ -446,6 +446,11 @@ function FoundryIqContextPanel({ context }: { context: FoundryIqContextBundle })
   const groundedSources = getGroundedSources(context);
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-secondary-500">
+        <span className="rounded-full bg-[#eef4ff] px-2.5 py-1 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-100">{context.retrievalProvider}</span>
+        {context.fallbackUsed ? <span className="rounded-full bg-warning-50 px-2.5 py-1 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">Fallback</span> : null}
+        {context.fallbackUsed && context.fallbackReason ? <span className="text-secondary-600 normal-case tracking-normal dark:text-secondary-300">{context.fallbackReason}</span> : null}
+      </div>
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <ContextMetric title="Framework guidance" count={context.frameworkGuidanceItems.length} />
         <ContextMetric title="Principles" count={context.principleItems.length} />
@@ -556,6 +561,7 @@ function GroundedSourceList({ items }: { items: Array<{ id: string; title: strin
 function getGroundedSources(context: FoundryIqContextBundle) {
   return [
     ...context.frameworkGuidanceItems,
+    ...context.complianceItems,
     ...context.principleItems,
     ...context.tradeoffItems,
     ...context.adrTemplateItems,
@@ -565,7 +571,7 @@ function getGroundedSources(context: FoundryIqContextBundle) {
     .map((item) => ({
       id: item.id,
       title: item.title,
-      type: item.sourceType,
+      type: `${item.sourceType} · ${item.sourceProvider ?? 'LocalKnowledgeBase'}`,
       reason: item.summary,
     }));
 }

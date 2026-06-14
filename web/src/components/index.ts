@@ -18,6 +18,7 @@ export { RoadmapSection } from './RoadmapSection';
 export { MissingComponentsSection } from './AIAnalysisResults';
 export { RunAnalysisButton } from './RunAnalysisButton';
 export { ReviewSetupSummary } from './ReviewSetupSummary';
+export { CompactMultiSelectField, CompactSelectField } from './ReviewSetupFields';
 export { SegmentedTabs, MetaPanel, EmptyPanel, CodePanel, AdrPreview } from './WorkbenchPanels';
 export * from './Icons';
 export { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs';

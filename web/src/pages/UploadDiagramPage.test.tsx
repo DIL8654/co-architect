@@ -70,9 +70,10 @@ describe('UploadDiagramPage', () => {
     const architectureInput = screen.getByText('Architecture Input');
     expect(reviewCriteria.compareDocumentPosition(architectureInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    const domainSelect = screen.getByLabelText('Business Domain') as HTMLSelectElement;
-    expect(domainSelect.tagName).toBe('SELECT');
-    expect(screen.getByRole('option', { name: 'SaaS' })).toBeTruthy();
+    const domainButton = screen.getByRole('button', { name: 'Business Domain' });
+    expect(domainButton).toBeTruthy();
+    fireEvent.click(domainButton);
+    expect(screen.getByLabelText('SaaS')).toBeTruthy();
     expect(screen.getByText('Additional Standards and Governance Criteria')).toBeTruthy();
     expect(screen.getAllByText('ISO 27001').length).toBeGreaterThan(0);
   });

@@ -117,6 +117,9 @@ public sealed class GroundingReferenceSetResponse
 
 public sealed class FoundryIqContextBundleResponse
 {
+    public string RetrievalProvider { get; init; } = "LocalKnowledgeBase";
+    public bool FallbackUsed { get; init; }
+    public string? FallbackReason { get; init; }
     public List<FoundryIqContextItemResponse> FrameworkGuidanceItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> PrincipleItems { get; init; } = new();
     public List<FoundryIqContextItemResponse> TradeoffItems { get; init; } = new();
@@ -138,6 +141,7 @@ public sealed class FoundryIqContextItemResponse
     public string Content { get; init; } = string.Empty;
     public string SourceType { get; init; } = string.Empty;
     public string SourceLabel { get; init; } = string.Empty;
+    public string SourceProvider { get; init; } = "LocalKnowledgeBase";
     public string? SourceUri { get; init; }
     public bool WorkspaceScoped { get; init; }
     public string? StandardKey { get; init; }

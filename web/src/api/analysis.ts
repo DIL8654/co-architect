@@ -38,6 +38,7 @@ export interface FoundryIqContextItem {
   content: string;
   sourceType: string;
   sourceLabel: string;
+  sourceProvider?: string;
   sourceUri?: string;
   workspaceScoped: boolean;
   standardKey?: string;
@@ -61,6 +62,9 @@ export interface WorkspaceMemorySnapshot {
 }
 
 export interface FoundryIqContextBundle {
+  retrievalProvider: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
   frameworkGuidanceItems: FoundryIqContextItem[];
   principleItems: FoundryIqContextItem[];
   tradeoffItems: FoundryIqContextItem[];
@@ -146,6 +150,8 @@ const EMPTY_GROUNDING: GroundingReferenceSet = {
 };
 
 const EMPTY_CONTEXT: FoundryIqContextBundle = {
+  retrievalProvider: 'LocalKnowledgeBase',
+  fallbackUsed: false,
   frameworkGuidanceItems: [],
   principleItems: [],
   tradeoffItems: [],
@@ -179,7 +185,10 @@ function normalizeGrounding(grounding?: Partial<GroundingReferenceSet> | null): 
 function normalizeAnalysisResult(result: ArchitectureAnalysisResult): ArchitectureAnalysisResult {
   return {
     ...result,
-    foundryIqContext: result.foundryIqContext ?? EMPTY_CONTEXT,
+    foundryIqContext: {
+      ...EMPTY_CONTEXT,
+      ...(result.foundryIqContext ?? {}),
+    },
     agentTrace: (result.agentTrace ?? []).map((item) => ({ ...item, grounding: normalizeGrounding(item.grounding) })),
     evidence: (result.evidence ?? []).map((item) => ({ ...item, grounding: normalizeGrounding(item.grounding) })),
     missingControls: (result.missingControls ?? []).map((item) => ({ ...item, grounding: normalizeGrounding(item.grounding) })),

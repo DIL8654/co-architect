@@ -17,6 +17,7 @@ public sealed class AdrsController : ControllerBase
     private readonly IDiagramCommentRepository _commentRepository;
     private readonly IAgentAnalysisRunRepository _analysisRunRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly PerformanceCacheService _performanceCacheService;
 
     public AdrsController(
         IAdrRepository adrRepository,
@@ -25,7 +26,8 @@ public sealed class AdrsController : ControllerBase
         IWorkspaceRepository workspaceRepository,
         IDiagramCommentRepository commentRepository,
         IAgentAnalysisRunRepository analysisRunRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        PerformanceCacheService performanceCacheService)
     {
         _adrRepository = adrRepository;
         _adrGenerationService = adrGenerationService;
@@ -34,6 +36,7 @@ public sealed class AdrsController : ControllerBase
         _commentRepository = commentRepository;
         _analysisRunRepository = analysisRunRepository;
         _currentUserService = currentUserService;
+        _performanceCacheService = performanceCacheService;
     }
 
     [HttpGet]
@@ -105,6 +108,7 @@ public sealed class AdrsController : ControllerBase
         await _adrRepository.AddAsync(adr, cancellationToken);
         await _adrRepository.AddVersionAsync(version, cancellationToken);
         await _adrRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(workspace.TenantId, workspaceId, diagramId);
 
         return CreatedAtAction(nameof(Get), new { workspaceId, diagramId, adrId = adr.Id }, MapAdr(adr, [version]));
     }
@@ -186,6 +190,7 @@ public sealed class AdrsController : ControllerBase
         await _adrRepository.UpdateAsync(updatedAdr, cancellationToken);
         await _adrRepository.AddVersionAsync(version, cancellationToken);
         await _adrRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(workspace.TenantId, workspaceId, diagramId);
 
         var versions = (await _adrRepository.GetVersionsAsync(adrId, cancellationToken)).ToList();
         return Ok(MapAdr(updatedAdr, versions));
@@ -212,6 +217,7 @@ public sealed class AdrsController : ControllerBase
 
         await _adrRepository.DeleteAsync(adrId, cancellationToken);
         await _adrRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(workspace.TenantId, workspaceId, diagramId);
         return NoContent();
     }
 

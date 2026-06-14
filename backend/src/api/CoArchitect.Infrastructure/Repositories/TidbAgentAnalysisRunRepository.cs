@@ -50,6 +50,51 @@ public sealed class TidbAgentAnalysisRunRepository : IAgentAnalysisRunRepository
         return runs.OrderByDescending(run => run.RequestedAt).FirstOrDefault();
     }
 
+    public async Task<IDictionary<Guid, AgentAnalysisRun>> GetLatestByDiagramIdsAsync(IEnumerable<Guid> diagramIds, CancellationToken cancellationToken)
+    {
+        await _schemaInitializer.EnsureSchemaAsync(cancellationToken);
+        var ids = diagramIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, AgentAnalysisRun>();
+        }
+
+        var items = new Dictionary<Guid, AgentAnalysisRun>();
+        await using (var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken))
+        await using (var command = connection.CreateCommand())
+        {
+            var parameterNames = ids.Select((id, index) => AddGuidParameter(command, $"@diagramId{index}", id)).ToList();
+            command.CommandText = $"""
+                select current.id, current.workspace_id, current.architecture_diagram_id, current.status, current.requested_at, current.started_at, current.completed_at, current.report_path, current.suggestions, current.result_json
+                from coarchitect_analysis_runs current
+                inner join (
+                    select architecture_diagram_id, max(requested_at) as requested_at
+                    from coarchitect_analysis_runs
+                    where architecture_diagram_id in ({string.Join(", ", parameterNames)})
+                    group by architecture_diagram_id
+                ) latest
+                    on latest.architecture_diagram_id = current.architecture_diagram_id
+                   and latest.requested_at = current.requested_at
+                order by current.requested_at desc
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var run = Map(reader);
+                items.TryAdd(run.ArchitectureDiagramId, run);
+            }
+        }
+
+        var legacy = await _legacyStore.GetAllAsync<AgentAnalysisRun>(LegacyKind, cancellationToken);
+        foreach (var group in legacy.Where(item => ids.Contains(item.ArchitectureDiagramId)).GroupBy(item => item.ArchitectureDiagramId))
+        {
+            var latest = group.OrderByDescending(item => item.RequestedAt).First();
+            items[latest.ArchitectureDiagramId] = latest;
+        }
+
+        return items;
+    }
+
     public async Task<IEnumerable<AgentAnalysisRun>> GetByDiagramIdAsync(Guid diagramId, CancellationToken cancellationToken)
     {
         await _schemaInitializer.EnsureSchemaAsync(cancellationToken);
@@ -164,6 +209,12 @@ public sealed class TidbAgentAnalysisRunRepository : IAgentAnalysisRunRepository
         parameter.ParameterName = name;
         parameter.Value = value ?? DBNull.Value;
         command.Parameters.Add(parameter);
+    }
+
+    private static string AddGuidParameter(DbCommand command, string name, Guid value)
+    {
+        AddParameter(command, name, value.ToString());
+        return name;
     }
 
     private static Guid ParseGuid(object value) => value switch

@@ -56,6 +56,34 @@ public sealed class TidbAdrRepository : IAdrRepository
         return items;
     }
 
+    public async Task<IDictionary<Guid, int>> GetCountsByDiagramIdsAsync(IEnumerable<Guid> diagramIds, CancellationToken cancellationToken)
+    {
+        await _schemaInitializer.EnsureSchemaAsync(cancellationToken);
+        var ids = diagramIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var counts = new Dictionary<Guid, int>();
+        await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        var parameterNames = ids.Select((id, index) => AddGuidParameter(command, $"@diagramId{index}", id)).ToList();
+        command.CommandText = $"""
+            select architecture_diagram_id, count(*)
+            from coarchitect_adrs
+            where architecture_diagram_id in ({string.Join(", ", parameterNames)})
+            group by architecture_diagram_id
+            """;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            counts[ParseGuid(reader.GetValue(0))] = reader.GetInt32(1);
+        }
+
+        return counts;
+    }
+
     public async Task<AdrVersion?> GetLatestVersionAsync(Guid adrId, CancellationToken cancellationToken)
     {
         var versions = await GetVersionsAsync(adrId, cancellationToken);
@@ -226,6 +254,12 @@ public sealed class TidbAdrRepository : IAdrRepository
         parameter.ParameterName = name;
         parameter.Value = value ?? DBNull.Value;
         command.Parameters.Add(parameter);
+    }
+
+    private static string AddGuidParameter(DbCommand command, string name, Guid value)
+    {
+        AddParameter(command, name, value.ToString());
+        return name;
     }
 
     private static Guid ParseGuid(object value) => value switch

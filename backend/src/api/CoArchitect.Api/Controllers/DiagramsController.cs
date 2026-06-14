@@ -18,7 +18,8 @@ public class DiagramsController : ControllerBase
     private readonly ICurrentUserService _currentUserService;
     private readonly IArchitectureFileStorage _fileStorage;
     private readonly IFrameworkSelectionService _frameworkSelectionService;
-    private readonly IArchitectureIntelligenceScoreService _scoreService;
+    private readonly PerformanceReadModelService _performanceReadModelService;
+    private readonly PerformanceCacheService _performanceCacheService;
     private readonly ILogger<DiagramsController> _logger;
 
     private static readonly string[] AllowedExtensions = { ".png", ".jpg", ".jpeg", ".svg" };
@@ -33,7 +34,8 @@ public class DiagramsController : ControllerBase
         ICurrentUserService currentUserService,
         IArchitectureFileStorage fileStorage,
         IFrameworkSelectionService frameworkSelectionService,
-        IArchitectureIntelligenceScoreService scoreService,
+        PerformanceReadModelService performanceReadModelService,
+        PerformanceCacheService performanceCacheService,
         ILogger<DiagramsController> logger)
     {
         _diagramRepository = diagramRepository;
@@ -44,7 +46,8 @@ public class DiagramsController : ControllerBase
         _currentUserService = currentUserService;
         _fileStorage = fileStorage;
         _frameworkSelectionService = frameworkSelectionService;
-        _scoreService = scoreService;
+        _performanceReadModelService = performanceReadModelService;
+        _performanceCacheService = performanceCacheService;
         _logger = logger;
     }
 
@@ -128,8 +131,10 @@ public class DiagramsController : ControllerBase
 
         await _diagramRepository.AddAsync(diagram, cancellationToken);
         await _diagramRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(currentUser.TenantId, workspace.Id, diagram.Id);
 
-        var response = await MapDiagramResponseAsync(diagram, cancellationToken);
+        var response = await _performanceReadModelService.GetDiagramResponseAsync(currentUser.TenantId, diagram.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Diagram response could not be loaded after upload.");
 
         return CreatedAtAction(nameof(GetDiagram), new { diagramId = diagram.Id }, response);
     }
@@ -150,8 +155,7 @@ public class DiagramsController : ControllerBase
             var workspace = await _workspaceRepository.GetByIdAsync(resolvedWorkspaceId.Value, cancellationToken);
             if (workspace is null || workspace.TenantId != currentUser.TenantId)
                 return this.NotFoundProblem("Workspace not found.");
-
-            diagrams = await _diagramRepository.GetByWorkspaceIdAsync(resolvedWorkspaceId.Value, cancellationToken);
+            return Ok(await _performanceReadModelService.GetDiagramResponsesForWorkspaceAsync(currentUser.TenantId, resolvedWorkspaceId.Value, cancellationToken));
         }
         else
         {
@@ -166,7 +170,11 @@ public class DiagramsController : ControllerBase
         var responses = new List<ArchitectureDiagramResponse>();
         foreach (var diagram in diagrams)
         {
-            responses.Add(await MapDiagramResponseAsync(diagram, cancellationToken));
+            var response = await _performanceReadModelService.GetDiagramResponseAsync(currentUser.TenantId, diagram.Id, cancellationToken);
+            if (response is not null)
+            {
+                responses.Add(response);
+            }
         }
 
         return Ok(responses);
@@ -189,7 +197,9 @@ public class DiagramsController : ControllerBase
         if (workspace.TenantId != currentUser.TenantId)
             return this.NotFoundProblem("Diagram not found.");
 
-        var response = await MapDiagramResponseAsync(diagram, cancellationToken);
+        var response = await _performanceReadModelService.GetDiagramResponseAsync(currentUser.TenantId, diagramId, cancellationToken);
+        if (response is null)
+            return this.NotFoundProblem("Diagram not found.");
 
         return Ok(response);
     }
@@ -220,53 +230,10 @@ public class DiagramsController : ControllerBase
         await _analysisRunRepository.SaveChangesAsync(cancellationToken);
         await _adrRepository.SaveChangesAsync(cancellationToken);
         await _diagramRepository.SaveChangesAsync(cancellationToken);
+        _performanceCacheService.InvalidateDiagram(currentUser.TenantId, workspace.Id, diagramId);
 
         // TODO: Delete file from blob storage
 
         return NoContent();
-    }
-
-    private async Task<ArchitectureDiagramResponse> MapDiagramResponseAsync(
-        ArchitectureDiagram diagram,
-        CancellationToken cancellationToken)
-    {
-        var latestAnalysis = await _analysisRunRepository.GetLatestByDiagramIdAsync(diagram.Id, cancellationToken);
-        decimal? architectureScore = null;
-
-        if (latestAnalysis?.Result is not null)
-        {
-            var score = await CalculateScoreAsync(latestAnalysis.Result, cancellationToken);
-            architectureScore = Convert.ToDecimal(score.FinalScore);
-        }
-
-        return new ArchitectureDiagramResponse
-        {
-            Id = diagram.Id,
-            WorkspaceId = diagram.WorkspaceId,
-            UploadedByUserId = diagram.UploadedByUserId,
-            Name = diagram.Name,
-            OriginalFileName = diagram.OriginalFileName,
-            FileUrl = diagram.FileUrl,
-            Description = diagram.Description,
-            UploadedAt = diagram.UploadedAt,
-            ArchitectureScore = architectureScore,
-            ReviewSetup = DiagramReviewSetupMapper.ToResponse(diagram),
-        };
-    }
-
-    private async Task<CoArchitect.Domain.Models.ArchitectureScoreResult> CalculateScoreAsync(
-        CoArchitect.Domain.Models.AgentAnalysisResult agentResult,
-        CancellationToken cancellationToken)
-    {
-        var maturityByDimension = agentResult.DimensionMaturitySuggestions.ToDictionary(
-            suggestion => suggestion.Dimension,
-            suggestion => suggestion.SuggestedMaturity);
-
-        foreach (var dimension in Enum.GetValues<CoArchitect.Domain.Enums.ArchitectureDimension>())
-        {
-            maturityByDimension.TryAdd(dimension, 2);
-        }
-
-        return await _scoreService.CalculateAsync(maturityByDimension, cancellationToken);
     }
 }

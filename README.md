@@ -14,6 +14,14 @@ Azure fallback:
 
 👉 https://brave-smoke-025cfcd03.7.azurestaticapps.net/
 
+## 🔗 Links
+
+* **Try it:** https://www.coarchitect.cloud/
+* **GitHub:** https://github.com/DIL8654/co-architect
+* **Demo Video:** https://www.youtube.com/watch?v=hhnpsaK_KbU
+* **Promo Video:** https://www.youtube.com/watch?v=CtzcO8Ju8z8
+* **Product Promo + Demo:** https://youtu.be/36e67_7_3sc
+
 ---
 
 ## 🧠 What is CoArchitect AI?
@@ -131,6 +139,12 @@ CoArchitect uses a **Foundry IQ-style intelligence layer** to ground decisions i
 ---
 
 ## 🎬 Demo Walkthrough
+
+Video walkthroughs:
+
+* **Demo Video:** https://www.youtube.com/watch?v=hhnpsaK_KbU
+* **Promo Video:** https://www.youtube.com/watch?v=CtzcO8Ju8z8
+* **Product Promo + Demo:** https://youtu.be/36e67_7_3sc
 
 ### Quick Path (Recommended)
 
